@@ -193,6 +193,18 @@ the menu opener `FUN_40064c18` via `0x40064d78`). Page keys `0x22..0x26` →
 4)`; [FX2] = `0x26` → kind 4. Menu keys: `0x31` [YES]/ENTER, `0x34` up,
 `0x33` down (`0x32/0x35/0x36` also down on the bus screen).
 
+The main page's YES (read from the image, 9 Oct 2026): both tables send
+`0x31` to `0x4005e4c8`, on press and release (records `0x400c01a6` and
+`0x400c07a4`). It jumps to `0x4004903c` while `0x460d1aec` ≠ 0, returns
+while `0x800000b8` ≠ 0, and otherwise calls `0x4005e294(code, edge)`. A
+press with `0x460d1736` = 0 sets both arm words, `0x46c7ff64` and
+`0x46c803d4`, to all ones and shows `ARM ALL` (`0x400b48ff`) through the
+message call `0x4005a2b8`. With it set (🟡 a track key held) a press ORs
+in the track's bit and shows `ARM TRK`, or bit 8 + track and `ARM REC
+TRK` while `0x460d5db4` = 3. A release clears `0x46c7ff64`. A press never
+clears an arm bit, so a second press repeats the first. FUNC + YES is
+`0x4005e3d8` (`PARTS.md` section 7), which ends in the same `0x4005e294`.
+
 - `FUN_400554e0(kind)`: the page switch. Writes the current-page-kind
   global `0x460d1684` (long; byte mirror `0x46c7d8d8`), resolves the
   descriptor via `FUN_40031ee0(-1,-1)` → `FUN_40031da4(track, kind)`,
