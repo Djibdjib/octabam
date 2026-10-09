@@ -20,10 +20,25 @@ assumes a power of two bars, picked from the length alone, so the tempo it
 shows always lands between 80.75 and 161.5 BPM. It never reads the
 project's tempo. A 61 s take at 120 BPM loads as 32 bars at 125.9 BPM.
 
-**Check it first.** Take `261008-1858` should load as 2 bars at 111.5 BPM,
-and take `261008-1131` as 4 bars at about 142.2 BPM, whatever the project's
-tempo was. Load one file from each into a Flex slot and read TEMPO on the
-AUDIO EDITOR's ATTRIBUTES page. If both match, the cause is confirmed.
+**Check it first.** The guess predicts each of the nine takes of 8 Oct
+2026, from its length alone. Load one file from a take into a Flex slot
+and read TEMPO on the AUDIO EDITOR's ATTRIBUTES page. If the unit shows
+these tempos, though the project's tempo didn't change between takes, the
+cause is confirmed.
+
+| take | length | guess |
+|---|---|---|
+| `261008-1131` | 6.75 s | 4 bars, 142.25 BPM |
+| `261008-1421` | 18.08 s | 8 bars, 106.21 BPM |
+| `261008-1422` | 62.80 s | 32 bars, 122.29 BPM |
+| `261008-1423` | 28.98 s | 16 bars, 132.50 BPM |
+| `261008-1424` | 44.63 s | 16 bars, 86.04 BPM |
+| `261008-1425` | 69.77 s | 32 bars, 110.08 BPM |
+| `261008-1426` | 17.89 s | 8 bars, 107.29 BPM |
+| `261008-1856` | 61.35 s | 32 bars, 125.17 BPM |
+| `261008-1858` | 4.31 s | 2 bars, 111.50 BPM |
+
+The unit shows tenths, so a guess such as 142.25 can read 142.2 or 142.3.
 
 **Options.**
 
@@ -98,64 +113,87 @@ show at the next key press (STEM_REC.md section 16.1).
 
 ## 4. Double tap YES to arm
 
-**Which one?** Three readings, each a different build:
+**The goal** (Yves, 9 Oct 2026). On the main page, outside any dialog or
+menu, one YES arms the stock recording trigs. A double tap should arm STEM
+REC as well.
 
-1. Arm from anywhere, without opening MAIN MENU.
-2. Inside STEMS, a double tap on any row arms, so you don't scroll back to
-   REC.
-3. A guard: arming takes two taps, so a stray press doesn't arm.
+**Now** (read from the image, 9 Oct 2026). Both stock keymaps send YES to
+`0x4005e4c8`, on press and on release.
 
-**Now.** YES confirms in every stock dialog and list, so a double tap
-anywhere would also confirm whatever is open. The firmware already times
-double presses of the page and track keys (MAINMENU.md section 6).
+- With no key held, a press sets every one-shot arm bit and shows `ARM
+  ALL`. With a track key held, it arms that track and shows `ARM TRK` or
+  `ARM REC TRK`.
+- The arm only sets bits; it never toggles them. So a second YES repeats
+  the same arm and changes nothing. A double tap is safe for the stock
+  half.
+- A menu or a dialog pushes its own key layer over YES (MAINMENU.md
+  section 6c). So this handler hears YES only on the main page, which is
+  the scope Yves wants.
+- KITS hooks FUNC + YES (`0x4005e3d8`), a different handler. Nothing hooks
+  plain YES.
 
-**Options.**
+**The design.** A detour at the handler's first instruction. On each press
+on the `ARM ALL` path, it reads DMA timer 3, the counter `STATS.TXT`
+already uses. If the previous press was less than about 0.4 s earlier,
+STEM REC does what its REC row does: it arms, or it starts at once when
+the sequencer runs. The stock arm still runs on both taps. The second tap
+shows `STEMS ARMED` through the same stock message call that shows `ARM
+ALL`, so the two are easy to tell apart. A gate under the port presses YES
+twice and checks the state. Size: small to medium, plus a flash.
 
-- **For reading 1, a key chord.** Recommended over a double tap. Hold one
-  key and press another, a pair no stock screen uses, as TUNER does with
-  UP + TEMPO. The pair comes from the stock keymaps (MAINMENU.md section 6),
-  checked under the port. Size: medium.
-- **For reading 1, also MIDI.** A CC or a program change arms and stops. No
-  key conflicts, and a DAW can drive it. Size: small to medium.
-- **For reading 2,** a second YES within about 0.4 s arms. On a track row
-  the first tap has already toggled the track, so the second toggles it
-  back before it arms. On the REC row one tap still arms. Size: small.
-- **For reading 3,** REC asks for a second YES within about 0.4 s. Size:
-  small.
+**Open.**
+
+- **What a double tap does while a take records.** Performers tap YES
+  quickly to re-arm one-shots, so a double tap can happen by accident. The
+  safe choice: a double tap only arms or starts, and never stops or
+  cancels. STOP and the menu still end a take.
+- **Track key held.** A double tap with a track key held stays stock
+  (`ARM TRK`), unless you want it to arm STEM REC for that track only.
 
 ## 5. A stem player machine
 
 **The goal.** One track plays up to 16 files from one folder together, all
-starting on the trig, as a one-shot.
+starting on the trig, as a one-shot. Yves, 9 Oct 2026: it behaves like
+Static tracks, streaming from the card. So there's no RAM limit on length,
+and no control per stem.
 
-**Now.** [SYNTH MACHINE](../synth/README.md) shows the pattern. A Flex track
-whose sample has a marker name (`FMSYNTH*.wav`) gets a renderer of the
-module's own in place of the stock one, and the DSP shapes the result like a
-sample. Flex is the machine that plays from RAM; Static streams from the
-card. Flex RAM is about 85 MiB: sixteen stereo stems at 16 bits fit about
-30 s each, and eight fit about a minute. At 24 bits, two thirds of that.
+**Now.** [SYNTH MACHINE](../synth/README.md) shows how a module replaces a
+machine's sound. A Flex track whose sample has a marker name
+(`FMSYNTH*.wav`) gets a renderer of the module's own in place of the stock
+one, and the DSP shapes the result like a sample. SYNTH already references
+the STATIC renderer entry too. What isn't known: which task refills a
+Static track from the card (STEM_REC.md section 19.2), and how fast the
+card reads on the unit.
 
 **Options.**
 
-- **A. A Flex renderer that sums slots.** Recommended for a prototype. A
-  Flex track whose sample is a marker, such as `STEMS*.wav`, plays its own
-  slot and the next slots, summed, from their starts, on each trig. The
-  stock loads the files. The track's FX, AMP and level apply to the sum.
-  SYNTH's hook has run on the unit. Limit: RAM. Size: large.
-- **B. A folder loader,** to go with A. A STEMS action puts a take's files
-  into consecutive Flex slots, so nobody assigns sixteen slots by hand. The
-  stock load path isn't read yet. Size: medium to large.
-- **C. Stream from the card:** STEM REC in reverse. A reader task fills a
-  ring per file, and the renderer mixes them. No RAM limit, but sixteen
-  files at 16 bits need 2.8 MB/s from the card. Reads aren't measured, and
-  on a busy project the card already falls behind STEM REC's writes
-  (STEM_REC.md section 17.3). Size: large.
-- **D. Today, with no code.** `MAIN.wav` is the mix already. Load it on one
-  Static track. There's no control per stem.
+- **A. Our own streamer, behind a STATIC renderer.** Recommended. A Static
+  track whose sample is a marker plays the files in the marker's folder.
+  This is STEM REC in reverse. A reader task fills a ring per file from the
+  card, and the renderer sums the rings into the track's voice. When the
+  track loads, each ring gets the start of its file, so a trig starts at
+  once. In a STEM REC take the names are fixed (`T1.wav` to `D.wav`), so
+  no folder listing is needed; any other folder needs the file browser's
+  listing routine, which isn't read yet. The track's FX, AMP and level
+  apply to the sum. It plays at the recorded speed, because the stock
+  renderer's timestretch and pitch are bypassed. Size: large.
+- **B. Drive the stock Static streamer** for several files on one track.
+  This needs the stock streaming task found and read first. Size: large,
+  most of it reading the firmware.
+- **C. Today, with no code.** Up to eight stems on eight Static tracks, or
+  `MAIN.wav`, the mix, on one.
 
-**Questions.** Should each stem get a level or a mute? PLAYBACK has six
-knobs, so sixteen stems would need groups. Must the stems follow the
-sequencer's tempo (timestretch), or play at their recorded speed?
+**Measure first.** Sixteen stereo files need 2.8 MB/s from the card at 16
+bits, 4.2 MB/s at 24 bits. Reads aren't measured on the unit, and they'd
+share the card and its file lock with the Static tracks that play. On a
+busy project the card already falls behind STEM REC's writes (STEM_REC.md
+section 17.3). A probe that reads sixteen files in a loop while a busy
+project plays, and writes its rate to a text file like `STATS.TXT`, says
+whether A can work before any of it is built. Size: small to medium, plus
+a flash.
+
+**Open.** Static plays 24-bit files from a 16-bit cache (BuMa's reading of
+the code, STEM_REC.md section 19.1). A stem player could do the same, or sum all 24 bits.
 
 ## 6. A STEM REC screen
 
@@ -175,7 +213,7 @@ refreshes only on a key.
   ticks from item 3's hook. Every part has a precedent. Size: large.
 - **B. A status window only.** Recommended as the first step. A window the
   size of TEMPO's, over any page, as TUNER's is. It shows the state, the
-  time and the ring's fill, and it opens on REC or on item 4's chord. The
+  time and the ring's fill, and it opens when a take arms or starts. The
   settings stay in MAIN MENU. Size: medium.
 - **C. Tidy the list.** Fold the sources into one row that opens a short
   list of its own. It doesn't fix the status by itself. Size: small to
@@ -189,10 +227,9 @@ refreshes only on a key.
 1. Item 2 A: a reference `.ot` from the unit. No code.
 2. Item 1 A: write the `.ot`, checked against that reference.
 3. Item 3 A: redraw from the UI task.
-4. Item 6 B, then A: the status window, then the full screen. Item 4's
-   chord opens it.
-5. Item 5 as its own module, after a prototype of A measured under the
-   port.
+4. Item 4: the double tap of YES.
+5. Item 6 B, then A: the status window, then the full screen.
+6. Item 5: the card read probe on the unit, then A as its own module.
 
 Items 1 to 3 build on PR #644 (zero copy): the writer that would write the
 `.ot` files is the one in that PR.
