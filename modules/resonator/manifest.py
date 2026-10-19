@@ -47,7 +47,7 @@ MODULE = Module(
         donor_desc=0x400d58b8,
         abbr=b"RESO",
         fullname=b"Resonator",
-        build_tag=True,
+        build_tag=False,
     ),
     params=(
         Param(b"GN1", 64, 128, active=True, formatter=_PLAIN,
