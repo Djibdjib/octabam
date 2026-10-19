@@ -45,6 +45,7 @@ Each carries one module, or one combination, for that module's gates: `make chec
 | [`reload-from-project`](reload-from-project/README.md) | stock effects with RELOAD_FROM_PROJECT: reload one track's sequence from the card while the transport runs. | `make check` |
 | [`remix-switch`](remix-switch/README.md) | stock effects with BRAIN and REMIX SWITCH: MAIN MENU > BRAIN boots a .RMX from /BRAIN/REMIXES/, no flash write. | port-gated: the chainload under the port (verify_remix_switch) |
 | [`remix-switch-trace`](remix-switch-trace/README.md) | remix-switch + BOOT TRACE: a MIDI note per boot stage, to find where a boot after a switch hangs. | port-gated: the notes under the port (verify_boot_trace) |
+| [`resonator`](resonator/README.md) | RESONATOR on FX1 beside the stock effects (all but PLATE REV). | local render: render gates only; not on hardware |
 | [`rig`](rig/README.md) | octabam-bus's delay and reverb bus and FX1 stations, without USB, Octakit or the scene modules: the fixture of the CC MAP, Character and one-aux gates. | `make check` |
 | [`rnd-name`](rnd-name/README.md) | smoke: RND NAME alone | local render: RND NAME smoke |
 | [`scenes-midisc`](scenes-midisc/README.md) | MIDI SCENES + KITS + page-2 scene locks (SCENES P2) + page-2 parameter locks (PLOCKS P2), stock effects. | port-gated: verify_scenes_p2 and verify_plocks_p2 under the port |
