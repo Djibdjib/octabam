@@ -548,8 +548,6 @@ MPYSU_AUDITED = {
     "CHARACTER":     {"x1,y1,b": 1},
     "CHARACTER TXTR": {"x1,y1,b": 1},   # the same chtube site, in its copy of the source
     "SPECTRUM":      {"x1,y1,b": 1},
-    # MIX*(wet-dry): y0 = MIX >= 0; damp*band: x0 = damp >= 0.
-    "RESONATOR":     {"x0,y0,b": 6, "y1,x0,b": 1},
 }
 # These flags substitute or excise module source (probes, the shimmer
 # excision, the marker splice, a candidate engine), so the shipping counts

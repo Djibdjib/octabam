@@ -155,7 +155,7 @@ rs_fbd:
         move    x:(r7+$25),y1
         move    x1,x0
         move    x:(r7+$23),y0
-        mpy     x0,y0,b
+        mpy     y0,x0,b                 ; exc*x (y0,x0 encodes as mpy, not mpysu)
         move    b,x:(r7+$27)
         move    y1,a
         abs     a
@@ -174,7 +174,7 @@ rs_fbd:
         tgt     x0,a
         move    x:(r7+$28),x0
         move    a,y0
-        mpy     x0,y0,b
+        mpy     y0,x0,b
         move    x:(r7+$27),a
         tst     b
         move    x1,y0
@@ -203,7 +203,7 @@ rs_fbd:
         sub     a,b
         move    b,x0
         move    x:(r7+$21),y0
-        mpy     x0,y0,b
+        mpy     y0,x0,b                 ; MIX*(wet-dry)
         add     b,a
         move    #>$7fffff,x0
         move    x:(r7+$21),b
@@ -215,7 +215,7 @@ rs_fbd:
         move    x:(r7+$26),y1
         move    x1,x0
         move    x:(r7+$23),y0
-        mpy     x0,y0,b
+        mpy     y0,x0,b
         move    b,x:(r7+$27)
         move    y1,a
         abs     a
@@ -234,7 +234,7 @@ rs_fbd:
         tgt     x0,a
         move    x:(r7+$28),x0
         move    a,y0
-        mpy     x0,y0,b
+        mpy     y0,x0,b
         move    x:(r7+$27),a
         tst     b
         move    x1,y0
@@ -265,7 +265,7 @@ rs_fbd:
         sub     a,b
         move    b,x0
         move    x:(r7+$21),y0
-        mpy     x0,y0,b
+        mpy     y0,x0,b                 ; MIX*(wet-dry)
         add     b,a
         move    #>$7fffff,x0
         move    x:(r7+$21),b
@@ -292,7 +292,7 @@ rs_one:
         sub     b,a
         move    x:(r7+$22),x0
         move    x:(r4),y1
-        mpy     y1,x0,b
+        mpy     x0,y1,b                 ; damp*band (x0,y1 encodes as mpy)
         sub     b,a
         move    a,y1
         move    x:(r7+$59),x0
