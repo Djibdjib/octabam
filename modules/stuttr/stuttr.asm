@@ -5,14 +5,14 @@
 ; Y ring from the stock allocator. Stereo interleaved. Write always dry.
 ; RATE ticks roll CHNC to grab SIZE; HOLD keeps looping; MODE FWD/HALF/
 ; QUART/RND sets rate; REV is per-repeat reverse probability.
+; Engage/release: ~64-sample linear dry<->wet crossfade (declick).
 ;
 ; r7 $20 base $21 write $22 clear $23 maxlen $24 size $25 rate
 ;    $26 chnc $27 mix $28 mode $29 clock $2a offset $2b active
 ;    $2c hold_left $2d dir $2e play_div $2f wetL $30 wetR
 ;    $31 hold_reload $32 rev_kn $33 slice start $34 lfsr $35 play_cnt
-;    $36 armed (ring has filled once — first CHNC attempt without RATE)
+;    $36 armed $37 xfade $38 xf_step $39 xf_dir (+1 up / 0 hold / -1 down)
 ; Labels st00.. only. mpy x0,y1 / y0,x0 / x0,x0 only. init keeps r1. No rep.
-; No jsr (dsp_asm rejects absolute jsr >$addr). Helpers inlined.
 ; SIZE words: (kn+1)^2, min 8, even, clamp maxlen (FX2 max 15862, #785).
 ; HOLD reload: (kn+1)^2 << 4 samples, at least one grain (size/2 frames).
 ; ---------------------------------------------------------------------------
@@ -23,7 +23,7 @@ init:
         move    #>$20,n4
         move    (r4)+n4
         clr     a
-        do      #25,>st00
+        do      #26,>st00
         move    a,x:(r4)+
 st00:
         nop
@@ -47,6 +47,8 @@ st00:
         move    x0,x:(r7+$2e)
         move    #>$5a5a5a,x0
         move    x0,x:(r7+$34)
+        move    #>$1ffff,x0             ; $7fffff/64 ≈ 64-sample fade
+        move    x0,x:(r7+$38)
         rts
 
 proc:
@@ -166,19 +168,24 @@ st50:
         move    x:(r7+$20),r4
 st03:
         move    r4,x:(r7+$21)
-; HOLD countdown while active
+; HOLD countdown while active and not releasing (xf_dir >= 0)
         move    x:(r7+$2b),a
         tst     a
         beq     st40
+        move    x:(r7+$39),a            ; xf_dir
+        tst     a
+        bmi     st04                    ; releasing: keep grain, no new HOLD math
         move    x:(r7+$2c),a
         sub     #>$1,a
         move    a,x:(r7+$2c)
         tst     a
         bgt     st04
-        clr     a
-        move    a,x:(r7+$2b)
-        tst     a                       ; Z=1: always-taken forward
-        beq     st04
+; HOLD done -> start release fade (stay active)
+        move    #>$800000,a
+        move    a,x:(r7+$39)
+        move    #>$1,b
+        tst     b
+        bne     st04
 st40:
 ; RATE clock; attempt = RATE overflow | first-fill edge
         move    x:(r7+$29),a
@@ -233,6 +240,7 @@ st26:
         move    a,x:(r7+$2c)
         move    #>$1,x0
         move    x0,x:(r7+$2b)
+        move    x0,x:(r7+$39)           ; xf_dir = +1 (fade in)
         move    x:(r7+$21),a
         move    x:(r7+$24),x0
         sub     x0,a
@@ -442,6 +450,58 @@ stm7:
 stmB:
         move    a,x:(r7+$2e)
 st10:
+; if active: wet = dry + xfade*(grain-dry), then step xfade
+        move    x:(r7+$2b),a
+        tst     a
+        beq     st11
+        move    x:(r0),b
+        move    x:(r7+$2f),a
+        sub     b,a
+        move    a,x0
+        move    x:(r7+$37),y1
+        mpy     x0,y1,a
+        add     b,a
+        move    a,x:(r7+$2f)
+        move    x:(r0+n0),b
+        move    x:(r7+$30),a
+        sub     b,a
+        move    a,x0
+        mpy     x0,y1,a
+        add     b,a
+        move    a,x:(r7+$30)
+; step xfade by xf_dir
+        move    x:(r7+$39),b
+        tst     b
+        beq     st11
+        bmi     stx1
+; fade up (leave xf_dir=+1; tgt keeps xfade at full)
+        move    x:(r7+$37),a
+        move    x:(r7+$38),x0
+        add     x0,a
+        move    #>$7fffff,x0
+        cmp     x0,a
+        tgt     x0,a
+        move    a,x:(r7+$37)
+        move    #>$1,b
+        tst     b
+        bne     st11
+stx1:
+; fade down
+        move    x:(r7+$37),a
+        move    x:(r7+$38),x0
+        sub     x0,a
+        move    #>$0,x0
+        cmp     x0,a
+        tlt     x0,a
+        move    a,x:(r7+$37)
+        tst     a
+        bne     st11
+; release done
+        clr     a
+        move    a,x:(r7+$2b)
+        move    a,x:(r7+$39)
+st11:
+; MIX
         move    x:(r0),b
         move    x:(r7+$2f),a
         sub     b,a

@@ -934,7 +934,11 @@ def main():
              "shatter": ("PLATE REV",),   # SHATTER runs in its words; the other 13 stay
 =======
              "stuttr": ("PLATE REV",),   # STUTTR runs in its words; the other 13 stay
+<<<<<<< HEAD
 >>>>>>> 2a86c4c8 (Add STUTTR: buffer freeze / slice repeater)
+=======
+             "stuttr-core": ("PLATE REV",),  # CORE handoff; same harvest as stuttr
+>>>>>>> 3b4479cc (STUTTR: ~64-sample engage/release crossfade)
              "testgen": ("PLATE REV",),     # TESTGEN runs in its words; the other 13 stay
              "resonator": ("PLATE REV",),   # RESONATOR runs in its words; the other 13 stay
              "vocoder": ("PLATE REV", "DJ EQ"),   # VOCODER runs in PLATE's words; DJ EQ out so the tables sit in X

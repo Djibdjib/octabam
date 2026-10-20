@@ -38,7 +38,8 @@ dry ──RATE tick──► CHNC roll ──miss──► dry
 - **SIZE** words = `(kn+1)²` (min 8, even, clamp to maxlen). Same quadratic
   map as before so mid dial is useful.
 - **HOLD** duration = `(kn+1)² × 16` samples (at least one full grain). Wet
-  stays full until HOLD expires, then hard return to dry — no mid-stutter fade.
+  stays full until HOLD expires, then a ~64-sample (~1.5 ms) linear fade
+  back to dry. Engage uses the same length fade-in.
 - **HALF / QUART** hold each stereo frame for 2 / 4 samples (pitched-down feel).
 - **RND** picks FWD / HALF / QUART on each grab and each grain wrap.
 - Grab start is always the last SIZE behind the write head (no JITR).

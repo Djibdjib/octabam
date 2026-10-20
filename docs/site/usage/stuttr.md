@@ -11,9 +11,10 @@ list it there), and pick Stuttr from the chooser.
 ## Operation
 
 Raise CHNC so grabs can fire; RATE sets how often attempts happen. HOLD
-keeps the grain repeating after a hit, then returns to dry. Try MODE HALF
-or QUART for pitched-down repeats; RND varies rate per wrap. REV at 0 is
-always forward; higher rolls reverse more often.
+keeps the grain repeating after a hit; engage and release each crossfade
+~2 ms so the edges do not click. Try MODE HALF or QUART for pitched-down
+repeats; RND varies rate per wrap. REV at 0 is always forward; higher
+rolls reverse more often.
 
 ## Parameters
 

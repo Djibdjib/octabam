@@ -164,16 +164,17 @@ check("REV=127 changes vs 0", Lrev0 != Lrev1,
 check("REV=127 non-silent", max(abs(x) for x in Lrev1) > (1 << 16),
       f"peak={max(abs(x) for x in Lrev1)}")
 
-# Short HOLD: first-fill grab, brief hold, then dry again
+# Short HOLD: first-fill grab, brief hold, ~64-sample release fade, then dry
 Nhold = CLEAR + 4000
 tone_h = [int(0.25 * (1 << 23) * math.sin(2 * math.pi * 220 * i / 44100))
           for i in range(Nhold)]
-# SIZE=0 -> 8 words / 4 frames; HOLD=0 -> reload max(16, 4) = 16 samples
-Lshort, _ = render(tone_h, SIZE=0, RATE=0, CHNC=127, HOLD=0, MIX=127, MODE=0, REV=0)
+# SIZE=0 -> 8 words / 4 frames; HOLD=1 -> reload (2)^2<<4 = 64 samples
+# Engage fade ~64; release starts after HOLD and needs another ~64.
+Lshort, _ = render(tone_h, SIZE=0, RATE=0, CHNC=127, HOLD=1, MIX=127, MODE=0, REV=0)
 grab0 = CLEAR + size_frames(0)
-mid_lo = grab0 + 2
-mid_hi = grab0 + 12
-tail_lo = grab0 + 200
+mid_lo = grab0 + 40
+mid_hi = grab0 + 56
+tail_lo = grab0 + 64 + 128  # past release fade
 mid_res = sum((a - b) * (a - b)
               for a, b in zip(Lshort[mid_lo:mid_hi], tone_h[mid_lo:mid_hi]))
 tail_res = sum((a - b) * (a - b)
