@@ -6,8 +6,7 @@ REMIX = Remix(
     name="stuttr",
     family="effects",
     proof=Proof.RENDER,
-    proof_note="verify_stuttr; chance-engage redesign. Solo remix; prior G4 "
-               "hardware was the old always-loop topology.",
+    proof_note="verify_stuttr; chance-engage redesign.",
     doc="STUTTR beside the stock effects (all but PLATE REV, whose words it takes).",
     modules=(
         "STUTTR",

@@ -12,6 +12,12 @@ A remix is a named selection of modules; `make image REMIX=<name> BUILD=<n>` bui
 |---|---|---|
 | [`octabam-bus`](octabam-bus/README.md) | CORE + the delay and reverb bus (BusDelay on T1's FX2, BusVerb on T5's FX2, SEND on every other track's FX2, the stock DELAY on T8) + SPECTRUM, CHARACTER and MODULATION on FX1. | on hardware: cursory testing on Sam's MKII (owner report, 16 Oct 2026) |
 
+## Effects
+
+| remix | contains | proof |
+|---|---|---|
+| [`stuttr`](stuttr/README.md) | STUTTR beside the stock effects (all but PLATE REV, whose words it takes). | local render: verify_stuttr; chance-engage redesign. |
+
 ## Firmware mods on the stock effects
 
 | remix | contains | proof |
