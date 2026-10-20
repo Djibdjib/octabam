@@ -311,7 +311,16 @@ def prepare(remix,project,assignments):
         subprocess.run([sys.executable,'tools/build/build_bus.py'],cwd=ROOT,env=env,stdout=f,stderr=subprocess.STDOUT,check=True)
     shutil.copy2(ROOT/'out/mainos_bus.bin',work/'image.bin')
     fixture=work/'project'
-    shutil.copytree(project,fixture,dirs_exist_ok=True)
+    if fixture.exists():
+        shutil.rmtree(fixture)
+    shutil.copytree(project,fixture)
+    # A SET folder nests the project one level (!DEF_N1 etc.); set_fx and
+    # stage_card need the directory that actually holds bank*.work.
+    if not any(fixture.glob('bank*.work')):
+        nested=[d for d in fixture.iterdir() if d.is_dir() and (d/'project.work').is_file()]
+        if len(nested)!=1:
+            raise SystemExit(f'{fixture}: no bank*.work and no unique nested project')
+        fixture=nested[0]
     if remix=='octabam-core':
         values=otp.module_defaults(registry.modules()['DELAY'])
         otp.set_fx(fixture,'fx2',1,'DELAY',page=values[:6],page2=values[6:],guard=False)
@@ -321,6 +330,8 @@ def prepare(remix,project,assignments):
         m=registry.modules()[key]
         values=otp.module_defaults(m)
         otp.set_fx(fixture,slot,track,key,page=values[:6],page2=values[6:],guard=False)
+    if assignments and not any(fixture.glob('bank*.work')):
+        raise SystemExit(f'{fixture}: set_fx had no banks to write')
     audio=[]
     if remix=='octatrick':
         import re,wave
