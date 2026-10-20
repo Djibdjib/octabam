@@ -79,6 +79,7 @@ import time
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import gate_cache  # noqa: E402
 import gate_ledger  # noqa: E402
+import card_retention  # noqa: E402
 import slots  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -202,9 +203,13 @@ def run_remix(shard, remix, logdir, deps=None):
         if cached:
             return dict(remix=remix, rc=0, seconds=time.monotonic() - t0, skips=cached.get("skips", []),
                         log=log, cached=cached)
+        before_cards = card_retention.begin(shard, f"check-remix {remix}")
         r = subprocess.run(argv, cwd=shard, stdout=f, stderr=subprocess.STDOUT, env=env)
     text = log.read_text(errors="replace")
     skips = [l.strip() for l in text.splitlines() if SKIP.match(l)]
+    card_retention.finish(shard, before_cards, f"check-remix {remix}",
+                          r.returncode == 0 and not skips and "[FAIL]" not in text,
+                          include_modified=True)
     res = dict(remix=remix, rc=r.returncode, seconds=time.monotonic() - t0, skips=skips, log=log)
     if r.returncode:
         gate_ledger.record("check-remix", remix, gate_ledger.first_fail(text), shard)
@@ -359,6 +364,9 @@ def check_recipe(jobs):
     from reach import recipe_scripts  # noqa: E402
     recipe = recipe_scripts((ROOT / "Makefile").read_text(), "verify-remix")
     named = set().union(*(scripts for _n, _c, _e, scripts in jobs))
+    # The serial recipe's timed card wrapper is replaced by run_job's own
+    # card retention around each isolated job.
+    named.add("tools/verify/step.py")
     missing = recipe - named
     if missing:
         raise SystemExit(f"check_shards: verify-remix runs {sorted(missing)} and the by-gate job list does not; "
@@ -380,6 +388,7 @@ def run_job(shard, remix, job, logdir, deps=None):
             if cached:
                 return dict(remix=name, rc=0, seconds=time.monotonic() - t0, skips=cached.get("skips", []),
                             log=log, cached=cached)
+        before_cards = card_retention.begin(shard, f"{remix}:{name}")
         for cmd in ([] if k else [["make", "bus", f"REMIX={remix}"]]) + cmds:
             f.write(f"$ {' '.join(cmd)}\n")
             f.flush()
@@ -389,6 +398,9 @@ def run_job(shard, remix, job, logdir, deps=None):
                 break
     text = log.read_text(errors="replace")
     skips = [l.strip() for l in text.splitlines() if SKIP.match(l)]
+    card_retention.finish(shard, before_cards, f"{remix}:{name}",
+                          rc == 0 and not skips and "[FAIL]" not in text,
+                          include_modified=True)
     res = dict(remix=name, rc=rc, seconds=time.monotonic() - t0, skips=skips, log=log)
     if rc:
         gate_ledger.record(f"job:{name}", remix, gate_ledger.first_fail(text), shard)

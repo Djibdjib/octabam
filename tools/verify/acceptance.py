@@ -27,6 +27,8 @@ import subprocess
 import sys
 import time
 
+import card_retention
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
 import toolpath  # noqa: E402,F401
@@ -112,6 +114,7 @@ def provenance():
 def run_gate(name, command, out, env, timeout, cwd=None):
     """A failed command, timeout, or successful-but-skipped gate cannot pass."""
     cwd = cwd or ROOT
+    before_cards = card_retention.begin(cwd, f"acceptance:{name}")
     log = out / (name + ".log")
     start = time.monotonic()
     result = dict(name=name, command=command, status="failed", exit_code=None,
@@ -143,6 +146,8 @@ def run_gate(name, command, out, env, timeout, cwd=None):
     result["not_applicable"] = [line.strip() for line in NA.findall(text)]
     if result["exit_code"] == 0 and not FAIL.search(text):
         result["status"] = "blocked" if result["skips"] else "passed"
+    card_retention.finish(cwd, before_cards, f"acceptance:{name}", result["status"] == "passed",
+                          include_modified=True)
     result["duration_seconds"] = round(time.monotonic() - start, 3)
     print(f"acceptance: {name}: {result['status']} ({log})", flush=True)
     return result

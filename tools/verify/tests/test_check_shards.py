@@ -20,7 +20,7 @@ class ByGate(unittest.TestCase):
         jobs = self.jobs()
         check_shards.check_recipe(jobs)          # raises SystemExit on drift
         recipe = recipe_scripts((ROOT / "Makefile").read_text(), "verify-remix")
-        named = set().union(*(scripts for _n, _c, _e, scripts in jobs))
+        named = set().union(*(scripts for _n, _c, _e, scripts in jobs)) | {"tools/verify/step.py"}
         self.assertTrue(recipe <= named, recipe - named)
 
     def test_drift_is_refused(self):

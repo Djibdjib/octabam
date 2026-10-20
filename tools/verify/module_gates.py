@@ -36,6 +36,7 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1])); import toolpath  # noqa: E402,F401
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import gate_ledger  # noqa: E402
+import card_retention  # noqa: E402
 from remix import registry  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -232,17 +233,22 @@ def main(argv=None):
             print(f"  [FAIL] {g.script}: no such file (the manifest names a gate the tree does not carry)")
             fails.append(g.script)
             continue
-        p = subprocess.Popen(cmd, cwd=ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                             text=True, errors="replace")
+        before_cards = card_retention.begin(ROOT, g.script)
         out = []
-        for line in p.stdout:
-            sys.stdout.write(line)
-            sys.stdout.flush()
-            out.append(line)
-        if p.wait():
+        with subprocess.Popen(cmd, cwd=ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                              text=True, errors="replace") as p:
+            for line in p.stdout:
+                sys.stdout.write(line)
+                sys.stdout.flush()
+                out.append(line)
+            rc = p.wait()
+        if rc:
             print(f"  [FAIL] {g.script} exit {p.returncode}")
             fails.append(g.script)
             gate_ledger.record(g.script, remix_name, gate_ledger.first_fail("".join(out)))
+        card_retention.finish(ROOT, before_cards, g.script,
+                              rc == 0 and not any("[FAIL]" in line or "[SKIP]" in line or
+                                                  line.lstrip().startswith("SKIP:") for line in out))
     if a.list:
         return 0
     print(f"\nmodule gates ({label}): {len(gates)} run, {len(fails)} failed"

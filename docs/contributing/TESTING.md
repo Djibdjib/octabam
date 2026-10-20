@@ -370,6 +370,20 @@ key cannot see a file a gate reads through a path built at run time, or
 anything outside the repository other than the toolchain and the project.
 The shared half and `make accept` are not cached.
 
+**Virtual card retention.** `make check`, `make check-remix`, the split
+`check_shards` jobs and `make accept` remove generated `out/**/*.img` cards
+after a passing gate. A passing module gate removes only cards it created;
+cards already staged by `verify_set` remain available to later image gates.
+The complete check removes cards it created or changed after all dependent
+gates finish. A failed or interrupted gate retains its cards for diagnosis;
+`KEEP_CARDS=1` retains cards on passes too. Cleanup only considers ignored,
+single-link regular files in the current worktree's `out/`, never pinned
+`.keep-cards` trees or nested Git worktrees. A cleanup refusal is printed
+without changing the test result, and successful deletions are recorded in
+`out/card-retention.json`. Untouched cards left by earlier runs are not swept
+by a new gate; use the separate age-based `ot-artifacts` maintenance tool for
+those.
+
 **Gate slots** (11 Oct 2026, `tools/verify/slots.py`). Each `check_shards`
 job and each command `reach` runs in its own tree holds one of the
 machine's slots (`OCTABAM_SLOTS`, default 3) while it runs; the rest wait
