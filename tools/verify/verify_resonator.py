@@ -17,6 +17,8 @@ FRAMES = 16
 FS = 44100.0
 TMP = pathlib.Path("out/_rsgate")
 TMP.mkdir(parents=True, exist_ok=True)
+# Signed 24-bit full-scale magnitude the host can store (incl. rail).
+RAIL = 1 << 23
 
 pathlib.Path(MEM).unlink(missing_ok=True)
 subprocess.run([sys.executable, "tools/remix/audition.py", MOD.name,
@@ -38,20 +40,39 @@ def params(**kw):
     return v
 
 
-def render(samples, fx2=False, **kw):
+def render(samples, fx2=False, inst=1, **kw):
     n = len(samples) - len(samples) % FRAMES
     src, out = TMP / "in.raw", TMP / "out.raw"
     src.write_bytes(b"".join(struct.pack("<i", m) for m in samples[:n]))
-    cmd = [HOST, "-mem", MEM, "-init", f"{init:x}", "-proc", f"{proc:x}",
-           "-inst", "1", "-r7", "1", "-alloc", "4000" if fx2 else "0",
-           "-inmask", "1", "-frames", str(FRAMES), "-blocks", str(n // FRAMES),
-           "-in", str(src), "-out", str(out),
-           "-params", ",".join(str(x) for x in params(**kw))]
+    pcsv = ",".join(str(x) for x in params(**kw))
+    # FX1: r7 = 1+3*pos, alloc = 0+2*pos (dsp_host header). FX2 dry-pass: alloc 4000.
+    if fx2:
+        r7 = ",".join(str(2 + 3 * k) for k in range(inst))
+        alloc = ",".join("4000" for _ in range(inst))
+    else:
+        r7 = ",".join(str(1 + 3 * k) for k in range(inst))
+        alloc = ",".join(str(2 * k) for k in range(inst))
+    cmd = [HOST, "-mem", MEM,
+           "-init", ",".join(f"{init:x}" for _ in range(inst)),
+           "-proc", ",".join(f"{proc:x}" for _ in range(inst)),
+           "-inst", str(inst), "-r7", r7, "-alloc", alloc,
+           "-audioidx", ",".join(str(k) for k in range(inst)),
+           "-inmask", str((1 << inst) - 1),
+           "-frames", str(FRAMES), "-blocks", str(n // FRAMES),
+           "-in", str(src), "-out", str(out)]
+    for _ in range(inst):
+        cmd += ["-params", pcsv]
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0:
         sys.exit(f"dsp_host failed:\n{r.stdout}\n{r.stderr}")
-    w = struct.unpack(f"<{len(out.read_bytes()) // 4}i", out.read_bytes())
-    return list(w[0::2])[:n], list(w[1::2])[:n]
+    outs = []
+    for k in range(inst):
+        p = out if k == 0 else pathlib.Path(f"{out}.i{k}")
+        w = struct.unpack(f"<{len(p.read_bytes()) // 4}i", p.read_bytes())
+        outs.append((list(w[0::2])[:n], list(w[1::2])[:n]))
+        if k:
+            p.unlink(missing_ok=True)
+    return outs[0] if inst == 1 else outs
 
 
 FAILS = []
@@ -137,6 +158,34 @@ check(f"SCAL127 hotter than SCAL8 ({e_tn} > {e_tame})", e_tn > e_tame * 4)
 
 L, R = render(ramp, fx2=True, MIX=127)
 check("FX2 dry", L == ramp[:len(L)] and R == ramp[:len(R)])
+
+# Max knobs + PIT extremes, ~3 s: stay bounded, no runaway growth.
+N_LONG = int(3.0 * FS)
+N_LONG -= N_LONG % FRAMES
+drive = tone(220, N_LONG, amp=0.25)
+Lmax, Rmax = render(
+    drive, MIX=127, SCAL=127, DECY=127,
+    GN1=127, GN2=127, GN3=127, GN4=127,
+    PIT1=0, PIT2=0, PIT3=127, PIT4=127)
+peak = max(max(abs(x) for x in Lmax), max(abs(x) for x in Rmax))
+check(f"max-knob peak bounded ({peak} <= {RAIL})", peak <= RAIL)
+half = len(Lmax) // 2
+e0 = sum(abs(x) for x in Lmax[:half]) / half
+e1 = sum(abs(x) for x in Lmax[half:]) / half
+check(f"max-knob no runaway (late/early={e1 / e0 if e0 else 0:.2f} < 4)",
+      e0 > 0 and e1 < e0 * 4)
+
+# Two FX1 instances, same max knobs: both produce audio and stay on the rail.
+pair = render(
+    tone(330, N, amp=0.2), inst=2,
+    MIX=127, SCAL=127, DECY=127,
+    GN1=127, GN2=127, GN3=127, GN4=127,
+    PIT1=20, PIT2=60, PIT3=100, PIT4=120)
+for i, (Li, Ri) in enumerate(pair):
+    pk = max(max(abs(x) for x in Li), max(abs(x) for x in Ri))
+    e = sum(abs(x) for x in Li[512:])
+    check(f"two-instance[{i}] has energy ({e})", e > 10_000)
+    check(f"two-instance[{i}] peak bounded ({pk} <= {RAIL})", pk <= RAIL)
 
 if FAILS:
     sys.exit(f"{len(FAILS)} FAIL: {FAILS}")

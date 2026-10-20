@@ -7,7 +7,10 @@ scale) live on FX SETUP. SCAL 8 is the tame default (GN 64 = 0 dB); SCAL
 127 restores build-TN smash headroom. DECY narrows the bands.
 
 Buffer-free (state in r7). `Claims(fx1_only=True)`: FX2 instances dry-pass;
-the FX2 chooser hides the row.
+the FX2 chooser hides the row. FX id **`0x1e`** (conflicts with **STUTTR**
+in PR #798 — same id; one remix cannot carry both).
+
+The page descriptor is cloned from **DARK REV**.
 
 ## Knobs
 
@@ -25,9 +28,37 @@ the FX2 chooser hides the row.
 | 2 | 9 | PIT4 | 0–127 | band 4 centre |
 | 2 | 10 | SCAL | 0–127 | gain scale; 8=tame, 127≈build-TN |
 
+## Stock 1.40C and a saved Part
+
+Slots are DARK REV's layout under these names. A Part saved with RESONATOR
+and loaded on stock 1.40C shows **DARK REV** with:
+
+| slot | RESONATOR | stock DARK REV reads |
+|---|---|---|
+| 0 | GN1 | TIME |
+| 1 | GN2 | SHVG |
+| 2 | GN3 | SHVF |
+| 3 | GN4 | HP |
+| 4 | DECY | LP |
+| 5 | MIX | MIX |
+| 6 | PIT1 | PRE |
+| 7 | PIT2 | BAL |
+| 8 | PIT3 | MONO |
+| 9 | PIT4 | (blank on stock) |
+| 10 | SCAL | (blank on stock) |
+| 11 | (blank) | MIXF |
+
+Saving that bank on stock writes those DARK REV values back; keep a
+separate project copy if you need to return to stock without rewriting
+the Part.
+
 ## Measured
 
-- Render gates in `tools/verify/verify_resonator.py`. Not on hardware.
+- Render gates in `tools/verify/verify_resonator.py` (incl. max-knob
+  boundedness and two FX1 instances).
+- On hardware: Ilia's MKII, tip of PR #806 as **`RESON RR`** / BUILD RR,
+  19 Oct 2026 — page-1 GN1–4, DECY low and high, MIX; page-2 PIT1–4;
+  SCAL 8 and 127; FX2 dry-pass; two FX1 instances.
 
 ## Gates
 
