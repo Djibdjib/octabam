@@ -168,7 +168,15 @@ L, R = render(noise, **dear)
 check("dear render", len(L) == n and max(abs(x) for x in L + R) < (1 << 23),
       f"peak={max(abs(x) for x in L + R)}")
 
-# max knobs ~3 s: stay off the rails (no runaway)
+RAIL = 1 << 23  # ± full-scale; positive peak saturates at RAIL-1
+
+
+def rail_hits(samples):
+    """Count samples at either rail (pos = RAIL-1, neg = -RAIL)."""
+    return sum(1 for x in samples if x <= -RAIL or x >= RAIL - 1)
+
+
+# max knobs ~3 s: under 1% of samples at either rail (no runaway)
 n_long = FRAMES * 200  # ~3 s at 44.1 kHz / 15-frame blocks
 long_in = q23([0.2 * math.sin(2 * math.pi * 110 * i / FS) for i in range(n_long)])
 max_kw = {}
@@ -177,12 +185,16 @@ for p in MOD.params:
         continue
     max_kw[p.name.decode("latin1")] = (p.count - 1) if p.count else 0
 L, R = render(long_in, **max_kw)
-peak = max(abs(x) for x in L + R)
-check("max-knob bounded ~3s", peak < (1 << 23), f"peak={peak}")
+hits = rail_hits(L + R)
+n_samp = len(L) + len(R)
+check("max-knob rail hits <1% ~3s",
+      hits * 100 < n_samp,
+      f"hits={hits}/{n_samp} peak={max(abs(x) for x in L + R)}")
 
-# two FX2 instances (r7=1 and r7=5) both run without host failure
+# two FX2 instances: each out file has energy and stays off the rail
 src, out = TMP / "in2.raw", TMP / "out2.raw"
-src.write_bytes(b"".join(struct.pack("<i", m) for m in silence[:n]))
+tone2 = q23([0.25 * math.sin(2 * math.pi * 220 * i / FS) for i in range(n)])
+src.write_bytes(b"".join(struct.pack("<i", m) for m in tone2))
 cmd = [HOST, "-mem", MEM, "-init", f"{init:x},{init:x}", "-proc", f"{proc:x},{proc:x}",
        "-inst", "2", "-r7", "1,5", "-alloc", "1,3", "-inmask", "3",
        "-audio", "0", "-frames", str(FRAMES), "-blocks", str(n // FRAMES),
@@ -190,8 +202,24 @@ cmd = [HOST, "-mem", MEM, "-init", f"{init:x},{init:x}", "-proc", f"{proc:x},{pr
        "-params", ",".join(str(x) for x in params(BAL=64, DPTH=80, DRV=40, FDBK=40)),
        "-params", ",".join(str(x) for x in params(BAL=127, NTYP=1, DPTH=100, DRV=20))]
 r = subprocess.run(cmd, capture_output=True, text=True)
-check("two FX2 instances", r.returncode == 0 and out.exists(),
+check("two FX2 instances host ok", r.returncode == 0 and out.exists(),
       f"rc={r.returncode}")
+if r.returncode == 0 and out.exists():
+    for i in range(2):
+        p = out if i == 0 else pathlib.Path(f"{out}.i{i}")
+        if not p.exists():
+            check(f"two-instance[{i}] out file", False, f"missing {p.name}")
+            continue
+        w = struct.unpack(f"<{len(p.read_bytes()) // 4}i", p.read_bytes())
+        Li, Ri = list(w[0::2])[:n], list(w[1::2])[:n]
+        if i:
+            p.unlink(missing_ok=True)
+        pk = max(abs(x) for x in Li + Ri)
+        energy = sum(abs(x) for x in Li[n // 4:])
+        check(f"two-instance[{i}] has energy", energy > 10_000, f"e={energy}")
+        check(f"two-instance[{i}] peak under rail",
+              pk < RAIL and rail_hits(Li + Ri) == 0,
+              f"peak={pk} rail_hits={rail_hits(Li + Ri)}")
 
 if FAILS:
     sys.exit(f"{len(FAILS)} void gate(s) failed: {FAILS}")
