@@ -31,14 +31,14 @@ def hpf_coef(k: int) -> float:
     k = max(0, min(127, int(k)))
     if k == 0:
         return 0.0
-    return onepole_coef(20.0 * (100.0) ** (k / 127.0))
+    return onepole_coef(20.0 * (400.0) ** (k / 127.0))  # 20 Hz .. 8 kHz
 
 
 def color_coef(k: int) -> float:
     k = max(0, min(127, int(k)))
     if k >= 127:
         return 1.0
-    return onepole_coef(200.0 * (80.0) ** (k / 127.0))
+    return onepole_coef(30.0 * (16000.0 / 30.0) ** (k / 127.0))  # 30 Hz .. 16 kHz
 
 
 def _wrap_signed(p: float) -> float:

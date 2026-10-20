@@ -39,8 +39,8 @@ def _onepole(f: float) -> int:
 #   +129  HPF    one-pole coef; knob 0 forced to 0 (bypass) in the block decode
 #   +258  COLOR  one-pole LP coef; knob 127 forced to ~1 (open) in the block decode
 RATE = tuple(_rate_inc(min(k, 127)) for k in range(129))
-HPF = tuple(_onepole(20.0 * (100.0) ** (k / 127.0)) for k in range(129))  # 20 Hz .. 2 kHz
-COLOR = tuple(_onepole(200.0 * (80.0) ** (k / 127.0)) for k in range(129))  # 200 Hz .. 16 kHz
+HPF = tuple(_onepole(20.0 * (400.0) ** (k / 127.0)) for k in range(129))  # 20 Hz .. 8 kHz
+COLOR = tuple(_onepole(30.0 * (16000.0 / 30.0) ** (k / 127.0)) for k in range(129))  # 30 Hz .. 16 kHz
 
 MODULE = Module(
     name="void",

@@ -20,8 +20,8 @@ r7 `$40..$4f` stays reserved for a longer FEED delay later.
 | 1 | 3 | DPTH | 0–127 | AM depth; 0 = source alone |
 | 1 | 4 | DRV | 0–127 | soft-clip after AM+body+FDBK; 0 = bypass |
 | 1 | 5 | FDBK | 0–127 | one-sample feedback into DRV; 0 = off |
-| 2 | 6 | COLR | 0–127 | body low-pass; 127 = open — **turn down to darken** |
-| 2 | 7 | HPF | 0–127 | high-pass before COLR; **0 = bypass, turn up to thin** |
+| 2 | 6 | COLR | 0–127 | body low-pass ~30 Hz..16 kHz; 127 = open — **turn down to darken** |
+| 2 | 7 | HPF | 0–127 | high-pass before COLR ~20 Hz..8 kHz; **0 = bypass, turn up to thin** |
 | 2 | 8 | NTYP | WHT / PINK / BRWN | noise colour (as BAL rises) |
 
 Noise peaks around −6 dB at BAL=127. High FDBK + DRV screams (AC feedback —
