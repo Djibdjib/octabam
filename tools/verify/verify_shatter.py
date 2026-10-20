@@ -166,6 +166,32 @@ check("CLIP HARD lowers peak", pclip < phot * 0.9, f"hot={phot} clip={pclip}")
 psoft = max(abs(x) for x in render(tone, DRV=100, FOLD=0, CLIP=100, CRSH=0, MIX=127, MODE=1)[0])
 check("CLIP SOFT lowers peak", psoft < phot * 0.95, f"hot={phot} soft={psoft}")
 
+# Page-2 map (PARAM_PAGES §6): MODE/TONE/RATE must change the signal. A wrong
+# r6 offset ($6/$7/$8 instead of $c/$d) made all three bit-identical forever.
+Lh, _ = render(tone, DRV=100, FOLD=0, CLIP=100, CRSH=0, FDBK=0, MIX=127, MODE=0)
+Ls, _ = render(tone, DRV=100, FOLD=0, CLIP=100, CRSH=0, FDBK=0, MIX=127, MODE=1)
+d_hs = max(abs(a - b) for a, b in zip(Lh, Ls))
+check("HARD vs SOFT differs (page-2 MODE on $c)", d_hs > (1 << 12), f"max|d|={d_hs}")
+
+N_CHAOS = int(1.0 * FS)
+N_CHAOS -= N_CHAOS % FRAMES
+drive_c = [int(0.25 * (1 << 23) * __import__("math").sin(
+    2 * 3.14159265 * 220 * i / FS)) for i in range(N_CHAOS)]
+Lt0, _ = render(drive_c, DRV=60, FOLD=40, CLIP=40, CRSH=0, FDBK=100,
+                MIX=127, MODE=2, TONE=0, RATE=64)
+Lt1, _ = render(drive_c, DRV=60, FOLD=40, CLIP=40, CRSH=0, FDBK=100,
+                MIX=127, MODE=2, TONE=127, RATE=64)
+d_tone = max(abs(a - b) for a, b in zip(Lt0, Lt1))
+check("CHAOS TONE 0 vs 127 differs (page-2 on $c companion)", d_tone > (1 << 12),
+      f"max|d|={d_tone}")
+Lr0, _ = render(drive_c, DRV=60, FOLD=40, CLIP=40, CRSH=0, FDBK=100,
+                MIX=127, MODE=2, TONE=64, RATE=0)
+Lr1, _ = render(drive_c, DRV=60, FOLD=40, CLIP=40, CRSH=0, FDBK=100,
+                MIX=127, MODE=2, TONE=64, RATE=127)
+d_rate = max(abs(a - b) for a, b in zip(Lr0, Lr1))
+check("CHAOS RATE 0 vs 127 differs (page-2 on $d)", d_rate > (1 << 12),
+      f"max|d|={d_rate}")
+
 for name in K:
     render(ramp[:FRAMES * 4], **{name: 64})
 check("every named knob renders", True)

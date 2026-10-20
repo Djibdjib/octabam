@@ -49,6 +49,8 @@ Local render gates (`verify_shatter`). DRV is dry-only (~×9 at 127);
 feedback is not driven. LFO-dirty page words are masked before use.
 DRV 127 at 0.25 FS hits the rail (~35% of samples); the gate asserts a
 rail-fraction band on that case (and on max-knob / two-instance).
+Page 2 reads MODE/TONE/RATE from `$c`/`$d` (PARAM_PAGES §6); an earlier
+`$6/$7/$8` read left those knobs dead on the unit — gated now.
 
 **Instances per core** (two-instance-gate knobs: DRV 100, FOLD 90, CLIP 40,
 CRSH 40, FDBK 40, MIX 127, MODE HARD, TONE 64, RATE 64):

@@ -120,17 +120,20 @@ shc0:
         move    #>$7fffff,x0
         teq     x0,a
         move    a,x:(r7+$15)
-        move    x:(r6+$6),a             ; MODE 0..2
+; Page 2: PARAM_PAGES §6 — slot 6/7 share $c (knob / companion), slot 8 is $d.
+; Reading $6/$7/$8 left MODE/TONE/RATE dead on the unit and in dsp_host.
+        move    x:(r6+$c),a             ; MODE slot 6 = $c bits 16-23
         and     #>$7f0000,a
         asr     #$10,a,a
         move    a,x:(r7+$16)
-        move    x:(r6+$7),a             ; TONE -> lp coeff ~ TONE/256 + small
-        and     #>$7f0000,a
-        asr     #$1,a,a
+        move    x:(r6+$c),a             ; TONE slot 7 = $c bits 8-15
+        and     #>$7f00,a
+        asl     #$8,a,a                 ; -> TONE<<16 like page-1 knobs
+        asr     #$1,a,a                 ; /2 for lp coeff
         move    #>$040000,x0            ; floor so dark still moves
         add     x0,a
         move    a,x:(r7+$17)
-        move    x:(r6+$8),a             ; RATE -> chaos step
+        move    x:(r6+$d),a             ; RATE slot 8 = $d bits 16-23
         and     #>$7f0000,a
         asr     #$4,a,a                 ; /16 so wraps are audible
         move    #>$001000,x0
