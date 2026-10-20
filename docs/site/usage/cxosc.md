@@ -10,7 +10,12 @@ five). No marker sample. The Part stores FLEX with signature `"CX", 1`.
 At most one CX OSC track per Part. Conflicts with **SYNTH MACHINE** and
 **ANALOG BD** (shared kind table / page cave). Gate remix: `cxosc`.
 
+![SRC SETUP with CX OSC selected (FLEX setup bytes).](../../img/cxosc/setup.png)
+
 ## Operation
+
+![CX OSC PLAYBACK: PTCH RATO INDX FOLD SYMM FDBK.](../../img/cxosc/source.png)
+
 
 - PLAYBACK reads PTCH RATO INDX FOLD SYMM FDBK.
 - PTCH is semitones (−64..+63). Pitch is PTCH alone (no FINE).
