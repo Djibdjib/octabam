@@ -282,43 +282,51 @@ REMIXES ?= $(REMIX)
 MODULES ?=
 .PHONY: verify-shared
 verify-shared: ## The gates that do not depend on the remix: ledger selftest, slots, replaces, docs, settings and locks, the remixer draws, label_fmt, knob census, remix-independent module gates (REMIXES="a b")
+	$(PY) tools/verify/card_retention.py run -- $(MAKE) -j1 --no-print-directory verify-shared-impl
+
+.PHONY: verify-shared-impl
+verify-shared-impl:
 	@test -n "$(REMIXES)" || { echo "REMIXES is unset: make $@ REMIXES=\"<name> ...\"   (make modules lists them)"; exit 2; }
 	$(need-port)
-	$(PY) tools/verify/step.py python3 tools/remix/selftest.py
-	$(PY) tools/verify/step.py python3 tools/verify/verify_slots.py
-	$(PY) tools/verify/step.py python3 tools/verify/verify_replaces.py --static
-	$(PY) tools/verify/step.py python3 tools/verify/verify_docs.py
-	$(PY) tools/verify/step.py python3 tools/remix/brain.py check
-	$(PY) tools/verify/step.py $(PY) tools/verify/verify_remixer.py
-	$(PY) tools/verify/step.py python3 tools/build/label_fmt.py
+	$(PY) tools/verify/step.py --cards python3 tools/remix/selftest.py
+	$(PY) tools/verify/step.py --cards python3 tools/verify/verify_slots.py
+	$(PY) tools/verify/step.py --cards python3 tools/verify/verify_replaces.py --static
+	$(PY) tools/verify/step.py --cards python3 tools/verify/verify_docs.py
+	$(PY) tools/verify/step.py --cards python3 tools/remix/brain.py check
+	$(PY) tools/verify/step.py --cards $(PY) tools/verify/verify_remixer.py
+	$(PY) tools/verify/step.py --cards python3 tools/build/label_fmt.py
 	@# The knob click census: every continuous knob of the rig fixture's DSP
 	@# modules moved mid-render, plus the garbage-start gate. Builds its own
 	@# fixture (registry.fixture); remix-independent.
-	$(PY) tools/verify/step.py $(PY) tools/verify/verify_knob_clicks.py $(if $(MODULES),--modules "$(MODULES)",--sample)
+	$(PY) tools/verify/step.py --cards $(PY) tools/verify/verify_knob_clicks.py $(if $(MODULES),--modules "$(MODULES)",--sample)
 	@# Isolated module gates that take no remix: each renders its module on
 	@# a scratch image it builds itself, or checks an author's oracle. Run
 	@# once for the union of the modules across REMIXES.
-	BUILD=$(BUILD) $(PY) tools/verify/step.py $(PY) tools/verify/module_gates.py --shared $(REMIXES) $(if $(MODULES),--modules "$(MODULES)",)
+	BUILD=$(BUILD) $(PY) tools/verify/step.py --cards $(PY) tools/verify/module_gates.py --shared $(REMIXES) $(if $(MODULES),--modules "$(MODULES)",)
 
 .PHONY: verify-remix
 verify-remix: ## The selected remix's own gates: dirty state, init regs, DRAM boot, labels, its module gates, menu, the set under the port, USB
+	$(PY) tools/verify/card_retention.py run -- $(MAKE) -j1 --no-print-directory verify-remix-impl
+
+.PHONY: verify-remix-impl
+verify-remix-impl:
 	$(need-remix)
 	$(need-port)
 	@# verify_dirty_state builds the remix's image itself (verify-shared and
 	@# verify_character leave theirs at out/mainos_bus.bin): a module started
 	@# from a garbage instance block must be silent on silence -- the unit's
 	@# RAM is not zeroed.
-	python3 tools/verify/verify_dirty_state.py $(REMIX)
-	python3 tools/verify/verify_init_regs.py $(REMIX)
-	REMIX=$(REMIX) python3 tools/verify/verify_dram_boot.py
+	$(PY) tools/verify/step.py --cards python3 tools/verify/verify_dirty_state.py $(REMIX)
+	$(PY) tools/verify/step.py --cards python3 tools/verify/verify_init_regs.py $(REMIX)
+	REMIX=$(REMIX) $(PY) tools/verify/step.py --cards python3 tools/verify/verify_dram_boot.py
 	@# The three ColdFire-port checks need the .venv (make emu-setup). Without
 	@# it they SKIP; with it a failure FAILS (until 16 Sep 2026 `|| echo SKIP`
 	@# swallowed every exit code, and verify_mode_names had been failing since
 	@# image 27 behind a SKIP line).
 	@if [ -x .venv/bin/python3 ]; then \
-	  .venv/bin/python3 tools/verify/verify_labels.py $(REMIX) && \
-	  .venv/bin/python3 tools/verify/verify_mode_names.py $(REMIX) && \
-	  .venv/bin/python3 tools/verify/verify_hidden.py $(REMIX); \
+	  $(PY) tools/verify/step.py --cards .venv/bin/python3 tools/verify/verify_labels.py $(REMIX) && \
+	  $(PY) tools/verify/step.py --cards .venv/bin/python3 tools/verify/verify_mode_names.py $(REMIX) && \
+	  $(PY) tools/verify/step.py --cards .venv/bin/python3 tools/verify/verify_hidden.py $(REMIX); \
 	else echo "  [SKIP] labels / mode names / hidden engines: no .venv (make emu-setup)"; fi
 	@# The module gates that take the remix (remix_arg=True) and build or
 	@# read its image; the remix-independent ones ran in verify-shared.
@@ -326,10 +334,10 @@ verify-remix: ## The selected remix's own gates: dirty state, init regs, DRAM bo
 	@# The isolated gates build their own remixes over mainos_bus.bin.
 	@# Restore the selected image before inspecting its chooser tables.
 	$(MAKE) bus REMIX=$(REMIX)
-	REMIX=$(REMIX) python3 tools/verify/verify_menu.py
+	REMIX=$(REMIX) $(PY) tools/verify/step.py --cards python3 tools/verify/verify_menu.py
 	@# No stock effect id taken over without `replaces`, on this image (the
 	@# registry half ran in verify-shared).
-	python3 tools/verify/verify_replaces.py --image $(REMIX)
+	$(PY) tools/verify/step.py --cards python3 tools/verify/verify_replaces.py --image $(REMIX)
 	@# A real project on the built image under the ColdFire port (ids, page-2
 	@# delivery, chain audio, the main out); SKIPs without OT_PROJECT (above).
 	python3 tools/verify/verify_set.py $(REMIX)
@@ -339,7 +347,7 @@ verify-remix: ## The selected remix's own gates: dirty state, init regs, DRAM bo
 	$(MAKE) bus REMIX=$(REMIX)
 	@# The USB device model against the built image: stock's MSC function on
 	@# every image, the MIDI and audio functions when the remix carries them.
-	REMIX=$(REMIX) python3 tools/verify/verify_usb.py
+	REMIX=$(REMIX) $(PY) tools/verify/step.py --cards python3 tools/verify/verify_usb.py
 	REMIX=$(REMIX) BUILD=$(BUILD) $(PY) tools/verify/module_gates.py $(REMIX) --stage image $(if $(MODULES),--modules "$(MODULES)",)
 
 .PHONY: verify-roll
@@ -388,7 +396,11 @@ check-remix-gates: ## One remix's per-remix half, one gate per job over JOBS=4 w
 	$(need-remix)
 	BUILD=$(BUILD) $(PY) tools/verify/check_shards.py --by-gate --jobs $(or $(JOBS),4) $(REMIX)
 
-check: bus cycles verify ## Everything that can be checked without hardware (the set gates run under the port when OT_PROJECT or ~/.octabam_project names a project)
+check: ## Everything that can be checked without hardware (the set gates run under the port when OT_PROJECT or ~/.octabam_project names a project)
+	$(PY) tools/verify/card_retention.py run -- $(MAKE) -j1 --no-print-directory check-impl
+
+.PHONY: check-impl
+check-impl: bus cycles verify
 	@# A diagnostic gate can shell out to build_bus.py with its own env
 	@# (BURN=1 among them) and each run overwrites out/mainos_bus.bin.
 	@# Left alone, `make check` finishes by leaving a probe build at the
@@ -402,7 +414,11 @@ check: bus cycles verify ## Everything that can be checked without hardware (the
 check-shared: verify-shared ## The remix-independent half of make check, once for REMIXES="a b c" (make reach RUN=1 uses it)
 
 .PHONY: check-remix
-check-remix: bus cycles verify-remix ## The per-remix half of make check: build, cycles and the remix's own gates
+check-remix: ## The per-remix half of make check: build, cycles and the remix's own gates
+	$(PY) tools/verify/card_retention.py run -- $(MAKE) -j1 --no-print-directory check-remix-impl
+
+.PHONY: check-remix-impl
+check-remix-impl: bus cycles verify-remix
 	$(need-remix)
 	@$(MAKE) --no-print-directory bus >/dev/null
 	@echo

@@ -385,7 +385,13 @@ def makefile_changes(base_text, head_text):
 
 def recipe_scripts(make_text, target):
     m = re.search(r"^%s:[^\n]*\n((?:\t[^\n]*\n)+)" % re.escape(target), make_text, re.M)
-    return set(re.findall(r"tools/\S+\.py", m.group(1))) if m else set()
+    if not m:
+        return set()
+    scripts = set(re.findall(r"tools/\S+\.py", m.group(1)))
+    # Card-retention wrappers delegate to the serial implementation recipe.
+    if re.search(r"\$\(MAKE\)[^\n]*\b" + re.escape(target + "-impl") + r"(?:\s|$)", m.group(1)):
+        scripts |= recipe_scripts(make_text, target + "-impl")
+    return scripts
 
 
 def variant_gates(m):

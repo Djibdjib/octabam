@@ -79,6 +79,8 @@ import time
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import gate_cache  # noqa: E402
 import gate_ledger  # noqa: E402
+import card_retention  # noqa: E402
+from contextlib import ExitStack
 import slots  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -189,26 +191,39 @@ def clean_env():
     return env
 
 
-def run_remix(shard, remix, logdir, deps=None):
+def run_remix(shard, remix, logdir, deps=None, owner=None):
     log = logdir / f"{remix}.log"
     t0 = time.monotonic()
+    k = None
+    rc = 0
     with slots.slot(f"check-remix {remix}") as env_slot, log.open("w") as f:
         env = clean_env()
+        if owner:
+            env["OCTABAM_CARD_LOCK"] = owner.env["OCTABAM_CARD_LOCK"]
         env.update({k: v for k, v in env_slot.items() if k == "OCTABAM_SLOT"})
         argv = ["make", "check-remix", f"REMIX={remix}"] + ([f"MODULES={','.join(SCOPE)}"] if SCOPE else [])
-        k = cached = None
-        if deps is not None:
-            k, cached = lookup(shard, remix, "check-remix", [argv], remix_scripts(remix), deps, f, env)
-        if cached:
-            return dict(remix=remix, rc=0, seconds=time.monotonic() - t0, skips=cached.get("skips", []),
-                        log=log, cached=cached)
-        r = subprocess.run(argv, cwd=shard, stdout=f, stderr=subprocess.STDOUT, env=env)
+        try:
+            with card_retention.Gate(shard, f"check-remix {remix}", env) as cards:
+                if deps is not None:
+                    k, cached = lookup(shard, remix, "check-remix", [argv], remix_scripts(remix), deps, f, cards.env)
+                    if cached:
+                        return dict(remix=remix, rc=0, seconds=time.monotonic() - t0, skips=cached.get("skips", []),
+                                    log=log, cached=cached)
+                rc = subprocess.run(argv, cwd=shard, stdout=f, stderr=subprocess.STDOUT,
+                                    env=cards.env, pass_fds=cards.pass_fds).returncode
+                f.flush()
+                text = log.read_text(errors="replace")
+                cards.finish(rc == 0 and not any(SKIP.match(l) for l in text.splitlines()) and "[FAIL]" not in text,
+                             include_modified=True)
+        except card_retention.RetentionError as exc:
+            f.write(f"[FAIL] card retention: {exc}\n")
+            rc = 2
     text = log.read_text(errors="replace")
     skips = [l.strip() for l in text.splitlines() if SKIP.match(l)]
-    res = dict(remix=remix, rc=r.returncode, seconds=time.monotonic() - t0, skips=skips, log=log)
-    if r.returncode:
+    res = dict(remix=remix, rc=rc, seconds=time.monotonic() - t0, skips=skips, log=log)
+    if rc:
         gate_ledger.record("check-remix", remix, gate_ledger.first_fail(text), shard)
-    if r.returncode == 0 and k:
+    if rc == 0 and k:
         gate_cache.store(k, dict(remix=remix, job="check-remix", seconds=res["seconds"], skips=skips))
     return res
 
@@ -359,13 +374,16 @@ def check_recipe(jobs):
     from reach import recipe_scripts  # noqa: E402
     recipe = recipe_scripts((ROOT / "Makefile").read_text(), "verify-remix")
     named = set().union(*(scripts for _n, _c, _e, scripts in jobs))
+    # The serial recipe's timed card wrapper is replaced by run_job's own
+    # card retention around each isolated job.
+    named.update({"tools/verify/step.py", "tools/verify/card_retention.py"})
     missing = recipe - named
     if missing:
         raise SystemExit(f"check_shards: verify-remix runs {sorted(missing)} and the by-gate job list does not; "
                          f"add the job (check_shards.remix_jobs)")
 
 
-def run_job(shard, remix, job, logdir, deps=None):
+def run_job(shard, remix, job, logdir, deps=None, owner=None):
     name, cmds, env_add, scripts = job
     log = logdir / f"{name.replace(':', '_')}.log"
     t0 = time.monotonic()
@@ -374,19 +392,30 @@ def run_job(shard, remix, job, logdir, deps=None):
     with slots.slot(f"{remix}:{name}") as env_slot, log.open("w") as f:
         env = clean_env()
         env.update(env_add)
+        if owner:
+            env["OCTABAM_CARD_LOCK"] = owner.env["OCTABAM_CARD_LOCK"]
         env.update({x: v for x, v in env_slot.items() if x == "OCTABAM_SLOT"})
-        if deps is not None:
-            k, cached = lookup(shard, remix, name, cmds, job_scripts(cmds) | scripts, deps, f, env)
-            if cached:
-                return dict(remix=name, rc=0, seconds=time.monotonic() - t0, skips=cached.get("skips", []),
-                            log=log, cached=cached)
-        for cmd in ([] if k else [["make", "bus", f"REMIX={remix}"]]) + cmds:
-            f.write(f"$ {' '.join(cmd)}\n")
-            f.flush()
-            r = subprocess.run(cmd, cwd=shard, stdout=f, stderr=subprocess.STDOUT, env=env)
-            if r.returncode:
-                rc = r.returncode
-                break
+        try:
+            with card_retention.Gate(shard, f"{remix}:{name}", env) as cards:
+                if deps is not None:
+                    k, cached = lookup(shard, remix, name, cmds, job_scripts(cmds) | scripts, deps, f, cards.env)
+                    if cached:
+                        return dict(remix=name, rc=0, seconds=time.monotonic() - t0, skips=cached.get("skips", []),
+                                    log=log, cached=cached)
+                for cmd in ([] if k else [["make", "bus", f"REMIX={remix}"]]) + cmds:
+                    f.write(f"$ {' '.join(cmd)}\n")
+                    f.flush()
+                    rc = subprocess.run(cmd, cwd=shard, stdout=f, stderr=subprocess.STDOUT,
+                                        env=cards.env, pass_fds=cards.pass_fds).returncode
+                    if rc:
+                        break
+                f.flush()
+                text = log.read_text(errors="replace")
+                cards.finish(rc == 0 and not any(SKIP.match(l) for l in text.splitlines()) and "[FAIL]" not in text,
+                             include_modified=True)
+        except card_retention.RetentionError as exc:
+            f.write(f"[FAIL] card retention: {exc}\n")
+            rc = 2
     text = log.read_text(errors="replace")
     skips = [l.strip() for l in text.splitlines() if SKIP.match(l)]
     res = dict(remix=name, rc=rc, seconds=time.monotonic() - t0, skips=skips, log=log)
@@ -436,6 +465,15 @@ def status_of(res):
 
 
 def main(argv=None):
+    try:
+        with ExitStack() as owners:
+            return _main(argv, owners)
+    except card_retention.RetentionError as exc:
+        print(f"[FAIL] card retention: {exc}", file=sys.stderr)
+        return 2
+
+
+def _main(argv, owners):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("remixes", nargs="+")
     ap.add_argument("--jobs", type=int, default=4, help="worktrees at a time")
@@ -454,6 +492,11 @@ def main(argv=None):
                     help="auto (the default): split the remixes that would set the wall time into gate jobs; "
                          "none; or a comma-separated list")
     a = ap.parse_args(argv)
+    # reach runs the shared gates in ROOT while this coordinator dispatches
+    # jobs to separate shard worktrees. Own the coordinator's logs/schedule,
+    # not ROOT's card output; each shard still takes its normal card lock.
+    owners.enter_context(card_retention.Gate(ROOT, "check_shards", snapshot_cards=False,
+                                            scope="shard-coordinator"))
     global SCOPE
     SCOPE = sorted(k for k in a.modules.split(",") if k) or None
     remixes = list(dict.fromkeys(a.remixes))
@@ -490,6 +533,10 @@ def main(argv=None):
     for r in split:
         (ROOT / "out/check_shards" / r).mkdir(parents=True, exist_ok=True)
     shards = [a.shards / str(i) for i in range(jobs)]
+    # Own every shard before setup; keep ownership between jobs and through
+    # --rm. Another driver (even from a different root) cannot refresh it.
+    leases = [owners.enter_context(card_retention.Gate(s, "check_shards setup", snapshot_cards=False))
+              for s in shards]
 
     what = (f"{len(work)} gates of {remixes[0]}" if a.by_gate else f"{len(remixes)} remixes"
             + (f" ({', '.join(sorted(split))} split into gate jobs)" if split else ""))
@@ -535,11 +582,11 @@ def main(argv=None):
                 return
             kind, rname, job = item
             if kind == "gate":
-                res = run_job(shards[i], rname, job, ROOT / "out/check_shards" / rname, deps)
+                res = run_job(shards[i], rname, job, ROOT / "out/check_shards" / rname, deps, owner=leases[i])
                 remix = job[0] if a.by_gate else f"{rname}:{job[0]}"
             else:
                 remix = rname
-                res = run_remix(shards[i], remix, logdir, deps)
+                res = run_remix(shards[i], remix, logdir, deps, owner=leases[i])
             res["shard"] = i
             status = status_of(res)
             with lock:
