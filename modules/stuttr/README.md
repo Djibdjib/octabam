@@ -1,50 +1,54 @@
 # `stuttr` — STUTTR
 
-A per-track buffer glitch insert. Input is written into the stock FX
-instance ring; RATE re-grabs a slice; SIZE loops it until the next grab.
-JITR nudges each grab's start; DECY fades each grain into dry. MIX 0 is
-bit-exact dry. Re-select the effect after a flash if an old Part still
-has stale page bytes (e.g. leftover CHNC).
+A per-track **chance grain repeater**. Input always writes into the stock FX
+instance ring. On each RATE tick, CHNC may grab the last SIZE grain and
+HOLD-loop it; miss stays dry. While holding, MODE sets playback rate and
+REV rolls reverse per grain wrap. MIX 0 is bit-exact dry.
+
+Re-select the effect after a flash if an old Part still has stale page
+bytes (e.g. leftover JITR/FDBK/DECY from the prior topology).
 
 ## Knobs
 
 | page | slot | name | range | what it does |
 |---|---|---|---|---|
-| 1 | 0 | SIZE | 0–127 | slice length; **(kn+1)²** words (≈ 0.1–180 ms on FX2) |
-| 1 | 1 | RATE | 0–127 | re-grab clock (slow→fast). If RATE is faster than SIZE, SIZE never finishes a loop |
-| 1 | 2 | JITR | 0–127 | 0 = exact grab; higher = random start further behind write |
-| 1 | 3 | FDBK | 0–127 | recirculate into the write head |
-| 1 | 4 | DECY | 0–127 | fade into dry; **0 = hold**, higher = faster (**step = kn²**) |
-| 1 | 5 | MIX | 0–127 | dry/wet; after DECY dry returns (no mute between grabs) |
-| 2 | 6 | MODE | LOOP / REV / DROP / SCRAM | playback flavour |
-| 2 | 7 | SYNC | FREE / 16 / 8 / 4 | internal clock divisions |
+| 1 | 0 | SIZE | 0–127 | grain length; **(kn+1)²** words (≈ 0.1–180 ms on FX2) |
+| 1 | 1 | RATE | 0–127 | how often CHNC may attempt a grab (slow→fast) |
+| 1 | 2 | CHNC | 0–127 | 0 = never; 127 = always grab on tick; miss = stay dry |
+| 1 | 3 | HOLD | 0–127 | after a hit: how long to keep repeating before dry |
+| 1 | 4 | REV | 0–127 | per-**repeat** reverse probability (0 = always forward) |
+| 1 | 5 | MIX | 0–127 | dry/wet of the stutter vs live |
+| 2 | 6 | MODE | FWD / HALF / QUART / RND | 1× / ½× / ¼× / per-repeat random rate |
+| 2 | 7 | SYNC | FREE / 16 / 8 / 4 | divisions of the RATE attempt clock |
 
-## SIZE / DECY curves
+## Behaviour
 
-Both knobs use a **quadratic** map so the useful stutter range is not
-crammed into 0–20:
+```
+dry ──RATE tick──► CHNC roll ──miss──► dry
+                      │
+                     hit
+                      ▼
+              grab SIZE grain
+                      ▼
+         HOLD-loop (MODE rate, REV rolls)
+                      ▼
+                     dry
+```
 
-- SIZE words = `(kn+1)²` (min 8, even, clamp to maxlen). kn 32 ≈ 12 ms,
-  kn 64 ≈ 48 ms, kn 127 = full FX2 ring under the #785 rule (~180 ms).
-- DECY step = `kn²` (0 = hold). kn 32 ≈ 186 ms fade, kn 64 ≈ 46 ms, kn 96 ≈
-  23 ms — mid dial still sustains.
+- **SIZE** words = `(kn+1)²` (min 8, even, clamp to maxlen). Same quadratic
+  map as before so mid dial is useful.
+- **HOLD** duration = `(kn+1)² × 16` samples (at least one full grain). Wet
+  stays full until HOLD expires, then hard return to dry — no mid-stutter fade.
+- **HALF / QUART** hold each stereo frame for 2 / 4 samples (pitched-down feel).
+- **RND** picks FWD / HALF / QUART on each grab and each grain wrap.
+- Grab start is always the last SIZE behind the write head (no JITR).
 
 ## Ring length (SIDECHAIN window)
 
 `Claims.buffer_words = 15862` — same ceiling as GATE VERB / WAVE / BBD
 (`+$3DFD`, #785). The last `$202` words of the T3/T7 FX2 slots are
 SIDECHAIN_COMPRESSOR's cross-core keybus; a 16,384-word ring would write
-into them. Init sets maxlen to 15,862 on FX2 (3,072 on FX1). The ring does
-**not** need the full 16k; 15,862 is the measured maximum that stays clear
-of the window.
-
-## JITR
-
-On each grab, start is pulled further back by a random even offset up to
-about `(SIZE/2) * (kn/128)` words (≈ half SIZE at 127). The LFSR state is
-kept in 16 bits and stored from a clean accumulator (no A2-stale / saturating
-store). `max_off` is computed at block rate so the sample loop stays
-cycle-countable.
+into them. Init sets maxlen to 15,862 on FX2 (3,072 on FX1).
 
 ## Storage and stock firmware
 
@@ -65,19 +69,20 @@ back to stock.
 
 ## Measured
 
-Local render gates (`verify_stuttr`), including a JITR=127 grab-start
-distribution check (not constant).
+Local render gates (`verify_stuttr`): MIX 0 bit-exact; CHNC 0 stays dry;
+CHNC 127 + HOLD engages; SIZE loop gaps; HALF lengthens gaps vs FWD;
+REV 127 reverses; every named knob renders.
 
 ## On the unit
 
-Ilia's MKII, 19 Oct 2026, remix `glitch` **BUILD G4** (`OCTABAMG4` /
-`GLITCH G4.RMX`; that image also carried SHATTER, filed separately): every
-STUTTR page-1/page-2 knob exercised (SIZE, RATE, JITR, FDBK, DECY, MIX,
-MODE, SYNC). MULTIBCOMP `0x19`, 15,862-word ring, no build tag.
+Prior MKII flash (remix `glitch` **BUILD G4**, 19 Oct 2026) exercised the
+**previous** always-loop topology (JITR/FDBK/DECY/LOOP–SCRAM). This
+chance-engage redesign is port-proven; hardware re-proof pending.
 
 ## Open
 
 - Project-BPM tempo sync
+- Hardware re-proof of the chance-engage page
 
 ## Gates
 

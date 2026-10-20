@@ -1,19 +1,20 @@
 ; CYCLES_FORWARD_BRANCHES
 ; ---------------------------------------------------------------------------
-; STUTTR -- buffer freeze / slice repeater.
+; STUTTR -- chance-engaged grain repeater.
 ;
-; Y ring from the stock allocator. Stereo interleaved. Write always advances.
-; RATE re-grabs a slice; JITR nudges grab start; MODE LOOP/REV/DROP/SCRAM.
+; Y ring from the stock allocator. Stereo interleaved. Write always dry.
+; RATE ticks roll CHNC to grab SIZE; HOLD keeps looping; MODE FWD/HALF/
+; QUART/RND sets rate; REV is per-repeat reverse probability.
 ;
 ; r7 $20 base $21 write $22 clear $23 maxlen $24 size $25 rate
-;    $26 jitr $27 mix $28 mode $29 clock $2a offset $2b active $2c gain
-;    $2d dir $2e scram $2f wetL $30 wetR $31 fdbk $32 decy
-;    $33 slice start; $34 noise (JITR LFSR); $35 jitr max_off (block-rate)
+;    $26 chnc $27 mix $28 mode $29 clock $2a offset $2b active
+;    $2c hold_left $2d dir $2e play_div $2f wetL $30 wetR
+;    $31 hold_reload $32 rev_kn $33 slice start $34 lfsr $35 play_cnt
+;    $36 armed (ring has filled once — first CHNC attempt without RATE)
 ; Labels st00.. only. mpy x0,y1 / y0,x0 / x0,x0 only. init keeps r1. No rep.
+; No jsr (dsp_asm rejects absolute jsr >$addr). Helpers inlined.
 ; SIZE words: (kn+1)^2, min 8, even, clamp maxlen (FX2 max 15862, #785).
-; RATE step 0x80+(kn<<5): ~1.5s .. ~44ms between re-grabs (SIZE must fit).
-; JITR 0 = exact grab; 127 ≈ ±SIZE/2 words behind the write head.
-; DECY step = kn^2 (0 = hold); quadratic so mid knobs still sustain.
+; HOLD reload: (kn+1)^2 << 4 samples, at least one grain (size/2 frames).
 ; ---------------------------------------------------------------------------
 
 init:
@@ -22,7 +23,7 @@ init:
         move    #>$20,n4
         move    (r4)+n4
         clr     a
-        do      #24,>st00
+        do      #25,>st00
         move    a,x:(r4)+
 st00:
         nop
@@ -33,21 +34,19 @@ st00:
         move    a,x:(r7+$33)
         move    #>$80,a
         move    a,x:(r7+$22)
-        move    #>$4000,x0              ; FX2 slot base test
+        move    #>$4000,x0
         move    x:(r7+$20),a
         sub     x0,a
-        move    #>$0c00,b               ; FX1 maxlen 3072
-        move    #>$3df6,x0              ; FX2 maxlen 15862 (+$3DFD rule, #785)
+        move    #>$0c00,b
+        move    #>$3df6,x0
         tst     a
         tpl     x0,b
         move    b,x:(r7+$23)
-        move    #>$7fffff,x0
-        move    x0,x:(r7+$2c)
         move    #>$1,x0
         move    x0,x:(r7+$2d)
-        move    #>$5a5a5a,x0            ; noise seed
+        move    x0,x:(r7+$2e)
+        move    #>$5a5a5a,x0
         move    x0,x:(r7+$34)
-        ; $2b active stays 0 until first grab (wet must not read cleared Y)
         rts
 
 proc:
@@ -68,36 +67,33 @@ st02:
         nop
         rts
 st01:
-; SIZE -> (kn+1)^2 words. Spreads stutter lengths across the dial
-; (linear *128 packed the useful ~3-30 ms into kn 0..20).
         move    x:(r6+$0),a
-        and     #>$7f0000,a             ; LFO low byte must not leak
-        asr     #$10,a,a                ; kn 0..127
-        add     #>$1,a                  ; 1..128
+        and     #>$7f0000,a
+        asr     #$10,a,a
+        add     #>$1,a
         move    a1,x0
         clr     b
-        do      x0,>st48                ; integer square (block-rate)
+        do      x0,>st48
         add     x0,b
 st48:
-        move    b,a                     ; (kn+1)^2  (1..16384 before clamp)
+        move    b,a
         move    #>$8,x0
         cmp     x0,a
         tlt     x0,a
-        move    x:(r7+$23),x0           ; clamp to maxlen (FX1 3072 / FX2 15862)
+        move    x:(r7+$23),x0
         cmp     x0,a
         tgt     x0,a
         and     #>$fffffe,a
         move    a,x:(r7+$24)
-; RATE -> clock step. Overflow at 0x800000 ≈ re-grab period.
-; step = 0x80+(kn<<5): kn0 ≈ 1.5s, kn127 ≈ 44ms — slower than SIZE so loops hear.
         move    x:(r6+$1),a
         and     #>$7f0000,a
-        asr     #$10,a,a                ; kn 0..127
-        asl     #$5,a,a                 ; kn*32
+        asr     #$10,a,a
+        asl     #$5,a,a
         add     #>$80,a
-        move    x:(r6+$7),b             ; SYNC 0=FREE 1=/16 2=/8 3=/4
-        and     #>$7f0000,b
-        asr     #$10,b,b
+; SYNC is page-2 companion of MODE at r6+$c (bits 8-15), not r6+$7
+        move    x:(r6+$c),b
+        and     #>$7f00,b
+        asr     #$8,b,b
         move    #>$1,x0
         cmp     x0,b
         bne     st14
@@ -116,80 +112,50 @@ st15:
         asr     #$2,a,a
 st17:
         move    a,x:(r7+$25)
-        move    x:(r6+$2),a             ; JITR 0..127
+        move    x:(r6+$2),a
         and     #>$7f0000,a
         asr     #$10,a,a
         move    a,x:(r7+$26)
-; max_off = kn * (SIZE/2) / 128  (block-rate; sample loop only reads $35)
-        tst     a
-        beq     st53
-        move    x:(r7+$24),b            ; SIZE words
-        asr     #$1,b,b
-        and     #>$fffffe,b
-        move    b,y1                    ; size/2
-        clr     b
-        move    a1,x0
-        do      x0,>st54
-        add     y1,b
-st54:
-        move    b,a
-        asr     #$7,a,a                 ; /128
-        and     #>$fffffe,a
-        move    #>$2,x0
-        cmp     x0,a
-        tlt     x0,a                    ; at least one stereo frame when kn>0
-        bra     st55
-st53:
-        clr     a
-st55:
-        move    a,x:(r7+$35)
-        move    x:(r6+$3),a             ; FDBK
-        and     #>$7fffff,a
-        move    a,x:(r7+$31)
-; DECY -> gain step: kn0 = hold, higher = faster fade into dry.
-; step = kn^2 (was kn<<9: usable only ~0..20). kn64 ~46 ms, kn32 ~186 ms.
-        move    x:(r6+$4),a
+        move    x:(r6+$3),a
         and     #>$7f0000,a
-        asr     #$10,a,a                ; kn 0..127
-        tst     a
-        beq     st51                    ; hold
+        asr     #$10,a,a
+        add     #>$1,a
         move    a1,x0
         clr     b
         do      x0,>st50
         add     x0,b
 st50:
-        move    b,a                     ; kn^2
-        bra     st52
-st51:
-        clr     a
-st52:
+        move    b,a
+        asl     #$4,a,a
+        move    x:(r7+$24),b
+        asr     #$1,b,b
+        cmp     b,a
+        tlt     b,a
+        move    a,x:(r7+$31)
+        move    x:(r6+$4),a
+        and     #>$7f0000,a
+        asr     #$10,a,a
         move    a,x:(r7+$32)
-        move    x:(r6+$5),a             ; MIX
+        move    x:(r6+$5),a
         and     #>$7f0000,a
         move    #>$7f0000,x0
         cmp     x0,a
         move    #>$7fffff,x0
         teq     x0,a
         move    a,x:(r7+$27)
-        move    x:(r6+$6),a             ; MODE
+; MODE is page-2 knob at r6+$c bits 16-23 (PARAM_PAGES.md)
+        move    x:(r6+$c),a
         and     #>$7f0000,a
         asr     #$10,a,a
         move    a,x:(r7+$28)
         move    #$1,n0
         do      n7,>st19
-; write L/R = dry + FDBK * previous wet
+; write dry
         move    x:(r7+$21),r4
         move    #>$ffffff,m4
-        move    x:(r0),b
-        move    x:(r7+$2f),x0
-        move    x:(r7+$31),y1
-        mpy     x0,y1,a
-        add     b,a
+        move    x:(r0),a
         move    a,y:(r4)+
-        move    x:(r0+n0),b
-        move    x:(r7+$30),x0
-        mpy     x0,y1,a
-        add     b,a
+        move    x:(r0+n0),a
         move    a,y:(r4)+
         move    r4,a
         move    x:(r7+$20),x0
@@ -200,28 +166,71 @@ st52:
         move    x:(r7+$20),r4
 st03:
         move    r4,x:(r7+$21)
-; clock + retrigger (also first grab once the ring holds a full SIZE)
+; HOLD countdown while active
+        move    x:(r7+$2b),a
+        tst     a
+        beq     st40
+        move    x:(r7+$2c),a
+        sub     #>$1,a
+        move    a,x:(r7+$2c)
+        tst     a
+        bgt     st04
+        clr     a
+        move    a,x:(r7+$2b)
+        tst     a                       ; Z=1: always-taken forward
+        beq     st04
+st40:
+; RATE clock; attempt = RATE overflow | first-fill edge
         move    x:(r7+$29),a
         move    x:(r7+$25),x0
         add     x0,a
         move    a,x:(r7+$29)
-        move    a1,b
-        tst     b
-        bmi     st26                    ; RATE overflow -> grab
-        move    x:(r7+$2b),b            ; already active?
-        tst     b
-        bne     st04
-        move    x:(r7+$21),a            ; fill: write-base >= size?
+        clr     b                       ; attempt flag
+        move    a1,a
+        tst     a
+        bpl     st41
+        clr     a
+        move    a,x:(r7+$29)            ; clear clock on overflow
+        move    #>$1,b
+st41:
+        move    x:(r7+$21),a
         move    x:(r7+$20),x0
         sub     x0,a
         move    x:(r7+$24),x0
         cmp     x0,a
-        blt     st04
+        blt     st04                    ; ring not full
+        move    x:(r7+$36),a            ; armed?
+        tst     a
+        bne     st42
+        move    #>$1,x0
+        move    x0,x:(r7+$36)
+        move    #>$1,b                  ; first fill forces attempt
+st42:
+        tst     b
+        beq     st04
+        move    x:(r7+$26),b            ; CHNC
+        tst     b
+        beq     st04
+        move    #>$7f,x0
+        cmp     x0,b
+        beq     st26
+        move    x:(r7+$34),a
+        move    a,x0
+        asl     #$1,a,a
+        add     x0,a
+        add     #>$3d,a
+        and     #>$00ffff,a
+        move    a1,x0
+        move    x0,a
+        move    a,x:(r7+$34)
+        and     #>$7f,a
+        move    a1,x0
+        move    x:(r7+$26),a
+        cmp     x0,a
+        ble     st04
 st26:
-        clr     a
-        move    a,x:(r7+$29)
-        move    #>$7fffff,x0
-        move    x0,x:(r7+$2c)
+        move    x:(r7+$31),a
+        move    a,x:(r7+$2c)
         move    #>$1,x0
         move    x0,x:(r7+$2b)
         move    x:(r7+$21),a
@@ -233,87 +242,98 @@ st26:
         move    x:(r7+$23),x0
         add     x0,a
 st05:
-; JITR: pull start further back by 0 .. max_off ($35, block-rate)
-; LFSR stays in 16 bits; store from a clean accumulator (no A2-stale saturate).
-        move    a,x:(r7+$33)            ; nominal start
-        move    x:(r7+$26),b            ; jitr kn 0..127
-        tst     b
-        beq     st44
-        move    x:(r7+$35),x1           ; max_off
-        move    x:(r7+$34),a            ; LFSR
+        move    a,x:(r7+$33)
+        clr     a
+        move    a,x:(r7+$2a)
+        move    a,x:(r7+$35)
+; play_div from MODE: 0->1, 1->2, 2->4; 3=RND among those
+        move    x:(r7+$28),b
+        move    #>$3,x0
+        cmp     x0,b
+        bne     stm0
+; RND: LFSR -> 0..2 then map like MODE
+        move    x:(r7+$34),a
         move    a,x0
         asl     #$1,a,a
         add     x0,a
         add     #>$3d,a
-        move    x:(r7+$21),x0
-        add     x0,a
-        and     #>$00ffff,a             ; keep low 16 before store
-        move    a1,x0                   ; drop a0/a2
+        and     #>$00ffff,a
+        move    a1,x0
         move    x0,a
-        move    a,x:(r7+$34)            ; clean store
-        move    x1,x0
-        cmp     x0,a
-        tgt     x0,a                    ; clamp into 0..max_off
-        and     #>$fffffe,a
-        move    a1,x0                   ; clean after and
-        move    x0,a
-        move    a,x0                    ; back-offset
-        move    x:(r7+$33),a
-        sub     x0,a
-        move    x:(r7+$20),x0           ; fold into ring
-        cmp     x0,a
-        bge     st45
-        move    x:(r7+$23),x0
-        add     x0,a
-st45:
-        move    a,x:(r7+$33)
-st44:
-        clr     a
-        move    a,x:(r7+$2a)            ; offset 0 within slice
-        move    #>$1,a                  ; dir +1
+        move    a,x:(r7+$34)
+        and     #>$3,a
+        move    a1,b
+        move    #>$2,x0
+        cmp     x0,b
+        tgt     x0,b                    ; clamp roll to 0..2
+stm0:
+; b = 0/1/2 -> div 1/2/4 via shifts
+        move    #>$1,a
+        tst     b
+        beq     stm1
+        asl     #$1,a,a                 ; 2
         move    #>$1,x0
-        move    x:(r7+$28),b
         cmp     x0,b
-        move    #>$800000,x0            ; -1 for REV
-        teq     x0,a
-        move    a,x:(r7+$2d)
-        move    x:(r7+$28),b
-        move    #>$3,x0
-        cmp     x0,b
-        bne     st04
-        move    x:(r7+$2e),a
-        add     #>$2d,a
+        beq     stm1
+        asl     #$1,a,a                 ; 4
+stm1:
         move    a,x:(r7+$2e)
+; REV roll -> dir
+        move    #>$1,a
+        move    x:(r7+$32),b
+        tst     b
+        beq     stm4
+        move    #>$7f,x0
+        cmp     x0,b
+        beq     stm5
+        move    x:(r7+$34),a
+        move    a,x0
+        asl     #$1,a,a
+        add     x0,a
+        add     #>$3d,a
+        and     #>$00ffff,a
+        move    a1,x0
+        move    x0,a
+        move    a,x:(r7+$34)
+        and     #>$7f,a
+        move    a1,x0
+        move    x:(r7+$32),a
+        cmp     x0,a
+        ble     stm6
+stm5:
+        move    #>$800000,a
+        move    #>$1,b
+        tst     b
+        bne     stm4
+stm6:
+        move    #>$1,a
+stm4:
+        move    a,x:(r7+$2d)
 st04:
-; default wet = dry until a grab is active (no CHNC gate)
+        move    x:(r7+$2b),a
+        tst     a
+        bne     st28
         move    x:(r0),a
         move    a,x:(r7+$2f)
         move    x:(r0+n0),a
         move    a,x:(r7+$30)
-        move    x:(r7+$2b),a            ; need a grab first
+        move    #>$1,b
+        tst     b
+        bne     st10
+st28:
+        move    x:(r7+$35),a
         tst     a
-        beq     st10
-        move    x:(r7+$2c),a            ; gain 0 -> keep dry (already in $2f/$30)
-        tst     a
-        beq     st10
+        beq     st27
+        sub     #>$1,a
+        move    a,x:(r7+$35)
+        move    #>$1,b
+        tst     b
+        bne     st10
 st27:
-; addr = start + offset (+ SCRAM), fold into ring, read
         move    x:(r7+$33),a
         move    x:(r7+$2a),x0
         add     x0,a
-        move    x:(r7+$28),b
-        move    #>$3,x0
-        cmp     x0,b
-        bne     st07
-        move    x:(r7+$2e),b
-        and     #>$00ffff,b
-        move    x:(r7+$24),x0
-        cmp     x0,b
-        tgt     x0,b
-        and     #>$fffffe,b
-        add     b,a
-st07:
-        move    x:(r7+$20),x0           ; fold into [base, base+maxlen)
+        move    x:(r7+$20),x0
         cmp     x0,a
         bge     st24
         move    x:(r7+$23),x0
@@ -333,7 +353,9 @@ st25:
         move    a,x:(r7+$2f)
         move    y:(r4)+,a
         move    a,x:(r7+$30)
-; advance offset ±2, wrap in [0, size)
+        move    x:(r7+$2e),a
+        sub     #>$1,a
+        move    a,x:(r7+$35)
         move    x:(r7+$2a),a
         add     #>$2,a
         move    a,x1
@@ -343,42 +365,83 @@ st25:
         tst     b
         tpl     x1,a
         move    #>$0,x0
+        move    #>$0,b
         cmp     x0,a
         bge     st12
         move    x:(r7+$24),a
         sub     #>$2,a
+        move    #>$1,b
 st12:
         move    x:(r7+$24),x0
         cmp     x0,a
         blt     st13
         move    #>$0,a
+        move    #>$1,b
 st13:
         move    a,x:(r7+$2a)
-; gain * DECY step
-        move    x:(r7+$2f),x0
-        move    x:(r7+$2c),y1
-        mpy     x0,y1,a
-        move    a,x:(r7+$2f)
-        move    x:(r7+$30),x0
-        mpy     x0,y1,a
-        move    a,x:(r7+$30)
-        move    x:(r7+$2c),a
-        move    x:(r7+$32),x0
-        sub     x0,a
-        move    #>$0,x0
+        tst     b
+        beq     st10
+; wrap: REV roll
+        move    #>$1,a
+        move    x:(r7+$32),b
+        tst     b
+        beq     stm7
+        move    #>$7f,x0
+        cmp     x0,b
+        beq     stm8
+        move    x:(r7+$34),a
+        move    a,x0
+        asl     #$1,a,a
+        add     x0,a
+        add     #>$3d,a
+        and     #>$00ffff,a
+        move    a1,x0
+        move    x0,a
+        move    a,x:(r7+$34)
+        and     #>$7f,a
+        move    a1,x0
+        move    x:(r7+$32),a
         cmp     x0,a
-        tlt     x0,a
-        move    a,x:(r7+$2c)
-; MODE DROP: force silence after the shared path
-        move    x:(r7+$28),b
+        ble     stm9
+stm8:
+        move    #>$800000,a
+        move    #>$1,b
+        tst     b
+        bne     stm7
+stm9:
+        move    #>$1,a
+stm7:
+        move    a,x:(r7+$2d)
+; wrap: RND re-pick div
+        move    x:(r7+$28),a
+        move    #>$3,x0
+        cmp     x0,a
+        bne     st10
+        move    x:(r7+$34),a
+        move    a,x0
+        asl     #$1,a,a
+        add     x0,a
+        add     #>$3d,a
+        and     #>$00ffff,a
+        move    a1,x0
+        move    x0,a
+        move    a,x:(r7+$34)
+        and     #>$3,a
+        move    a1,b
         move    #>$2,x0
         cmp     x0,b
-        bne     st10
-        clr     a
-        move    a,x:(r7+$2f)
-        move    a,x:(r7+$30)
+        tgt     x0,b
+        move    #>$1,a
+        tst     b
+        beq     stmB
+        asl     #$1,a,a
+        move    #>$1,x0
+        cmp     x0,b
+        beq     stmB
+        asl     #$1,a,a
+stmB:
+        move    a,x:(r7+$2e)
 st10:
-; MIX
         move    x:(r0),b
         move    x:(r7+$2f),a
         sub     b,a

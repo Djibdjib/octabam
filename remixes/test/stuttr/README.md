@@ -4,5 +4,5 @@ STUTTR beside a stock FX chooser (PLATE REV harvested). DARK and SPRING kept.
 
 `make check REMIX=stuttr`.
 
-**Hardware:** Ilia's MKII, BUILD G4 on the earlier `glitch` remix (SHATTER+STUTTR);
-every STUTTR knob exercised. This remix is the solo gate for the module PR.
+Chance-engage grain repeater (SIZE / RATE / CHNC / HOLD / REV / MIX +
+MODE FWD/HALF/QUART/RND). Solo gate for the module PR.

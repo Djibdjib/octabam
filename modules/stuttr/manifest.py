@@ -1,9 +1,8 @@
-"""STUTTR -- buffer freeze / slice repeater / dropout glitch.
+"""STUTTR -- chance-engaged grain repeater.
 
-A per-track insert using the stock FX instance buffer as a short ring.
-SIZE is (kn+1)^2 words, DECY step is kn^2 (0=hold). RATE clocks re-grabs,
-JITR nudges each grab's start, MODE selects LOOP / REV / DROP / SCRAM.
-MIX 0 is bit-exact dry.
+Mostly dry; RATE ticks roll CHNC to grab a SIZE grain and HOLD-loop it.
+MODE sets playback rate (FWD / HALF / QUART / RND); REV is per-repeat
+reverse probability. MIX 0 is bit-exact dry.
 """
 
 from remix.schema import (BusRole, Category, Claims, DspSection, Formatter, Gate,
@@ -19,10 +18,11 @@ MODULE = Module(
     kind=Kind.DSP_EFFECT,
     category=Category.TRACK, author="ilia-murzinov",
     author_url="https://github.com/ilia-murzinov",
-    proof=Proof.HARDWARE,
-    proof_note="Ilia's MKII, remix glitch BUILD G4 (OCTABAMG4 / GLITCH G4.RMX), "
-               "19 Oct 2026: every page-1/page-2 knob exercised; verify_stuttr",
-    doc="Buffer glitch: freeze, slice-repeat, reverse, dropout, scramble.",
+    proof=Proof.RENDER,
+    proof_note="Chance-engage redesign (SIZE/RATE/CHNC/HOLD/REV/MIX + "
+               "MODE FWD/HALF/QUART/RND); verify_stuttr. Prior MKII G4 was "
+               "the old always-loop topology — re-proof on hardware pending.",
+    doc="Chance grain repeater: grab, hold-loop, reverse/slow modes.",
     menu=MenuEntry(
         # MULTIBCOMP 0x19 — stock null stub, FX2-only; page clone still from
         # DARK REV. Leaves free-pool ids alone.
@@ -35,23 +35,23 @@ MODULE = Module(
     ),
     params=(
         Param(b"SIZE", 40, active=True, formatter=_P,
-              doc="slice length ((kn+1)^2 words; FX2 ~0.1..180 ms)"),
+              doc="grain length ((kn+1)^2 words; FX2 ~0.1..180 ms)"),
         Param(b"RATE", 40, active=True, formatter=_P,
-              doc="re-grab speed (slow left, fast right); keep below SIZE"),
-        Param(b"JITR", 0, active=True, formatter=_P,
-              doc="0 = exact grab; higher = random start further behind write"),
-        Param(b"FDBK", 0, active=True, formatter=_P,
-              doc="recirculate slice into the write head"),
-        Param(b"DECY", 0, active=True, formatter=_P,
-              doc="fade into dry; 0 = hold, higher = faster (step = kn^2)"),
+              doc="how often CHNC may attempt a grab (slow left, fast right)"),
+        Param(b"CHNC", 64, active=True, formatter=_P,
+              doc="0 = never stutter; 127 = always grab on RATE tick"),
+        Param(b"HOLD", 40, active=True, formatter=_P,
+              doc="after a hit: how long to keep repeating before dry"),
+        Param(b"REV", 0, active=True, formatter=_P,
+              doc="per-repeat reverse probability (0 = always forward)"),
         Param(b"MIX", 127, active=True, formatter=_P,
-              doc="dry/wet; after DECY the dry path returns (track never mutes)"),
+              doc="dry/wet of the stutter vs live"),
         Param(b"MODE", 0, 4, active=True, formatter=_S,
-              labels=("LOOP", "REV", "DROP", "SCRAM"),
-              doc="forward loop, reverse, gated holes, scramble read"),
+              labels=("FWD", "HALF", "QUART", "RND"),
+              doc="1x / half / quarter / per-repeat random rate"),
         Param(b"SYNC", 0, 4, active=True, formatter=_S,
               labels=("FREE", "16", "8", "4"),
-              doc="divisions of the grab clock"),
+              doc="divisions of the RATE attempt clock"),
         _BLANK, _BLANK, _BLANK, _BLANK,
     ),
     mode_slot=6,
@@ -68,6 +68,6 @@ MODULE = Module(
     claims=Claims(stock_instance_buffer=True, buffer_words=15862),
     harness=Harness(layout_char="M", is_server=False),
     gates=(Gate("tools/verify/verify_stuttr.py", remix_arg=False),),
-    dear={"SIZE": 48, "RATE": 36, "JITR": 0, "FDBK": 0, "DECY": 0,
+    dear={"SIZE": 48, "RATE": 36, "CHNC": 127, "HOLD": 64, "REV": 0,
           "MIX": 127, "MODE": 0, "SYNC": 0},
 )
