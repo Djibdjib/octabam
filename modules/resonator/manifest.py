@@ -45,8 +45,7 @@ MODULE = Module(
                "FX2 dry-pass, two FX1 instances",
     doc="FX1: 4 Chamberlin BPs, per-band gains, SCALE makeup, DECY rings.",
     menu=MenuEntry(
-        # Custom id 0x1e (BBD 0x1b). STUTTR (#798) also wants 0x1e — Module.conflicts;
-        # free custom pool is otherwise empty on main. Selftest fixtures use DELAY 0x08.
+        # Custom id 0x1e (BBD 0x1b). Selftest fixtures use DELAY 0x08.
         fx2_id=0x1e,
         donor_desc=0x400d58b8,
         abbr=b"RESO",
@@ -89,9 +88,6 @@ MODULE = Module(
     ),
     claims=Claims(fx1_only=True),
     harness=Harness(layout_char="W", is_server=False),
-    # STUTTR (#798) also claims 0x1e; cannot share a remix once both are in-tree
-    # (registry refuses duplicate ids at import). Documented; no Module.conflicts
-    # until STUTTR exists here.
     gates=(Gate("tools/verify/verify_resonator.py", remix_arg=False),),
     dear={"GN1": 64, "GN2": 64, "GN3": 64, "GN4": 64,
           "PIT1": 64, "PIT2": 80, "PIT3": 96, "PIT4": 112,

@@ -7,8 +7,7 @@ scale) live on FX SETUP. SCAL 8 is the tame default (GN 64 = 0 dB); SCAL
 127 restores build-TN smash headroom. DECY narrows the bands.
 
 Buffer-free (state in r7). `Claims(fx1_only=True)`: FX2 instances dry-pass;
-the FX2 chooser hides the row. FX id **`0x1e`** (conflicts with **STUTTR**
-in PR #798 — same id; one remix cannot carry both).
+the FX2 chooser hides the row. FX id **`0x1e`**.
 
 The page descriptor is cloned from **DARK REV**.
 
