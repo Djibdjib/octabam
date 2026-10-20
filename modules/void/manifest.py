@@ -50,7 +50,7 @@ MODULE = Module(
     author="ilia-murzinov",
     author_url="https://github.com/ilia-murzinov",
     proof=Proof.HARDWARE,
-    proof_note="MKII VOID V7 (handoff) + V8 tip asm 471c7d5b; verify_void SCRAPE + rail + two-inst",
+    proof_note="MKII VOID V9 (COLR 30 Hz..16 kHz, HPF 20 Hz..8 kHz); verify_void 3s rail + two-inst",
     doc="Input↔noise balance into audio-rate AM, body, soft drive; one-sample AC feedback.",
     menu=MenuEntry(
         # No free custom FX2 id left in-tree (SHATTER=0x0a, …). PLATE is
@@ -97,7 +97,7 @@ MODULE = Module(
         bus_role=BusRole.NONE,
         ybase=YBase.NEVER,
     ),
-    harness=Harness(layout_char="W", is_server=False),  # V is stock DARK REV
+    harness=Harness(layout_char="B", is_server=False),  # W taken by RESONATOR; V = DARK REV
     gates=(Gate("tools/verify/verify_void.py", remix_arg=False),),
     dear={"BAL": 127, "RATE": 127, "SHPE": 2, "DPTH": 127, "DRV": 127,
           "FDBK": 100, "COLR": 0, "HPF": 127, "NTYP": 2},

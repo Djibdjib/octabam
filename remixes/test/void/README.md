@@ -4,12 +4,22 @@ Carries VOID beside the stock FX set minus PLATE REV (VOID's DSP host).
 
 ## Hardware
 
-- **VOID V7** (20 Oct 2026): BRAIN tag `VOID V7.RMX` — full `latest` + VOID +
-  sidechain handoff from the `void-handoff` working tree (BAL/AC-FDBK, four
-  `mpy` sites still on `y0`). Not a published git commit.
-- **VOID V8** (tip asm = `471c7d5b` / this PR): same stack, signed `mpy x0,y1`
-  at those sites. Flash `VOID V8.RMX` / `OCTATRACK_OCTABAMV8.bin` to match
-  this tip's `void.asm`.
+- **VOID V7** (20 Oct 2026): `void-handoff` working tree (not a git commit) —
+  BAL/AC-FDBK; four `mpy` sites still on `y0`. COLR floor was 200 Hz; HPF to 2 kHz.
+- **VOID V8** (`471c7d5b` asm, signed `mpy x0,y1`): same COLR/HPF tables as V7.
+  Not the tip after the darker-COLR commit.
+- **VOID V9** (tip `dd89e2e2`+): same `void.asm` as V8, new coefficient tables —
+  COLR 30 Hz..16 kHz, HPF 20 Hz..8 kHz. BRAIN tag `VOID V9.RMX`
+  (`latest` + VOID + sidechain). This is the hardware report for the tip.
 
-Knobs checked on V7: BAL default full input; RATE/SHPE/DPTH AM; DRV+FDBK AC
-scrape (was DC-silent before AC); SETUP COLR·HPF·NTYP.
+### Knobs on V9 (Ilia's MKII, 21 Oct 2026)
+
+| knob | tried |
+|---|---|
+| BAL | default 0 = full input; raised toward noise |
+| RATE / SHPE / DPTH | AM scrape |
+| DRV + FDBK | high FDBK+DRV scrapes (AC), not DC-silent |
+| COLR | across range; closed darkens; with HPF up, closed body kills (~−60 dB) |
+| HPF | across range; thins; with COLR closed pinches hard |
+| NTYP | WHT/PINK/BRWN with BAL up |
+| two instances | exercised on separate tracks |

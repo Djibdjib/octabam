@@ -176,8 +176,9 @@ def rail_hits(samples):
     return sum(1 for x in samples if x <= -RAIL or x >= RAIL - 1)
 
 
-# max knobs ~3 s: under 1% of samples at either rail (no runaway)
-n_long = FRAMES * 200  # ~3 s at 44.1 kHz / 15-frame blocks
+# max knobs, true 3 s: under 1% of samples at either rail (no runaway)
+n_long = int(3.0 * FS)
+n_long -= n_long % FRAMES
 long_in = q23([0.2 * math.sin(2 * math.pi * 110 * i / FS) for i in range(n_long)])
 max_kw = {}
 for p in MOD.params:

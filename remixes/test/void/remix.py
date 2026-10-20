@@ -4,7 +4,7 @@ from remix.schema import Proof, Remix
 REMIX = Remix(
     family="effects",
     proof=Proof.HARDWARE,
-    proof_note="MKII VOID V7 (handoff y0 mpy) + VOID V8 tip asm 471c7d5b; verify_void.py",
+    proof_note="MKII VOID V9 (COLR/HPF tables tip dd89e2e2+); verify_void.py 3s rail",
     name="void",
     doc="VOID replaces COMB FILTER; PLATE REV words host its DSP.",
     modules=("VOID",

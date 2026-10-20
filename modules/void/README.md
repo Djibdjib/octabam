@@ -59,23 +59,13 @@ and save, before going back to stock.
 
 - `verify_void.py`: passthrough; AM / FDBK vs `void_ref.py`; NTYP pink/brown
   diverge from white; COLR closed vs open; FDBK+DRV not DC-silent; max-knob
-  ~3 s with rail-hit budget; two FX2 instances each have energy and stay off
-  the rail.
-- Hardware **VOID V7** (20 Oct 2026): built from the `void-handoff` working
-  tree (not a git commit) — same BAL/AC-FDBK law as tip, but four `mpy`
-  sites still used `y0` (mpysu risk). Tip `471c7d5b`+ uses `y1` there;
-  `void.asm` is otherwise identical through `0b2c1aa6`.
-- Hardware **VOID V8** (`471c7d5b` tip asm, BUILD V8): image to re-check after
-  the signed-mpy fix — see test-remix README.
-
-On V7 (Ilia's MKII), knobs exercised:
-
-| knob | what was tried |
-|---|---|
-| BAL | default 0 = full input; raised toward noise (noise was too hot at full) |
-| RATE / SHPE / DPTH | AM scrape on input and with BAL up |
-| DRV + FDBK | FDBK ≳ 50 with DRV was silence before AC feedback; after AC, high FDBK+DRV keeps scraping |
-| COLR / HPF / NTYP | SETUP top row live; HPF thins; NTYP WHT/PINK/BRWN with BAL up |
+  true 3 s with rail-hit budget; two FX2 instances each have energy and stay
+  off the rail.
+- Hardware **VOID V9** (21 Oct 2026, tip `dd89e2e2`+): BRAIN `VOID V9.RMX` —
+  same `void.asm` as V8, COLR 30 Hz..16 kHz / HPF 20 Hz..8 kHz tables. V8 did
+  **not** have these tables (still 200 Hz / 2 kHz). See test-remix README for
+  the full knob report.
+- Earlier: **V7** handoff (`y0` mpy); **V8** signed `y1` mpy, old coef tables.
 
 ## Sources
 
