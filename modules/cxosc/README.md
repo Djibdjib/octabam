@@ -33,6 +33,16 @@ Mono only. Stock LFO page (all three LFOs). No VOIC/CHRD.
 
 **SYNTH MACHINE**, **ANALOG BD** — machine-list / page cave / kind table.
 
+## Proof
+
+**Hardware** (author's MKII): CXOSC C10–C22 remix handoffs — machine select
+(after the `lea` name-table fix), PLAYBACK knobs including FOLD / SYMM / FDBK /
+free+snap RATO. Port: `make check REMIX=cxosc` and reach with `TESTS=1`.
+
+Measured: select no longer illegal-instructions at `fm_src_names`; fold bass
+moves with fold order. Inferred: non-monotonic lows under FOLD are sine-fold
+Chebyshev behaviour.
+
 ## Build
 
 ```bash

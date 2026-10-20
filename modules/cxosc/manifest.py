@@ -226,8 +226,8 @@ MODULE = Module(
     category=Category.MACHINES,
     author="ilia-murzinov",
     author_url="https://github.com/ilia-murzinov",
-    proof=Proof.CHECK,
-    proof_note="marker-less machine list + mono; port check; hardware smoke (CXOSC C10–C22)",
+    proof=Proof.HARDWARE,
+    proof_note="MKII: CXOSC C10–C22 handoffs — select, PLAYBACK (FOLD/SYMM/FDBK/RATO), lea name-table fix; port check green",
     doc="CX OSC in the machine list (no marker file): PTCH RATO INDX FOLD SYMM FDBK, mono, stock LFOs. Local fork of FM SYNTH.",
     conflicts=(
         ("SYNTH MACHINE", "both own the FLEX/STATIC kind-table renderers, page cave 0x400d24d0, and machine-list sites"),

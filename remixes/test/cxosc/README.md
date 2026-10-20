@@ -11,9 +11,9 @@ Not combined with SYNTH MACHINE (declared conflict).
 
 ## Status
 
-`Proof.CHECK`: builds and boots under the port. Hardware smoke on the
-author's MKII (CXOSC C10–C22 handoffs): select, PLAYBACK knobs, fold /
-symmetry / feedback.
+`Proof.HARDWARE` on the module. This remix: port build + boot gates.
+Hardware smoke on the author's MKII (CXOSC C10–C22 handoffs): select,
+PLAYBACK knobs, fold / symmetry / feedback.
 
 ## Build
 
