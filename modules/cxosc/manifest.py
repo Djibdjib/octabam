@@ -229,10 +229,9 @@ MODULE = Module(
     author_url="https://github.com/ilia-murzinov",
     proof=Proof.HARDWARE,
     proof_note=(
-        "MKII BUILD C22 @ 144f9114 (author): machine select after lea name-table fix; "
-        "each PLAYBACK knob (PTCH RATO INDX FOLD SYMM FDBK); FUNC RATO snaps. "
-        "Awaiting author re-check: MIDI note-on, STOP/START, Part change — see README. "
-        "Port: verify_cxosc + make check REMIX=cxosc"
+        "MKII BUILD CS @ 052bb14d (author, cxosc-core): machine select; each PLAYBACK "
+        "knob (PTCH RATO INDX FOLD SYMM FDBK); FUNC RATO snaps; MIDI note-on; STOP/START; "
+        "Part change. Port: verify_cxosc + make check REMIX=cxosc"
     ),
     doc="CX OSC in the machine list (no marker file): PTCH RATO INDX FOLD SYMM FDBK, mono, stock LFOs. Local fork of FM SYNTH.",
     conflicts=(

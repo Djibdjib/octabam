@@ -53,11 +53,10 @@ as MIDI note-on `0x4000e746`). The build refuses the pair.
 **Port:** `make check REMIX=cxosc` runs `verify_cxosc` (FOLD/SYMM/RATO/FDBK
 change the waveform; FOLD=SYMM=FDBK=127 stays off the rails).
 
-**Hardware (author MKII):** image **BUILD C22**, commit **`144f9114`** (and
-later tips on this branch). Tried: machine select (after the `lea` name-table
-fix); each PLAYBACK knob (PTCH, RATO, INDX, FOLD, SYMM, FDBK); FUNC snaps on
-RATO. **Still to confirm on the unit and report here:** MIDI note-on,
-STOP/START, Part change.
+**Hardware (author MKII):** image **BUILD CS**, commit **`052bb14d`**
+(`cxosc-core`). Tried and OK: machine select; each PLAYBACK knob (PTCH, RATO,
+INDX, FOLD, SYMM, FDBK); FUNC snaps on RATO; MIDI note-on; STOP/START; Part
+change.
 
 ## Build
 
