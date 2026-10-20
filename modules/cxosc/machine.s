@@ -1215,10 +1215,12 @@ ml_win_count:
         pea     (5+ML_COUNT).w           | the rows
         pea     6.w                      | the rows visible (stock's)
         jmp     WIN_COUNT_RET
-| 0x400585fa (jmp, 8 B): SRC SETUP's list init, `pea 5; pea 5` (rows, visible).
+| 0x400585fa (jmp, 8 B): SRC SETUP's list init, stock `pea 5; pea 5`.
+| Visible 6 so the sixth row (CX OSC) keeps STATIC..PICKUP on screen (same as
+| the machine window); stock's five-row viewport scrolled STATIC away.
 ml_src_count:
         pea     (5+ML_COUNT).w
-        pea     5.w
+        pea     6.w
         jmp     SRC_COUNT_RET
 | 0x4003c950 (jmp, 6 B): SRC SETUP's name lookup, `moveq #4,%d1; cmpl %d2,%d1; bcss
 | 0x4003c95a` (d2 = the row: past the last row, the default string).

@@ -253,16 +253,21 @@ def capture_octa303(p,r):
 
 
 def capture_cxosc(p,r):
-    # CX OSC is the sixth row of the machine list (stock five + CX OSC).
+    # Same choreography as blackpyramids: pick the sixth row, then reopen
+    # SRC SETUP so the list highlights the assigned machine (visible 6 keeps
+    # STATIC..CX OSC on screen). Right-hand knobs stay stock FLEX.
     press(p,'t1')
     p.chord('func','pg_playback')
     press(p,'down',5)
     press(p,'yes')
     close(p)
     press(p,'pg_playback')
+    enc(p,3,40)   # FOLD
+    enc(p,4,24)   # SYMM
+    enc(p,5,16)   # FDBK
     shot(p,'cxosc','source','CX OSC PLAYBACK: PTCH RATO INDX FOLD SYMM FDBK.',r)
     p.chord('func','pg_playback')
-    shot(p,'cxosc','setup','SRC SETUP with CX OSC selected (FLEX setup bytes).',r)
+    shot(p,'cxosc','setup','SRC SETUP: CX OSC selected in the machine list.',r)
 
 
 def capture_synth(p,r):

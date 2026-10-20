@@ -10,7 +10,7 @@ five). No marker sample. The Part stores FLEX with signature `"CX", 1`.
 At most one CX OSC track per Part. Conflicts with **SYNTH MACHINE** and
 **ANALOG BD** (shared kind table / page cave). Gate remix: `cxosc`.
 
-![SRC SETUP with CX OSC selected (FLEX setup bytes).](../../img/cxosc/setup.png)
+![SRC SETUP: CX OSC selected in the machine list.](../../img/cxosc/setup.png)
 
 ## Operation
 
