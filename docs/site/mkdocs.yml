@@ -74,6 +74,7 @@ nav:
       - RLEN PLEN: reference/modules/rlen-plen.md
       - Scale Quantizer: reference/modules/quantizer.md
       - Stem Recording: reference/modules/stems.md
+      - Cx Osc: reference/modules/cxosc.md
       - Synth Machine: reference/modules/synth.md
       - Tempo Controls: reference/modules/tempo-bus.md
       - Tuner: reference/modules/tuner.md
