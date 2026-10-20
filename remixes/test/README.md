@@ -50,7 +50,7 @@ Each carries one module, or one combination, for that module's gates: `make chec
 | [`rig`](rig/README.md) | octabam-bus's delay and reverb bus and FX1 stations, without USB, Octakit or the scene modules: the fixture of the CC MAP, Character and one-aux gates. | `make check` |
 | [`rnd-name`](rnd-name/README.md) | smoke: RND NAME alone | local render: RND NAME smoke |
 | [`scenes-midisc`](scenes-midisc/README.md) | MIDI SCENES + KITS + page-2 scene locks (SCENES P2) + page-2 parameter locks (PLOCKS P2), stock effects. | port-gated: verify_scenes_p2 and verify_plocks_p2 under the port |
-| [`shatter`](shatter/README.md) | SHATTER beside the stock effects (all but PLATE REV, whose words it takes). | on hardware: Ilia's MKII, remix glitch BUILD G4 (OCTABAMG4 / GLITCH G4.RMX), 19 Oct 2026: every SHATTER page-1/page-2 knob exercised; verify_shatter. Solo remix here; G4 was SHATTER+STUTTR. |
+| [`shatter`](shatter/README.md) | SHATTER beside the stock effects (all but PLATE REV, whose words it takes). | local render: verify_shatter. Solo gate remix. Prior MKII G4 was glitch from c1ea1c53 (SHATTER+STUTTR, old FOLD); tip FOLD re-proof pending. |
 | [`sidechain-compressor`](sidechain-compressor/README.md) | stock effects with SIDECHAIN_COMPRESSOR in COMPRESSOR's row: KEY, KFLT, KGN and MON on page 2. | `make check` |
 | [`sos-capture`](sos-capture/README.md) | recorder fixes + USB (TRACKS out, AB in) (stock effects minus SPATIALIZER). | port-gated: `make check` under the port; not on hardware in this form |
 | [`stations-fx2`](stations-fx2/README.md) | SPECTRUM, CHARACTER and MODULATION on FX1 and FX2, beside the stock DELAY. | port-gated: `verify_stations_fx2` (dsp_host); not on a unit |

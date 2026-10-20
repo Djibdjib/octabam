@@ -18,9 +18,10 @@ MODULE = Module(
     kind=Kind.DSP_EFFECT,
     category=Category.TRACK, author="ilia-murzinov",
     author_url="https://github.com/ilia-murzinov",
-    proof=Proof.HARDWARE,
-    proof_note="Ilia's MKII, remix glitch BUILD G4 (OCTABAMG4 / GLITCH G4.RMX), "
-               "19 Oct 2026: every page-1/page-2 knob exercised; verify_shatter",
+    proof=Proof.RENDER,
+    proof_note="verify_shatter (rail-fraction + DRV 127 + two-instance). Prior "
+               "MKII report was remix glitch BUILD G4 from c1ea1c53 (old FOLD); "
+               "tip FOLD differs — unit re-proof on REMIX=shatter pending",
     doc="Crush insert: fold, clip, bit/SRR crush, chaotic feedback.",
     menu=MenuEntry(
         fx2_id=0x0a,

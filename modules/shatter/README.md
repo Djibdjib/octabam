@@ -22,6 +22,10 @@ this one is self-modulating destruction.
 | 2 | 7 | TONE | 0–127 | feedback shelf |
 | 2 | 8 | RATE | 0–127 | CHAOS flip rate |
 
+**DRV 127 clips at ordinary input levels** (dsp_host: 0.25 FS tone → ~35% of
+samples at the 24-bit rail). Keep DRV down, or follow with CLIP, when the
+source is already hot.
+
 ## Storage and stock firmware
 
 The page descriptor is cloned from **DARK REV**. A Part saved with SHATTER
@@ -43,21 +47,41 @@ back to stock.
 
 Local render gates (`verify_shatter`). DRV is dry-only (~×9 at 127);
 feedback is not driven. LFO-dirty page words are masked before use.
+DRV 127 at 0.25 FS hits the rail (~35% of samples); the gate asserts a
+rail-fraction band on that case (and on max-knob / two-instance).
+
+**Instances per core** (two-instance-gate knobs: DRV 100, FOLD 90, CLIP 40,
+CRSH 40, FDBK 40, MIX 127, MODE HARD, TONE 64, RATE 64):
+
+| source | one instance | four on one core |
+|---|---|---|
+| `dsp_host -meter` | 186 instructions/sample | 743 instructions/sample |
+| `cycle_count.py` (static) | 213 cycles/sample | 852 cycles/sample |
+
+Four FX2 slots per core; 852 ≪ 3120 usable (`cycle_count` USABLE). All four
+slots fit at those settings. Same order at `Module.dear` (~187 /sample).
 
 ## On the unit
 
-Ilia's MKII, 19 Oct 2026, remix `glitch` **BUILD G4** (`OCTABAMG4` /
-`GLITCH G4.RMX`; that image also carried STUTTR, filed separately): every
-SHATTER page-1/page-2 knob exercised (DRV, FOLD, CLIP, CRSH, FDBK, MIX,
-MODE, TONE, RATE). No build tag on the panel.
+Hardware report image: remix `glitch` **BUILD G4** (`OCTABAMG4` /
+`GLITCH G4.RMX`), built from commit **`c1ea1c53`** (19 Oct 2026). That
+`shatter.asm` is the pre-tip FOLD path (skip-at-0 scale into the folder).
+This tip's FOLD is `v*(1+8*FOLD)` (identical to `902c0cfb`); G4 did **not**
+carry it. G4 also carried STUTTR (separate PR). On that image every
+page-1/page-2 knob was exercised (DRV, FOLD, CLIP, CRSH, FDBK, MIX, MODE,
+TONE, RATE). Tip FOLD re-proof on `REMIX=shatter` is open below.
+
+No build tag on the panel.
 
 ## Open
 
 - CHAOS voicing: RATE curve and polarity-flip energy
-- How many instances fit on one core at dear settings
+- Tip FOLD (`v*(1+8*FOLD)`) on the unit — flash `REMIX=shatter`, re-check
+  every knob (G4 was `c1ea1c53`, different FOLD)
 - Whether CRSH should split into separate BRR / SRR knobs
 
 ## Gates
 
 `tools/verify/verify_shatter.py` (manifest `Gate`): MIX 0 bit-exact;
-DRV+FOLD both signs; FDBK raises energy; CHAOS non-silent.
+DRV+FOLD both signs; FDBK raises energy; CHAOS non-silent; max-knob rail
+fraction + no runaway; DRV 127 rail-fraction band; two instances.

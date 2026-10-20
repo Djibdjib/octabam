@@ -7,8 +7,9 @@
   FDBK        -> raises energy vs FDBK 0 on a tone
   CHAOS       -> non-silent with FDBK up
   every knob  -> renders without dsp_host dying
-  max knobs   -> ~3 s bounded, no runaway
-  two inst    -> both produce audio and stay on the rail
+  max knobs   -> ~3 s no runaway; rail fraction bounded
+  DRV 127     -> clips at ordinary input (rail fraction in band)
+  two inst    -> both produce audio; rail fraction bounded
 """
 import pathlib, struct, subprocess, sys
 
@@ -25,7 +26,9 @@ HOST = "vendor/dsp56300/build/source/dsp_host/dsp_host"
 FXID = MOD.menu.fx2_id
 FRAMES = 15
 FS = 44100.0
-RAIL = 1 << 23
+# 24-bit full scale. peak <= RAIL is always true for a 24-bit store; assert
+# on the *fraction* of samples sitting on the rail instead.
+RAIL = (1 << 23) - 1
 TMP = pathlib.Path("out/_shgate")
 TMP.mkdir(parents=True, exist_ok=True)
 
@@ -87,6 +90,13 @@ def check(label, ok, detail=""):
     print(f"  [{'PASS' if ok else 'FAIL'}] {label}" + (f"  {detail}" if detail else ""))
     if not ok:
         FAILS.append(label)
+
+
+def rail_frac(samples):
+    """Fraction of samples at ±full-scale (24-bit store saturates here)."""
+    if not samples:
+        return 0.0
+    return sum(1 for x in samples if abs(x) >= RAIL) / len(samples)
 
 
 N = 2400
@@ -160,7 +170,8 @@ for name in K:
     render(ramp[:FRAMES * 4], **{name: 64})
 check("every named knob renders", True)
 
-# Max knobs, ~3 s: stay bounded, no runaway growth (CHAOS included).
+# Max knobs, ~3 s: no runaway growth (CHAOS included). Rail fraction — not
+# peak<=RAIL (always true for 24-bit) — is the bound that can fail.
 N_LONG = int(3.0 * FS)
 N_LONG -= N_LONG % FRAMES
 drive = [int(0.25 * (1 << 23) * __import__("math").sin(
@@ -168,23 +179,35 @@ drive = [int(0.25 * (1 << 23) * __import__("math").sin(
 Lmax, Rmax = render(
     drive, MIX=127, DRV=127, FOLD=127, CLIP=127, CRSH=127, FDBK=127,
     MODE=2, TONE=127, RATE=127)
-peak = max(max(abs(x) for x in Lmax), max(abs(x) for x in Rmax))
-check(f"max-knob peak bounded ({peak} <= {RAIL})", peak <= RAIL)
+rf_max = max(rail_frac(Lmax), rail_frac(Rmax))
+check(f"max-knob rail frac bounded ({rf_max:.3f} < 0.50)", rf_max < 0.50)
 half = len(Lmax) // 2
 e0 = sum(abs(x) for x in Lmax[:half]) / half
 e1 = sum(abs(x) for x in Lmax[half:]) / half
 check(f"max-knob no runaway (late/early={e1 / e0 if e0 else 0:.2f} < 8)",
       e0 > 0 and e1 < e0 * 8)
 
-# Two FX2 instances, same dear/hot knobs: both produce audio and stay on rail.
+# DRV 127 alone at ordinary input (0.25 FS): clips hard. Asserts a band so
+# the check fails both if drive never reaches the rail and if it sticks there.
+N_DRV = int(1.0 * FS)
+N_DRV -= N_DRV % FRAMES
+drive_1s = drive[:N_DRV]
+Ldrv, Rdrv = render(
+    drive_1s, MIX=127, DRV=127, FOLD=0, CLIP=0, CRSH=0, FDBK=0,
+    MODE=0, TONE=64, RATE=64)
+rf_drv = max(rail_frac(Ldrv), rail_frac(Rdrv))
+check(f"DRV 127 clips at 0.25 FS (rail frac {rf_drv:.3f} > 0.05)", rf_drv > 0.05)
+check(f"DRV 127 not stuck at rail (rail frac {rf_drv:.3f} < 0.95)", rf_drv < 0.95)
+
+# Two FX2 instances, same dear/hot knobs: both produce audio; rail frac bounded.
 pair = render(
     tone, inst=2, MIX=127, DRV=100, FOLD=90, CLIP=40, CRSH=40, FDBK=40,
     MODE=0, TONE=64, RATE=64)
 for i, (Li, Ri) in enumerate(pair):
-    pk = max(max(abs(x) for x in Li), max(abs(x) for x in Ri))
+    rf = max(rail_frac(Li), rail_frac(Ri))
     e = sum(abs(x) for x in Li[512:])
     check(f"two-instance[{i}] has energy ({e})", e > 10_000)
-    check(f"two-instance[{i}] peak bounded ({pk} <= {RAIL})", pk <= RAIL)
+    check(f"two-instance[{i}] rail frac bounded ({rf:.3f} < 0.50)", rf < 0.50)
 
 if FAILS:
     sys.exit(f"verify_shatter: {len(FAILS)} FAILED: {', '.join(FAILS)}")

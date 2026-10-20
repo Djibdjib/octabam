@@ -4,5 +4,6 @@ SHATTER beside a stock FX chooser (PLATE REV harvested). DARK and SPRING kept.
 
 `make check REMIX=shatter`.
 
-**Hardware:** Ilia's MKII, BUILD G4 on the earlier `glitch` remix (SHATTER+STUTTR);
-every SHATTER knob exercised. This remix is the solo gate for the module PR.
+**Proof:** local `verify_shatter` (RENDER). Prior hardware was remix `glitch`
+BUILD G4 from commit `c1ea1c53` (SHATTER+STUTTR; old FOLD path). This tip's
+FOLD differs — re-proof on this solo image when flashed.

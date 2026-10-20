@@ -19,8 +19,8 @@ MODE CHAOS flips FDBK polarity at a rate set by RATE.
 
 | Knob | Default | What it does |
 |---|---|---|
-| DRV | 0 | pre-gain on dry only (~×9 at 127); 0 is unity |
-| FOLD | 0 | wavefolder; 0 skips |
+| DRV | 0 | pre-gain on dry only (~×9 at 127); 0 is unity. At 127 it clips ordinary input levels (~35% of samples at the rail on a 0.25 FS tone) |
+| FOLD | 0 | wavefolder; 0 skips; 1…127 only increases fold |
 | CLIP | 0 | clip threshold (0 open, 127 brick wall) |
 | CRSH | 0 | combined bit-depth and sample-rate crush |
 | FDBK | 0 | feedback around fold/clip/crush |
