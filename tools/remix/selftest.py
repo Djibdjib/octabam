@@ -928,6 +928,7 @@ def main():
              "lofi2": ("PLATE REV", "SPRING REV"),   # LOFI2's 1,372 words with its table; PLATE alone is 594
              "bbd": ("PLATE REV", "SPRING REV"),   # BBD's 1,112 words from PLATE's start, clear of the SPRING words DARK calls
              "testgen": ("PLATE REV",),     # TESTGEN runs in its words; the other 13 stay
+             "resonator": ("PLATE REV",),   # RESONATOR runs in its words; the other 13 stay
              "vocoder": ("PLATE REV", "DJ EQ"),   # VOCODER runs in PLATE's words; DJ EQ out so the tables sit in X
              "vocoder-usb": ("PLATE REV", "DJ EQ"),   # the vocoder remix + USB MIDI and USB AUDIO (ColdFire, no DSP words)
              "euclid": ("SPATIALIZER", "FLANGER", "CHORUS", "COMB FILTER"),
@@ -1093,7 +1094,8 @@ def main():
         (_fx_dir / "manifest.py").write_text(
             "from remix.schema import DspSection, Kind, MenuEntry, Module, Param, YBase\n"
             "MODULE = Module(name='xhfixture', key='XHFIXTURE', kind=Kind.DSP_EFFECT,\n"
-            "    doc='fixture', menu=MenuEntry(fx2_id=0x1e, donor_desc=0x400d58b8,\n"
+            "    doc='fixture', menu=MenuEntry(fx2_id=0x08, replaces='DELAY',\n"
+            "    donor_desc=0x400d4a96,\n"
             "    abbr=b'XHF', fullname=b'XhFixture'),\n"
             "    params=tuple([Param(b'A', 0, active=True)] + [Param()] * 11),\n"
             "    dsp=DspSection(asm='modules/xhfixture/fixture.asm', priority=40,\n"
@@ -1161,7 +1163,8 @@ def main():
         (_pf_dir / "manifest.py").write_text(
             "from remix.schema import Claims, DspSection, Kind, MenuEntry, Module, Param, YBase\n"
             "MODULE = Module(name='pbfixture', key='PBFIXTURE', kind=Kind.DSP_EFFECT,\n"
-            "    doc='fixture', menu=MenuEntry(fx2_id=0x1e, donor_desc=0x400d58b8,\n"
+            "    doc='fixture', menu=MenuEntry(fx2_id=0x08, replaces='DELAY',\n"
+            "    donor_desc=0x400d4a96,\n"
             "    abbr=b'PBF', fullname=b'PbFixture'),\n"
             "    params=tuple([Param(b'A', 0, active=True)] + [Param()] * 11),\n"
             "    claims=Claims(owns_fx2_buffers=True),\n"
@@ -1200,7 +1203,7 @@ def main():
             if m:
                 _pl = m.group(1)
             if (_pl and "NOT PLACED" not in line
-                    and re.match(r"\s+PBFIXTURE\s.*\bid 0x1e\b", line)):
+                    and re.match(r"\s+PBFIXTURE\s.*\bid 0x08\b", line)):
                 _placed.setdefault(_pl, []).append(line)
             if _pl and re.match(r"\s+PBFIXTURE\s+NOT PLACED", line):
                 _alias[_pl] = line
