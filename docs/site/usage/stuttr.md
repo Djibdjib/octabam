@@ -8,6 +8,10 @@ repeat. MIX 0 is exact dry.
 An effect on a track: select the track, press FX2 (or FX1 in remixes that
 list it there), and pick Stuttr from the chooser.
 
+![FX2 SETUP with Stuttr selected.](../../img/stuttr/setup.png)
+
+*FX2 SETUP with Stuttr selected.*
+
 ## Operation
 
 Raise CHNC so grabs can fire; RATE sets how often attempts happen. HOLD
@@ -17,6 +21,10 @@ repeats; RND varies rate per wrap. REV at 0 is always forward; higher
 rolls reverse more often.
 
 ## Parameters
+
+![STUTTR main page.](../../img/stuttr/main.png)
+
+*STUTTR main page.*
 
 | Knob | Default | What it does |
 |---|---|---|
