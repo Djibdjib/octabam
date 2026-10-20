@@ -880,14 +880,14 @@
       "caption": "STUTTR: effect selection and setup parameters.",
       "remix": "stuttr",
       "source": "emulator panel UART",
-      "firmware_sha256": "d656861d68141f0b039034c1dda14a915bec6e527150c6a0cb24b6cb593a3201"
+      "firmware_sha256": "fb63da46575a46a02b2e1e56a4995581dd7ffffa74ff982e00bb32b330476b89"
     },
     "main": {
       "image": "stuttr/main.png",
       "caption": "STUTTR: main parameter page.",
       "remix": "stuttr",
       "source": "emulator panel UART",
-      "firmware_sha256": "d656861d68141f0b039034c1dda14a915bec6e527150c6a0cb24b6cb593a3201"
+      "firmware_sha256": "fb63da46575a46a02b2e1e56a4995581dd7ffffa74ff982e00bb32b330476b89"
     }
   }
 }
