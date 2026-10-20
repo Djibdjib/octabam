@@ -8,7 +8,7 @@
 The line goes to stdout after the command's own output, so a gate's log
 keeps a per-step time (`make verify-shared` runs each of its steps through
 this). ``--cards`` removes cards newly made by a passing step. The exit
-code is the command's.
+code is the command's, or 2 if card preflight or cleanup fails.
 """
 import subprocess
 import sys
@@ -23,11 +23,9 @@ def main(argv):
         argv = argv[1:]
     if not argv:
         sys.exit("usage: step.py <command> [args ...]")
-    before = card_retention.begin(card_retention.ROOT, " ".join(argv)) if cards else None
     t0 = time.monotonic()
-    rc = subprocess.run(argv).returncode
-    if cards:
-        card_retention.finish(card_retention.ROOT, before, " ".join(argv), rc == 0)
+    rc = (card_retention.run(argv, root=card_retention.ROOT, include_modified=False)
+          if cards else subprocess.run(argv).returncode)
     print(f"step: {time.strftime('%H:%M:%S')} + {time.monotonic() - t0:5.1f} s  rc={rc}  {' '.join(argv)}", flush=True)
     return rc
 

@@ -370,19 +370,37 @@ key cannot see a file a gate reads through a path built at run time, or
 anything outside the repository other than the toolchain and the project.
 The shared half and `make accept` are not cached.
 
-**Virtual card retention.** `make check`, `make check-remix`, the split
+**Virtual card retention (enabled by default).** `make check`,
+`make check-remix`, `make verify-shared`, `make verify-remix`, the split
 `check_shards` jobs and `make accept` remove generated `out/**/*.img` cards
-after a passing gate. A passing module gate removes only cards it created;
-cards already staged by `verify_set` remain available to later image gates.
-The complete check removes cards it created or changed after all dependent
-gates finish. A failed or interrupted gate retains its cards for diagnosis;
-`KEEP_CARDS=1` retains cards on passes too. Cleanup only considers ignored,
-single-link regular files in the current worktree's `out/`, never pinned
-`.keep-cards` trees or nested Git worktrees. A cleanup refusal is printed
-without changing the test result, and successful deletions are recorded in
-`out/card-retention.json`. Untouched cards left by earlier runs are not swept
-by a new gate; use the separate age-based `ot-artifacts` maintenance tool for
-those.
+when their owning gate passes. A passing module gate removes only cards it
+created; cards already staged by `verify_set` remain available to later image
+gates. The complete check removes cards it created or changed after all
+dependent gates finish. Failed or interrupted gates retain their cards for
+diagnosis; cards already removed by earlier passing gates stay removed.
+
+Use `KEEP_CARDS=1 make check REMIX=<name>` to keep successful-run cards too.
+Cleanup only considers ignored, single-link regular files in the current
+worktree's `out/`, never `.keep-cards` trees, symlinks or nested Git worktrees.
+Untouched cards left by earlier runs are not swept. Scripts run directly are
+not automatically wrapped: for a sequence with shared intermediate cards,
+wrap the **whole sequence** with
+`python3 tools/verify/card_retention.py run -- sh -c 'command1 && command2'`.
+
+`lsof` is required unless `KEEP_CARDS=1`: `make setup-linux` installs it;
+macOS provides it in `/usr/sbin` and `make setup-mac` checks it. A missing
+dependency or another gate run owning the same worktree stops execution.
+Nested runners inherit ownership; independent parallel runs need separate
+worktrees. Shard ownership includes setup and lasts through the last job.
+Direct scripts and manual builds must not write to a worktree with running
+gates. Serial Make targets force one job internally; use the shard runner
+for parallel checks.
+
+An unsafe cleanup (open card, changed manifest, or failed inspection) makes
+the runner fail and prints `[FAIL] card retention`. Acceptance reports keep
+`gate_status` and `exit_code` alongside the cleanup outcome. Successful
+removals print a count/size and append filenames and bytes to
+`out/card-retention.jsonl`; `out/card-retention.json` holds the last removal.
 
 **Gate slots** (11 Oct 2026, `tools/verify/slots.py`). Each `check_shards`
 job and each command `reach` runs in its own tree holds one of the

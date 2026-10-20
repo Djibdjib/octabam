@@ -179,7 +179,17 @@ def main(argv=None):
                          "modules' own (make check-shared MODULES=...); per remix, those of every module "
                          "they reach (reached(): make check-remix MODULES=...)")
     a = ap.parse_args(argv)
-    env = dict(os.environ)
+    if a.list:
+        return _run(a, dict(os.environ))
+    try:
+        with card_retention.Gate(ROOT, "module gates", snapshot_cards=False) as owner:
+            return _run(a, owner.env)
+    except card_retention.RetentionError as exc:
+        print(f"[FAIL] card retention: {exc}", flush=True)
+        return 2
+
+
+def _run(a, env):
     env.setdefault("BUILD", "0")
     env.setdefault("PYTHONUNBUFFERED", "1")      # each gate's lines as it prints them, through the tee below
     if a.shared:
@@ -233,22 +243,28 @@ def main(argv=None):
             print(f"  [FAIL] {g.script}: no such file (the manifest names a gate the tree does not carry)")
             fails.append(g.script)
             continue
-        before_cards = card_retention.begin(ROOT, g.script)
-        out = []
-        with subprocess.Popen(cmd, cwd=ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                              text=True, errors="replace") as p:
-            for line in p.stdout:
-                sys.stdout.write(line)
-                sys.stdout.flush()
-                out.append(line)
-            rc = p.wait()
-        if rc:
-            print(f"  [FAIL] {g.script} exit {p.returncode}")
+        try:
+            with card_retention.Gate(ROOT, g.script, env) as cards:
+                out = []
+                with subprocess.Popen(cmd, cwd=ROOT, env=cards.env, pass_fds=cards.pass_fds,
+                                      stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                      text=True, errors="replace") as p:
+                    for line in p.stdout:
+                        sys.stdout.write(line)
+                        sys.stdout.flush()
+                        out.append(line)
+                    rc = p.wait()
+                if rc:
+                    print(f"  [FAIL] {g.script} exit {rc}")
+                    fails.append(g.script)
+                    gate_ledger.record(g.script, remix_name, gate_ledger.first_fail("".join(out)))
+                cards.finish(rc == 0 and not any("[FAIL]" in line or "[SKIP]" in line or
+                                                 line.lstrip().startswith("SKIP:") for line in out))
+        except card_retention.RetentionError as exc:
+            print(f"  [FAIL] card retention: {exc}", flush=True)
             fails.append(g.script)
-            gate_ledger.record(g.script, remix_name, gate_ledger.first_fail("".join(out)))
-        card_retention.finish(ROOT, before_cards, g.script,
-                              rc == 0 and not any("[FAIL]" in line or "[SKIP]" in line or
-                                                  line.lstrip().startswith("SKIP:") for line in out))
+            gate_ledger.record(g.script, remix_name, str(exc))
+
     if a.list:
         return 0
     print(f"\nmodule gates ({label}): {len(gates)} run, {len(fails)} failed"

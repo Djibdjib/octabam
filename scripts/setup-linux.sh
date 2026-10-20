@@ -15,7 +15,7 @@ command -v apt-get >/dev/null 2>&1 \
 SUDO=""
 [ "$(id -u)" -eq 0 ] || SUDO="sudo"
 PREFIX="${M68K_PREFIX:-$HOME/.local/m68k-elf}"
-pkgs=(build-essential cmake git curl unzip xxd binutils python3 python3-numpy)
+pkgs=(lsof build-essential cmake git curl unzip xxd binutils python3 python3-numpy)
 [ "${OPTIONAL_TOOLS:-1}" = 0 ] || pkgs+=(binwalk radare2)
 scripts/m68k-toolchain.sh --check "$PREFIX" \
   || pkgs+=(pkgconf texinfo libgmp-dev libmpfr-dev libmpc-dev libisl-dev libzstd-dev zlib1g-dev)

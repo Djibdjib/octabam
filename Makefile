@@ -282,6 +282,10 @@ REMIXES ?= $(REMIX)
 MODULES ?=
 .PHONY: verify-shared
 verify-shared: ## The gates that do not depend on the remix: ledger selftest, slots, replaces, docs, settings and locks, the remixer draws, label_fmt, knob census, remix-independent module gates (REMIXES="a b")
+	$(PY) tools/verify/card_retention.py run -- $(MAKE) -j1 --no-print-directory verify-shared-impl
+
+.PHONY: verify-shared-impl
+verify-shared-impl:
 	@test -n "$(REMIXES)" || { echo "REMIXES is unset: make $@ REMIXES=\"<name> ...\"   (make modules lists them)"; exit 2; }
 	$(need-port)
 	$(PY) tools/verify/step.py --cards python3 tools/remix/selftest.py
@@ -302,6 +306,10 @@ verify-shared: ## The gates that do not depend on the remix: ledger selftest, sl
 
 .PHONY: verify-remix
 verify-remix: ## The selected remix's own gates: dirty state, init regs, DRAM boot, labels, its module gates, menu, the set under the port, USB
+	$(PY) tools/verify/card_retention.py run -- $(MAKE) -j1 --no-print-directory verify-remix-impl
+
+.PHONY: verify-remix-impl
+verify-remix-impl:
 	$(need-remix)
 	$(need-port)
 	@# verify_dirty_state builds the remix's image itself (verify-shared and
@@ -389,7 +397,7 @@ check-remix-gates: ## One remix's per-remix half, one gate per job over JOBS=4 w
 	BUILD=$(BUILD) $(PY) tools/verify/check_shards.py --by-gate --jobs $(or $(JOBS),4) $(REMIX)
 
 check: ## Everything that can be checked without hardware (the set gates run under the port when OT_PROJECT or ~/.octabam_project names a project)
-	$(PY) tools/verify/card_retention.py run -- $(MAKE) --no-print-directory check-impl
+	$(PY) tools/verify/card_retention.py run -- $(MAKE) -j1 --no-print-directory check-impl
 
 .PHONY: check-impl
 check-impl: bus cycles verify
@@ -407,7 +415,7 @@ check-shared: verify-shared ## The remix-independent half of make check, once fo
 
 .PHONY: check-remix
 check-remix: ## The per-remix half of make check: build, cycles and the remix's own gates
-	$(PY) tools/verify/card_retention.py run -- $(MAKE) --no-print-directory check-remix-impl
+	$(PY) tools/verify/card_retention.py run -- $(MAKE) -j1 --no-print-directory check-remix-impl
 
 .PHONY: check-remix-impl
 check-remix-impl: bus cycles verify-remix
