@@ -492,7 +492,11 @@ def _main(argv, owners):
                     help="auto (the default): split the remixes that would set the wall time into gate jobs; "
                          "none; or a comma-separated list")
     a = ap.parse_args(argv)
-    owners.enter_context(card_retention.Gate(ROOT, "check_shards", snapshot_cards=False))
+    # reach runs the shared gates in ROOT while this coordinator dispatches
+    # jobs to separate shard worktrees. Own the coordinator's logs/schedule,
+    # not ROOT's card output; each shard still takes its normal card lock.
+    owners.enter_context(card_retention.Gate(ROOT, "check_shards", snapshot_cards=False,
+                                            scope="shard-coordinator"))
     global SCOPE
     SCOPE = sorted(k for k in a.modules.split(",") if k) or None
     remixes = list(dict.fromkeys(a.remixes))

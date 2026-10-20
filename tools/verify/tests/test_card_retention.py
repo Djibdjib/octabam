@@ -212,6 +212,25 @@ class CardRetention(unittest.TestCase):
         self.assertEqual(rc, 2)
         setup.assert_not_called()
 
+    def test_shard_coordinator_overlaps_shared_gates_but_not_another_coordinator(self):
+        shards = self.root / "out/shards"
+        (self.root / "out/raw").mkdir()
+        (self.root / "out/raw/section_3_MAIN_OS.bin").touch()
+        result = dict(remix="fake", rc=0, seconds=0, skips=[],
+                      log=self.root / "out/check_shards/fake.log")
+        args = ["--jobs", "1", "--split", "none", "--no-cache", "--shards", str(shards), "fake"]
+        with (card_retention.Gate(self.root, "shared gates"),
+              mock.patch.object(check_shards, "ROOT", self.root),
+              mock.patch.object(check_shards, "times_path", return_value=self.root / "times.json"),
+              mock.patch.object(check_shards, "make_shard") as setup,
+              mock.patch.object(check_shards, "run_remix", return_value=result)):
+            self.assertEqual(check_shards.main(args), 0)
+            setup.assert_called_once()
+            with card_retention.Gate(self.root, "another coordinator", snapshot_cards=False,
+                                     scope="shard-coordinator"):
+                self.assertEqual(check_shards.main(args), 2)
+            setup.assert_called_once()  # the refused coordinator did not refresh a shard
+
     def test_shard_job_keeps_staged_card_through_consumer_then_cleans_it(self):
         (self.root / "Makefile").write_text("bus:\n\t@true\n")
         producer = [sys.executable, "-c", "open('out/staged.img','wb').write(b'card')"]

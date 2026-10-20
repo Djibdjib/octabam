@@ -135,11 +135,12 @@ class Gate:
     invocations fail before running; different shard roots use different locks.
     No process-global environment changes: shard workers run in threads.
     """
-    def __init__(self, root, label, env=None, snapshot_cards=True):
+    def __init__(self, root, label, env=None, snapshot_cards=True, scope="cards"):
         self.root = pathlib.Path(root).resolve()
         self.label = label
         self.env = dict(os.environ if env is None else env)
         self.fd = None
+        self.scope = scope
         self.snapshot_cards = snapshot_cards
         self.keep = self.env.get("KEEP_CARDS") == "1"
 
@@ -160,12 +161,12 @@ class Gate:
                 ["git", "rev-parse", "--git-common-dir"], cwd=ROOT, text=True).strip()
             locks = (ROOT / common).resolve() / "octabam-card-locks"
             locks.mkdir(exist_ok=True)
-            lock = locks / (hashlib.sha256(str(self.root).encode()).hexdigest() + ".lock")
+            lock = locks / (hashlib.sha256(f"{self.root}\0{self.scope}".encode()).hexdigest() + ".lock")
             inherited = json.loads(self.env.get("OCTABAM_CARD_LOCK", "null"))
-            if inherited is not None and (not isinstance(inherited, list) or len(inherited) != 2):
+            if inherited is not None and (not isinstance(inherited, list) or len(inherited) != 3):
                 raise RetentionError("invalid inherited card lock")
-            if inherited and inherited[0] == str(self.root):
-                fd = int(inherited[1])
+            if inherited and inherited[:2] == [str(self.root), self.scope]:
+                fd = int(inherited[2])
                 # A stale environment variable is not permission to bypass the lock.
                 a, b = os.fstat(fd), lock.lstat()
                 if (a.st_dev, a.st_ino) != (b.st_dev, b.st_ino):
@@ -180,7 +181,7 @@ class Gate:
                 fcntl.flock(self.fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError:
                 raise RetentionError("another gate run owns this worktree; use a separate worktree") from None
-            self.env["OCTABAM_CARD_LOCK"] = json.dumps([str(self.root), self.fd])
+            self.env["OCTABAM_CARD_LOCK"] = json.dumps([str(self.root), self.scope, self.fd])
             self.before = {} if self.keep or not self.snapshot_cards else snapshot(self.root)
             return self
         except (OSError, ValueError, TypeError, RetentionError, subprocess.SubprocessError) as exc:
