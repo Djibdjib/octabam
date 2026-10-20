@@ -5,9 +5,9 @@ from remix.schema import Proof, Remix
 REMIX = Remix(
     name="shatter",
     family="effects",
-    proof=Proof.RENDER,
-    proof_note="verify_shatter. Solo gate remix. Prior MKII G4 was glitch from "
-               "c1ea1c53 (SHATTER+STUTTR, old FOLD); tip FOLD re-proof pending.",
+    proof=Proof.HARDWARE,
+    proof_note="Ilia's MKII, BUILD S6 (SHATTER S6.RMX), 21 Oct 2026: every "
+               "SHATTER knob exercised; verify_shatter. Solo gate remix.",
     doc="SHATTER beside the stock effects (all but PLATE REV, whose words it takes).",
     modules=(
         "SHATTER",

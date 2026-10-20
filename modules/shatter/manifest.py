@@ -18,10 +18,10 @@ MODULE = Module(
     kind=Kind.DSP_EFFECT,
     category=Category.TRACK, author="ilia-murzinov",
     author_url="https://github.com/ilia-murzinov",
-    proof=Proof.RENDER,
-    proof_note="verify_shatter (rail-fraction + DRV 127 + two-instance). Prior "
-               "MKII report was remix glitch BUILD G4 from c1ea1c53 (old FOLD); "
-               "tip FOLD differs — unit re-proof on REMIX=shatter pending",
+    proof=Proof.HARDWARE,
+    proof_note="Ilia's MKII, remix shatter BUILD S6 (SHATTER S6.RMX), 21 Oct 2026: "
+               "every page-1/page-2 knob exercised (CLIP open + FDBK for MODE/"
+               "TONE/RATE); verify_shatter",
     doc="Crush insert: fold, clip, bit/SRR crush, chaotic feedback.",
     menu=MenuEntry(
         fx2_id=0x0a,
