@@ -7,6 +7,8 @@
   FDBK        -> raises energy vs FDBK 0 on a tone
   CHAOS       -> non-silent with FDBK up
   every knob  -> renders without dsp_host dying
+  max knobs   -> ~3 s bounded, no runaway
+  two inst    -> both produce audio and stay on the rail
 """
 import pathlib, struct, subprocess, sys
 
@@ -22,6 +24,8 @@ MEM = f"out/dsp/_audition_{MOD.name}_A.mem"
 HOST = "vendor/dsp56300/build/source/dsp_host/dsp_host"
 FXID = MOD.menu.fx2_id
 FRAMES = 15
+FS = 44100.0
+RAIL = 1 << 23
 TMP = pathlib.Path("out/_shgate")
 TMP.mkdir(parents=True, exist_ok=True)
 
@@ -45,20 +49,35 @@ def params(**kw):
     return v
 
 
-def render(samples, **kw):
+def render(samples, inst=1, **kw):
     n = len(samples) - len(samples) % FRAMES
     src, out = TMP / "in.raw", TMP / "out.raw"
     src.write_bytes(b"".join(struct.pack("<i", m) for m in samples[:n]))
-    cmd = [HOST, "-mem", MEM, "-init", f"{init:x}", "-proc", f"{proc:x}",
-           "-inst", "1", "-r7", "1", "-alloc", "0", "-inmask", "1",
+    pcsv = ",".join(str(x) for x in params(**kw))
+    # FX2: r7 = 2+3*pos, alloc = 1+2*pos (dsp_host header).
+    r7 = ",".join(str(2 + 3 * k) for k in range(inst))
+    alloc = ",".join(str(1 + 2 * k) for k in range(inst))
+    cmd = [HOST, "-mem", MEM,
+           "-init", ",".join(f"{init:x}" for _ in range(inst)),
+           "-proc", ",".join(f"{proc:x}" for _ in range(inst)),
+           "-inst", str(inst), "-r7", r7, "-alloc", alloc,
+           "-audioidx", ",".join(str(k) for k in range(inst)),
+           "-inmask", str((1 << inst) - 1),
            "-frames", str(FRAMES), "-blocks", str(n // FRAMES),
-           "-in", str(src), "-out", str(out),
-           "-params", ",".join(str(x) for x in params(**kw))]
+           "-in", str(src), "-out", str(out)]
+    for _ in range(inst):
+        cmd += ["-params", pcsv]
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0:
         sys.exit(f"dsp_host failed for {kw}:\n{r.stdout}\n{r.stderr}")
-    w = struct.unpack(f"<{len(out.read_bytes()) // 4}i", out.read_bytes())
-    return list(w[0::2])[:n], list(w[1::2])[:n]
+    outs = []
+    for k in range(inst):
+        p = out if k == 0 else pathlib.Path(f"{out}.i{k}")
+        w = struct.unpack(f"<{len(p.read_bytes()) // 4}i", p.read_bytes())
+        outs.append((list(w[0::2])[:n], list(w[1::2])[:n]))
+        if k:
+            p.unlink(missing_ok=True)
+    return outs[0] if inst == 1 else outs
 
 
 FAILS = []
@@ -140,6 +159,32 @@ check("CLIP SOFT lowers peak", psoft < phot * 0.95, f"hot={phot} soft={psoft}")
 for name in K:
     render(ramp[:FRAMES * 4], **{name: 64})
 check("every named knob renders", True)
+
+# Max knobs, ~3 s: stay bounded, no runaway growth (CHAOS included).
+N_LONG = int(3.0 * FS)
+N_LONG -= N_LONG % FRAMES
+drive = [int(0.25 * (1 << 23) * __import__("math").sin(
+    2 * 3.14159265 * 220 * i / FS)) for i in range(N_LONG)]
+Lmax, Rmax = render(
+    drive, MIX=127, DRV=127, FOLD=127, CLIP=127, CRSH=127, FDBK=127,
+    MODE=2, TONE=127, RATE=127)
+peak = max(max(abs(x) for x in Lmax), max(abs(x) for x in Rmax))
+check(f"max-knob peak bounded ({peak} <= {RAIL})", peak <= RAIL)
+half = len(Lmax) // 2
+e0 = sum(abs(x) for x in Lmax[:half]) / half
+e1 = sum(abs(x) for x in Lmax[half:]) / half
+check(f"max-knob no runaway (late/early={e1 / e0 if e0 else 0:.2f} < 8)",
+      e0 > 0 and e1 < e0 * 8)
+
+# Two FX2 instances, same dear/hot knobs: both produce audio and stay on rail.
+pair = render(
+    tone, inst=2, MIX=127, DRV=100, FOLD=90, CLIP=40, CRSH=40, FDBK=40,
+    MODE=0, TONE=64, RATE=64)
+for i, (Li, Ri) in enumerate(pair):
+    pk = max(max(abs(x) for x in Li), max(abs(x) for x in Ri))
+    e = sum(abs(x) for x in Li[512:])
+    check(f"two-instance[{i}] has energy ({e})", e > 10_000)
+    check(f"two-instance[{i}] peak bounded ({pk} <= {RAIL})", pk <= RAIL)
 
 if FAILS:
     sys.exit(f"verify_shatter: {len(FAILS)} FAILED: {', '.join(FAILS)}")
