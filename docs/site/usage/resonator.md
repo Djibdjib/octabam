@@ -15,7 +15,9 @@ does not list it (id 0x1e); an FX2 instance is a dry pass.
 - GN1–GN4 set each band’s relative level (64 = unity when SCAL is 8).
 - PIT1–PIT4 set each band centre (~40 Hz to ~4 kHz).
 - SCAL on FX SETUP is the overall gain scale: 8 = tame, 127 ≈ the hot
-  build-TN makeup (~×16 at GN 64).
+  build-TN makeup (~×16 at GN 64). SCAL 127 hard-clips on ordinary
+  input levels (most samples at the rail); stay near 8 unless you want
+  that smash.
 - DECY high = narrower peaks / more bite (still short — not a reverb tail).
 - MIX 127 = bands only; MIX 0 = exact passthrough.
 

@@ -3,8 +3,10 @@ from remix.schema import Proof, Remix
 
 REMIX = Remix(
     family="effects",
-    proof=Proof.RENDER,
-    proof_note="render gates only; not on hardware",
+    proof=Proof.HARDWARE,
+    proof_note="Ilia's MKII, BUILD RR / RESON RR.RMX, 19 Oct 2026: page-1 "
+               "GN1–4/DECY/MIX, page-2 PIT1–4/SCAL 8 and 127, DECY low and "
+               "high, FX2 dry-pass, two FX1 instances",
     name="resonator",
     doc="RESONATOR on FX1 beside the stock effects (all but PLATE REV).",
     modules=("RESONATOR",

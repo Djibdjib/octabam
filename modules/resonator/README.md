@@ -53,8 +53,22 @@ the Part.
 
 ## Measured
 
-- Render gates in `tools/verify/verify_resonator.py` (incl. max-knob
-  boundedness and two FX1 instances).
+- Render gates in `tools/verify/verify_resonator.py` (incl. SCAL 8
+  max-knob rail fraction < 5%, no-runaway on SCAL 127, two FX1
+  instances).
+- **SCAL 127 hard-clips** at ordinary input levels (`dsp_host`, 220 Hz
+  tone, 3 s, one instance). Samples at the 24-bit rail:
+
+  | case | peak | at rail |
+  |---|---|---|
+  | SCAL 127, GN1–4 / DECY / MIX 127, input 0.25 | 1.00 FS | 93.8% |
+  | SCAL 127, other knobs default, input 0.25 | 1.00 FS | 88.7% |
+  | SCAL 127, GN 64, MIX 127, DECY 127, input 0.1 | 1.00 FS | 83% |
+  | SCAL 8, all other knobs max, input 0.25 | 1.00 FS | 1.5% |
+  | defaults, input 0.25 | 0.30 FS | 0% |
+
+  Late/early energy stays ~1.0 (no runaway). Prefer SCAL near 8 unless
+  you want the smash.
 - On hardware: Ilia's MKII, tip of PR #806 as **`RESON RR`** / BUILD RR,
   19 Oct 2026 — page-1 GN1–4, DECY low and high, MIX; page-2 PIT1–4;
   SCAL 8 and 127; FX2 dry-pass; two FX1 instances.

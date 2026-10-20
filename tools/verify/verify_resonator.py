@@ -17,7 +17,8 @@ FRAMES = 16
 FS = 44100.0
 TMP = pathlib.Path("out/_rsgate")
 TMP.mkdir(parents=True, exist_ok=True)
-# Signed 24-bit full-scale magnitude the host can store (incl. rail).
+# Signed 24-bit full-scale magnitude. peak<=RAIL is always true (24-bit out);
+# assert on the fraction of samples AT the rail instead.
 RAIL = 1 << 23
 
 pathlib.Path(MEM).unlink(missing_ok=True)
@@ -159,33 +160,48 @@ check(f"SCAL127 hotter than SCAL8 ({e_tn} > {e_tame})", e_tn > e_tame * 4)
 L, R = render(ramp, fx2=True, MIX=127)
 check("FX2 dry", L == ramp[:len(L)] and R == ramp[:len(R)])
 
-# Max knobs + PIT extremes, ~3 s: stay bounded, no runaway growth.
+def _rail_frac(L, R):
+    """Fraction of L/R samples whose |x| is at the 24-bit rail."""
+    n = len(L) + len(R)
+    if not n:
+        return 0.0
+    hit = sum(1 for x in L if abs(x) >= RAIL) + sum(1 for x in R if abs(x) >= RAIL)
+    return hit / n
+
+
+# SCAL 8 + every other knob max, ~3 s / 0.25 FS: rail fraction must stay low
+# (can fail). SCAL 127 hard-clips at ordinary levels — documented in README;
+# that case only checks no runaway growth.
 N_LONG = int(3.0 * FS)
 N_LONG -= N_LONG % FRAMES
 drive = tone(220, N_LONG, amp=0.25)
+Ltame, Rtame = render(
+    drive, MIX=127, SCAL=8, DECY=127,
+    GN1=127, GN2=127, GN3=127, GN4=127,
+    PIT1=0, PIT2=0, PIT3=127, PIT4=127)
+frac_tame = _rail_frac(Ltame, Rtame)
+check(f"SCAL8 max-knob rail frac {frac_tame:.1%} < 5%", frac_tame < 0.05)
+
 Lmax, Rmax = render(
     drive, MIX=127, SCAL=127, DECY=127,
     GN1=127, GN2=127, GN3=127, GN4=127,
     PIT1=0, PIT2=0, PIT3=127, PIT4=127)
-peak = max(max(abs(x) for x in Lmax), max(abs(x) for x in Rmax))
-check(f"max-knob peak bounded ({peak} <= {RAIL})", peak <= RAIL)
 half = len(Lmax) // 2
 e0 = sum(abs(x) for x in Lmax[:half]) / half
 e1 = sum(abs(x) for x in Lmax[half:]) / half
 check(f"max-knob no runaway (late/early={e1 / e0 if e0 else 0:.2f} < 4)",
       e0 > 0 and e1 < e0 * 4)
 
-# Two FX1 instances, same max knobs: both produce audio and stay on the rail.
+# Two FX1 instances, same knobs: both produce audio (rail fraction is the
+# one-instance SCAL8 gate above; stacking can clip harder at the same amp).
 pair = render(
     tone(330, N, amp=0.2), inst=2,
-    MIX=127, SCAL=127, DECY=127,
+    MIX=127, SCAL=8, DECY=127,
     GN1=127, GN2=127, GN3=127, GN4=127,
     PIT1=20, PIT2=60, PIT3=100, PIT4=120)
 for i, (Li, Ri) in enumerate(pair):
-    pk = max(max(abs(x) for x in Li), max(abs(x) for x in Ri))
     e = sum(abs(x) for x in Li[512:])
     check(f"two-instance[{i}] has energy ({e})", e > 10_000)
-    check(f"two-instance[{i}] peak bounded ({pk} <= {RAIL})", pk <= RAIL)
 
 if FAILS:
     sys.exit(f"{len(FAILS)} FAIL: {FAILS}")
