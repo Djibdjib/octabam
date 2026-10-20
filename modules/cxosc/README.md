@@ -1,20 +1,26 @@
 # `cxosc` — CX OSC
 
 Buchla-flavoured **complex oscillator** as a machine-list machine (sibling to
-SYNTH MACHINE). Local fork of Tim Hastie's FM SYNTH ColdFire engine
-(`modules/synth/upstream`); not an edit of that submodule.
+SYNTH MACHINE). Local fork of Tim Hastie's FM SYNTH ColdFire engine; not an
+edit of the `modules/synth` submodule. Provenance: `NOTICE`, `LICENSE-TIM`,
+and the `THIRD_PARTY.md` row.
 
 ## Select
 
 **FUNC + SRC** or **SELECT MACHINE TYPE** → **CX OSC** (sixth row). No marker
-file. Stored as FLEX with Part signature `"CX", 1` (same pattern as FM SYNTH
-2.15). At most one CX OSC track per Part (selection guard).
+file. Stored as FLEX with Part signature `"CX", 1`. At most **one CX OSC track
+per Part** (selection guard) — so **one track can sound** as CX OSC at a time
+on the active Part.
 
 ## Provenance
 
-Most of the voice / machine / page plumbing comes from FM SYNTH. CX-specific
-work: marker-less list row, FOLD + SYMM waveshape, free/snap RATO, harder
-FDBK, mono + stock LFOs (no VOIC/CHRD).
+| File | Upstream pin |
+|------|----------------|
+| `poly.s` | timhastie/octatrick-modules **v2.9** `525f4b1` |
+| `page.s`, `machine.s` | **v2.15** `17ba281` (`machine.s` via Modwerk FM Synth `1c1d938`) |
+
+CX-specific: marker-less list row, FOLD + SYMM waveshape, free/snap RATO,
+harder FDBK, mono + stock LFOs (no VOIC/CHRD).
 
 ## PLAYBACK
 
@@ -29,19 +35,29 @@ FDBK, mono + stock LFOs (no VOIC/CHRD).
 
 Mono only. Stock LFO page (all three LFOs). No VOIC/CHRD.
 
+## Cost
+
+Unicorn executed instructions for one mono CX OSC track (`tools/verify/verify_cxosc.py`,
+`sy_render`, base knobs; pitch curve stubbed — EMAC): **~1290 instructions/frame**
+(~81/sample), peak ~1293. Not hardware cycles. One track per Part by the
+selection guard; how that sits against ColdFire headroom on a loaded Part is
+**unmeasured** on the chip (same caveat as SYNTH MACHINE's lockstep figures).
+
 ## Conflicts
 
-**SYNTH MACHINE**, **ANALOG BD** — machine-list / page cave / kind table.
+**SYNTH MACHINE**, **ANALOG BD**, **BLACKPYRAMIDS_303** (shared ROM hooks such
+as MIDI note-on `0x4000e746`). The build refuses the pair.
 
-## Proof
+## Proof / hardware
 
-**Hardware** (author's MKII): CXOSC C10–C22 remix handoffs — machine select
-(after the `lea` name-table fix), PLAYBACK knobs including FOLD / SYMM / FDBK /
-free+snap RATO. Port: `make check REMIX=cxosc` and reach with `TESTS=1`.
+**Port:** `make check REMIX=cxosc` runs `verify_cxosc` (FOLD/SYMM/RATO/FDBK
+change the waveform; FOLD=SYMM=FDBK=127 stays off the rails).
 
-Measured: select no longer illegal-instructions at `fm_src_names`; fold bass
-moves with fold order. Inferred: non-monotonic lows under FOLD are sine-fold
-Chebyshev behaviour.
+**Hardware (author MKII):** image **BUILD C22**, commit **`144f9114`** (and
+later tips on this branch). Tried: machine select (after the `lea` name-table
+fix); each PLAYBACK knob (PTCH, RATO, INDX, FOLD, SYMM, FDBK); FUNC snaps on
+RATO. **Still to confirm on the unit and report here:** MIDI note-on,
+STOP/START, Part change.
 
 ## Build
 

@@ -1,43 +1,26 @@
-| SYNTH MACHINE -- the machine list (2.10, 8 Oct 2026; table-driven since 2.11): CX OSC
-| is the sixth row of the machine window (the track key twice, LEFT: SELECT MACHINE TYPE)
-| and of SRC SETUP (FUNC + SRC); a machine module that runs on this engine adds the next
-| row (2.11: SY DRUM, sy-drum/). GNU as, -mcpu=5475; a DRAM unit linked beside poly.s
-| (modules/synth/manifest.py, Linked "fmmachine").
+| CX OSC -- machine list row (sixth after the stock five). GNU as, -mcpu=5475;
+| DRAM unit linked beside poly.s (modules/cxosc/manifest.py, Linked
+| "fmmachine"). Signature "CX", 1. From Tim Hastie's v2.15 machine.s
+| (timhastie/octatrick-modules 17ba281, MIT), itself adapted from Modwerk's
+| FM Synth (repeat98/modwerk @ 1c1d938, MIT, Copyright (c) 2026 Modwerk
+| contributors). See modules/cxosc/NOTICE.
 |
-| THE ROWS (2.11). ml_rows lists the rows after the stock five, one row descriptor each,
-| assembled per remix (remix.inc: CX OSC always, SY DRUM when HAVE_SYDRUM); ML_COUNT is
-| their number. A row descriptor (20 bytes): +0 its signature (two letters and a version,
-| "FM", 1), +3 the engine kind po_signed answers for it (1 FM, 2 SY), +4 its name, +8 its
-| twelve seed bytes (6 PLAYBACK, 6 SETUP), +12 a routine returning its PLAYBACK descriptor
-| in d0 (SRC SETUP's page for that row; clobbers d0/d1/a0/a1), +16 flags (bit 0: its SETUP
-| bytes are not FLEX's; 2.12: not read -- leaving a row resets the FLEX bytes anyway). The
-| stock code's row-count and row-bound constants (five machines, rows 0..4) are not poked:
-| six small detours take 5 + ML_COUNT and 4 + ML_COUNT, so the same sites serve any number
-| of rows and a second machine module needs no site of its own. With CX OSC alone every
-| list behaves as 2.10's (six rows).
+| THE ROWS. ml_rows lists rows after the stock five (remix.inc: CX OSC
+| always; SY DRUM when HAVE_SYDRUM). A row descriptor (20 bytes): +0
+| signature ("CX", 1), +3 engine kind, +4 name, +8 twelve seed bytes,
+| +12 PLAYBACK descriptor routine, +16 flags. Detours take 5+ML_COUNT so
+| several machine modules share the sites.
 |
-| Adapted from Modwerk's FM Synth module (repeat98/modwerk, sdk/octabam/modules/synth:
-| machine.s and registration.c, commit 1c1d938; MIT, Copyright (c) 2026 Modwerk
-| contributors -- the dedicated chooser, the Part validation and the sample-free
-| transport; derived there from Modwerk's Analog BD chooser hooks). Their C helpers are
-| written out here by hand; the stubs keep their hook sites and register contracts.
-| Changed for this repository: the machine window's commit shares its site with
-| po_machwin (poly.s: one detour at 0x40079816 does both jobs); the PLAYBACK page of a
-| chosen track is resolved by page.s's pg_resolve (no second resolver detour); the
-| refusal path is this repository's selection guard (2.15, below), not Modwerk's; the
-| six-row name table is filled at run time from the stock one; until 2.14 a track that played the FM voice
-| through a marker file kept its patch when CX OSC was chosen over it (2.15: the marker path is off).
+| Chooser / Part validation / sample-free transport keep Modwerk's hook
+| sites and register contracts (written out in asm). This tree: machine
+| window commit shares 0x40079816 with po_machwin; PLAYBACK via page.s
+| pg_resolve; selection guard below (not Modwerk's); name table filled
+| at run time; marker path off.
 |
-| THE STORAGE. A chosen track is stored as FLEX (the machine byte 1, so every stock
-| FLEX path -- the PLAYBACK lanes, locks, LFOs, scenes, the DSP voice -- stays valid)
-| with the signature "F", "M", 1 in the first three bytes of the track's NEIGHBOR
-| PLAYBACK column: the bank blob + part * 6322 + 0x8edbc + 30 * track, and the same
-| offset in the battery-RAM shadow. NEIGHBOR has no sample and its six PLAYBACK bytes
-| are never written for a FLEX track; the stock validator's NEIGHBOR range is 0..127,
-| so "F" (70), "M" (77) and 1 survive a load. A Part is saved, copied, pasted and
-| reloaded with its signature like any other Part byte. Choosing CX OSC on a track
-| that does not play the FM voice yet seeds the FLEX PLAYBACK bytes with PTCH 0, RATO
-| 1, INDX 32, FOLD 1, SYMM 0, FDBK 0 and the FLEX SETUP bytes with 0 (LOOP, SLIC,
+| THE STORAGE. Chosen track = FLEX (machine byte 1) with signature
+| "C", "X", 1 in NEIGHBOR PLAYBACK: bank + part * 6322 + 0x8edbc + 30 *
+| track (and the battery-RAM shadow). Seed PLAYBACK: PTCH 0, RATO 1,
+| INDX 32, FOLD 1, SYMM 0, FDBK 0; SETUP 0 (LOOP, SLIC,
 | LEN, RATE, TSTR, TSNS: OFF); choosing it again keeps the patch; choosing any other
 | row clears the signature.
 |

@@ -1,31 +1,19 @@
-| SYNTH MACHINE -- the FM voice engine as a DRAM unit, phase 5: paraphonic
-| chords (24 Sep 2026). GNU as, -mcpu=5475. Linked by the build into the
-| platform runtime at the base of the arena reserve (docs/remixer/
-| PLACEMENT.md); the kind table's FLEX entry 0x400d6438 is pointed at
-| sy_render by a "ptr" detour (modules/synth/manifest.py). synth.s, the ROM
-| cave this grew out of, is kept beside it for the record: everything under
-| "the mono voice" below is that cave's code; at VOIC 1 the steady samples
-| are the same, bit for bit, the note's start is not (clicks, see below).
+| CX OSC -- Buchla-flavoured complex oscillator as a DRAM unit (mono).
+| GNU as, -mcpu=5475. Linked into the platform runtime; the kind table's
+| FLEX/STATIC entries point at sy_render (modules/cxosc/manifest.py).
+| Signature "CX", 1 in the Part's NEIGHBOR PLAYBACK column. Forked from
+| Tim Hastie's FM SYNTH poly.s (timhastie/octatrick-modules v2.9 =
+| 525f4b1, MIT); see modules/cxosc/NOTICE.
 |
-| WHAT (phases 1-4, unchanged): a FLEX track whose sample is named SYNTH* has
-| its sample data GENERATED here every frame instead of taken from the flex
-| pool -- a two-operator FM voice at the final pitch, 16 samples a frame at
-| rate 1.0 (the DSP's resampler is an identity), carrier = sin(phi_c + I *
-| sin(phi_m + fb * m_prev)); the PLAYBACK page's other slots are RATIO
-| (STRT), INDEX (LEN), FEEDBACK (RTRG), DECAY (RTIM); PTCH and RATE go
-| through the stock renderer's own rate arithmetic; GLIDE (the project
-| setting at GLIDE_AT) slews the pitch. The stock renderer is still called
-| around every frame (the voice lifecycle, streaming and the record's
-| headers are its), with PTCH := 0 and RATE := 1.0 for the call.
+| WHAT: a FLEX track with CX OSC chosen generates a two-operator FM voice
+| every frame (16 samples, rate 1.0): carrier = sin(phi_c + I *
+| sin(phi_m + fb * m_prev)), then a sine fold with symmetry.
+| PLAYBACK: PTCH RATO INDX FOLD SYMM FDBK. RATO is free 0.25..4 (FUNC snaps
+| the classic table). FDBK scales to ~1 cycle at 127. Mono only -- T_POLY
+| is cleared; stock LFO page (no VOIC/CHRD). GLIDE still slews pitch.
 |
-| PARAPHONIC (phase 5). VOIC, the LFO page's slot 2 on a synth track (SPD3's
-| byte, the page names it VOIC: 1..4, a stock or out-of-range byte reads 1),
-| is the switch: at 1 the track is the mono synth of phase 4 (this file's
-| mono path, GLIDE legato, the stock voice lifecycle, bit for bit); at 2..4
-| a voice START makes the track paraphonic (T_POLY, latched per note): that
-| many voices, each with its own phases, index envelope, slewed pitch and
-| amplitude envelope, summed into the track's one source stream, each at
-| 1/VOIC of the mono voice's level (28 Sep 2026; half level before):
+| (The upstream file also described paraphonic VOIC/CHRD paths retained in
+| the source for provenance; CX OSC never arms them. Opening of that block:)
 |   * a voice START (the packer's event bit 4: a sequencer trig or a live
 |     CHROMATIC key) allocates one voice per note of the CHORD SHAPE --
 |     the track's LFO page slot 5 byte (DEP3's storage, the "current value"

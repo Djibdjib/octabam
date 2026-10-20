@@ -1,33 +1,17 @@
-| SYNTH MACHINE -- ColdFire code cave, phase 3: the page (22 Sep 2026). GNU as,
-| -mcpu=5475. PINNED at 0x400d24d0 (the second zero run): the override list
-| below (pg_over) carries absolute pointers to the formatters and widgets, so
-| the bytes depend on the address.
+| CX OSC -- ColdFire page cave. GNU as, -mcpu=5475. PINNED at 0x400d24d0:
+| the override list (pg_over) carries absolute pointers to the formatters
+| and widgets, so the bytes depend on the address. Forked from Tim Hastie's
+| FM SYNTH page.s (timhastie/octatrick-modules v2.15 = 17ba281, MIT); see
+| modules/cxosc/NOTICE. Resolved when the track is CX OSC (signature
+| "CX", 1), not by a marker filename.
 |
-| WHAT: when the current track's FLEX slot holds an CXOSC*- (or CXOSC*-) named sample, the
-| PLAYBACK page presents the FM voice instead of a sample player -- the slot
-| names read PTCH RATO INDX FOLD SYMM FDBK (four characters: the boxes are 19 px), the values format as the voice
-| understands them (RATIO free 0.25..16 from raw, INDEX and FDBK
-| 0..127, DECAY as "HOLD" / the milliseconds alone / "1.1s" -- four characters
-| at most, the width of the value field), the four synth slots show their
-| value all the time (Digitone style) and draw an icon where the sample dial
-| was: two operator boxes, the modulator feeding the carrier (RATIO), a
-| sideband spectrum whose bars grow with the index (INDEX), the modulator's
-| box with its feedback loop, drawn when FDBK > 0 (FDBK), and the index
-| envelope, a falling curve whose length follows the value (DECAY). Every
-| icon keeps two pixels clear of the box's dividers (23 Sep 2026: the first
-| icons carried M and C letters, ran to the edges and crowded the boxes). The
-| footer reads CX OSC>FLEX. THE TUNING SYSTEM (27 Sep 2026): PTCH is
-| semitones on a synth track -- range 0..127 = -64..+63, one raw unit a
-| semitone (the engine, poly.s sy_word, reads it so), printed as a signed
-| whole number ("-12", "0", "+7"; the stock formatter's "+7.0" and its
-| 5-units-a-semitone stay on sample tracks) in place of the stock
-| semitone-snapping accumulator; RATE is FINE, -64..+63 cents (raw 64 = 0,
-| "+12c"), default 64. THE KNOBS (30 Sep 2026): all six slots' handlers are
-| poly.s's po_knob, planted by po_pgdesc when it finishes the clone -- one unit
-| a detent, seven with the knob pressed, and with FUNC held PTCH 12 semitones,
-| FINE 10 cents, INDX/FDBK/DEC 16, RATO the next classic table ratio (0.25..16
-| incl. 1.01 1.41 2.01 …). Non-synth tracks and every other page draw exactly
-| as stock.
+| WHAT: PLAYBACK presents PTCH RATO INDX FOLD SYMM FDBK (four-character
+| names; boxes 19 px). RATO formats free 0.25..4; INDX/FOLD/SYMM/FDBK
+| 0..127. Icons: operators (RATO), sidebands (INDX), fold/symmetry, FDBK
+| loop. Footer CX OSC>FLEX. PTCH is semitones (−64..+63); RATE slot is
+| FOLD (not FINE). Knobs: po_knob — one unit a detent, seven pressed;
+| FUNC: PTCH 12 semitones, FOLD/SYMM/INDX/FDBK 16, RATO next classic
+| snap ≤4.01. Non-CX tracks draw as stock.
 |
 | HOW: the page descriptor resolver 0x40031da4(track, page kind) returns
 | tbl[machine] for the PLAYBACK page at 0x40031ece (`movel %a0@(0,%d0:l:4),%d0;

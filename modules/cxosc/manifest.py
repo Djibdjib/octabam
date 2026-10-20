@@ -4,12 +4,13 @@ Choose CX OSC in FUNC+SRC / SELECT MACHINE TYPE (FLEX + Part signature "CX",1).
 Mono only; stock LFO page (no VOIC/CHRD). PLAYBACK: PTCH RATO INDX FOLD SYMM FDBK.
 
 Machine list adapted from timhastie/octatrick-modules v2.15 SYNTH MACHINE
-(MIT / Modwerk chooser lineage). Conflicts with SYNTH MACHINE and ANALOG BD.
+(MIT / Modwerk chooser lineage). Conflicts with SYNTH MACHINE, ANALOG BD,
+and BLACKPYRAMIDS_303.
 """
 
 import os
 
-from remix.schema import CavePatch, Detour, Kind, Linked, Module, Proof, SymbolRef, Category
+from remix.schema import CavePatch, Detour, Gate, Kind, Linked, Module, Proof, SymbolRef, Category
 
 _HERE = os.path.relpath(os.path.dirname(os.path.realpath(__file__)))
 
@@ -227,11 +228,20 @@ MODULE = Module(
     author="ilia-murzinov",
     author_url="https://github.com/ilia-murzinov",
     proof=Proof.HARDWARE,
-    proof_note="MKII: CXOSC C10–C22 handoffs — select, PLAYBACK (FOLD/SYMM/FDBK/RATO), lea name-table fix; port check green",
+    proof_note=(
+        "MKII BUILD C22 @ 144f9114 (author): machine select after lea name-table fix; "
+        "each PLAYBACK knob (PTCH RATO INDX FOLD SYMM FDBK); FUNC RATO snaps. "
+        "Awaiting author re-check: MIDI note-on, STOP/START, Part change — see README. "
+        "Port: verify_cxosc + make check REMIX=cxosc"
+    ),
     doc="CX OSC in the machine list (no marker file): PTCH RATO INDX FOLD SYMM FDBK, mono, stock LFOs. Local fork of FM SYNTH.",
     conflicts=(
         ("SYNTH MACHINE", "both own the FLEX/STATIC kind-table renderers, page cave 0x400d24d0, and machine-list sites"),
         ("ANALOG BD", "both own the machine list rows after PICKUP"),
+        ("BLACKPYRAMIDS_303", "shares ColdFire ROM hooks (e.g. MIDI note-on 0x4000e746) — build refuses the pair"),
+    ),
+    gates=(
+        Gate("tools/verify/verify_cxosc.py", remix_arg=False, venv=True, stage="image"),
     ),
     linked=(
         Linked("poly", os.path.join(_HERE, "poly.s"), cpu="5475", dram=True),
