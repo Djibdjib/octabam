@@ -50,5 +50,3 @@ from the chooser. In Octabam Inserts only.
 | Setup | MIX | dry/wet; 0 is an exact dry passthrough |
 
 SEQUENCER EVENTS coordinates PLAY/resume notifications with other selected modules. EUCLID retains its own phase-reset policy.
-
-Hardware regression instructions: see `docs/testing/sequencer-events-hardware.md` in the source checkout. The matching private package includes a prepared project and a results checklist.
