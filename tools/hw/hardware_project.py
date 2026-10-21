@@ -23,6 +23,10 @@ def prepare(source, destination, remix, effects, patterns):
         raise ValueError(f'Output already exists: {destination}; choose a fresh directory')
     if source == destination or source in destination.parents:
         raise ValueError('Output must be separate from the source project')
+    selected = {m.key for m in registry.selected(registry.remix(remix))}
+    missing = {key for _, _, key, _ in effects} - selected
+    if missing:
+        raise ValueError(f'Effects absent from {remix}: {sorted(missing)}')
     before = {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
               for p in source.iterdir() if p.is_file()}
     ab_fixture.prepare(source, destination)
