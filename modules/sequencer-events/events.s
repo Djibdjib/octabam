@@ -1,7 +1,8 @@
 /* One owner of the native boundaries. All saved state lives on the stack.
  * Callbacks may clobber d0-d7/a0-a6, but must preserve SP and interrupt mask.
  * start/resume: d0 = native PLAYING value, after it is published.
- * midi_sent: d0 = track, d1 = native pool kind, d2 = velocity, d3 = pitch.
+ * midi_note_accepted: d0 = track, d1 = native pool kind, d2 = packet velocity, d3 = packet note.
+ * Per accepted sequencer voice, after send and before ownership bookkeeping.
  * Output acceptance is not evidence that an external device received MIDI.
  */
     .text
@@ -55,8 +56,8 @@ seq_sent:
     moveq #0,%d2
     move.b 0x400d807e,%d2
     moveq #0,%d3
-    move.b 0x400d807c,%d3
-    lea seq_ev_midi_sent,%a0
+    move.b 0x400d807d,%d3
+    lea seq_ev_midi_note_accepted,%a0
     bsr.w seq_fire
 seq_sent_done:
     REST

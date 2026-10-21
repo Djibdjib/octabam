@@ -2,8 +2,9 @@
 """Execute available platform dispatchers with zero, one and three unrelated clients.
 
 Assembles the production sources with synthetic registrations, then substitutes
-only client callbacks and native continuation/copy boundaries. Separate module
-and image gates verify real clients and native data behavior.
+client callbacks and native continuation/copy boundaries. A second pass runs
+the native MIDI arbitration and packet construction with only the sender stubbed.
+Separate module and image gates verify real clients and installed hooks.
 """
 from pathlib import Path
 import runpy
@@ -45,7 +46,7 @@ class Fixture:
         include = fn(keys)
         assert not any(f'test{i}_' in fn(()) for i in range(count)), 'absent clients must be omitted'
         self.callbacks = {}
-        suffixes = ('start', 'resume', 'midi_sent') if slug == 'sequencer-events' else ('claim','handle','copy_pre','copy_post')
+        suffixes = events if slug == 'sequencer-events' else ('claim','handle','copy_pre','copy_post')
         for i in range(count):
             for suffix in suffixes:
                 address = 0x47002000 + len(self.callbacks)*16
@@ -66,6 +67,7 @@ class Fixture:
         u.mem_write(DONE-16,bytes.fromhex('40c7'))
         self.log=[];self.claims=set();self.arrived=None;self.stop=DONE
         self.native_count=0
+        self.sent=None
         u.hook_add(UC_HOOK_CODE,self.hook)
 
     def ret(self,result=None):
@@ -81,6 +83,9 @@ class Fixture:
             client,event=self.callbacks[pc]
             args=tuple(u.reg_read(r) for r in REGS[:4])
             self.log.append((client,event,args))
+            if event=='midi_note_accepted' and self.sent is not None:
+                assert self.sent, 'notification must follow native send'
+                assert args[2:] == (self.sent[-1][2],self.sent[-1][1])
             if event=='handle':
                 assert [u.reg_read(r) for r in REGS]==self.before, 'handler native registers'
                 assert u.reg_read(UC_M68K_REG_A7)==STACK, 'handler native stack'
@@ -92,6 +97,12 @@ class Fixture:
                 assert bytes(u.mem_read(0x47005000,4))==b'new!'
             for i,r in enumerate(REGS):u.reg_write(r,0xdead0000+i)
             self.ret(int(client in self.claims) if event=='claim' else 0xabcdef01)
+        elif pc==0x40010bc8 and self.sent is not None:
+            sp=u.reg_read(UC_M68K_REG_A7)
+            length,address=struct.unpack('>II',u.mem_read(sp+4,8))
+            assert length==3
+            self.sent.append(bytes(u.mem_read(address,length)))
+            self.ret()
         elif pc==0x40020898:
             self.native_count+=1
             sp=u.reg_read(UC_M68K_REG_A7)
@@ -117,6 +128,77 @@ class Fixture:
         assert self.uc.reg_read(UC_M68K_REG_A7)==sp
 
 
+
+def native_midi_cases(work, count):
+    """Run stock packet construction/arbitration, not a model of its decisions.
+
+    Enter after native track/mute/channel selection with a prepared note pool;
+    stop after the first voice. The sender records packets instead of using UART.
+    No proprietary bytes are embedded here: load the user's reconstructed image.
+    """
+    f=Fixture('sequencer-events',count,work);u=f.uc
+    raw=(ROOT/'out/raw/section_3_MAIN_OS.bin').read_bytes()
+    start,end=0x4009faba,0x4009fd6e
+    u.mem_write(start,raw[start-0x40000400:end-0x40000400])
+    declaration=runpy.run_path(str(ROOT/'modules/sequencer-events/manifest.py'))
+    for detour in declaration['MODULE'].detours:
+        if start <= detour.site < end:
+            offset=detour.site-0x40000400
+            assert raw[offset:offset+len(detour.expect)]==detour.expect
+            u.mem_write(detour.site,b'\x4e\xf9'+f.sym[detour.symbol].to_bytes(4,'big'))
+    f.sym['native_note']=start
+    frame,lane,config,active=0x47006000,0x47004000,0x47005000,0x47005500
+    cases=0
+    for track in (0,3,7):
+        for channel,pitch in ((0,0),(6,61),(15,127)):
+            for pool in (0,1):
+                for mode in ('free','replace','live_replace','reserved','lower_priority','zero_velocity','invalid_note'):
+                    if mode=='replace' and track==7: continue
+                    if mode=='lower_priority' and track==0: continue
+                    u.mem_write(0x46c70000,bytes(0x20000))
+                    u.mem_write(lane,bytes(0x300))
+                    u.mem_write(config,bytes(0x100))
+                    u.mem_write(frame-80,bytes(80))
+                    u.mem_write(active,b'\0')
+                    velocity=0 if mode=='zero_velocity' else 93
+                    note=255 if mode=='invalid_note' else pitch
+                    u.mem_write(lane+0x221,bytes((velocity,)))
+                    u.mem_write(lane+0x22c,b'\x40')  # neutral native transpose
+                    u.mem_write(frame-4,bytes((note,255,255,255)))
+                    u.mem_write(frame-12,struct.pack('>I',active))
+                    u.mem_write(0x46c77b1e+10*track,bytes((pool,)))
+                    owner=255
+                    if mode=='replace': owner=4*(track+1)
+                    if mode=='live_replace': owner=4
+                    if mode=='reserved': owner=32
+                    if mode=='lower_priority': owner=0
+                    owner_address=0x46c78152+128*channel+pitch
+                    u.mem_write(owner_address,bytes((owner,)))
+                    if mode in ('replace','live_replace'):
+                        previous=(0x46c7a1a0 if mode=='live_replace' else 0x46c77a16)+8*owner
+                        u.mem_write(previous,struct.pack('>II',0xffffff90|channel,pitch))
+                    if mode=='live_replace':
+                        mask_address=0x46c79eba+4*(4*channel+(pitch>>5))
+                        u.mem_write(mask_address,struct.pack('>I',1<<(pitch&31)))
+                    # Poison the old packet: native code must construct all three bytes.
+                    u.mem_write(0x400d807c,bytes((0xc2,17,9,0,0,0)))
+                    f.sent=[]
+                    stop=end if velocity==0 else 0x4009fd2a
+                    f.call('native_note',stop,values={5:channel,7:track,8:config,13:lane,14:frame})
+                    accepted=mode in ('free','replace','live_replace')
+                    want=[(i,'midi_note_accepted',(track,pool,velocity,pitch)) for i in range(count)] if accepted else []
+                    assert f.log==want,(mode,track,channel,pool,f.log,want)
+                    assert len(f.sent)==(2 if mode in ('replace','live_replace') else int(accepted)), (mode,f.sent)
+                    if accepted:
+                        assert f.sent[-1]==bytes((0x90|channel,pitch,velocity))
+                        assert bytes(u.mem_read(owner_address,1))==bytes((4*track,))
+                        assert bytes(u.mem_read(0x46c77a16+32*track,8))==struct.pack('>II',0xffffff90|channel,pitch)
+                        assert bytes(u.mem_read(active,1))==b'\x01'
+                    assert u.reg_read(UC_M68K_REG_A7)==STACK, 'native stack cleanup'
+                    cases+=1
+    return cases
+
+
 def main():
     cases=0
     with tempfile.TemporaryDirectory(prefix='octabam-system-events-') as td:
@@ -135,12 +217,16 @@ def main():
                     for pool in (0,1):
                         for velocity in (0,100):
                             u.mem_write(0x46c77b1e+10*track,bytes((pool,)))
-                            u.mem_write(0x400d807c,b'\xc0');u.mem_write(0x400d807e,bytes((velocity,)))
+                            # Status and note must differ: the callback exposes the note,
+                            # while the displaced native instruction still reads status.
+                            pitch = (track * 17 + pool * 11 + velocity) % 128
+                            status = 0x90 | (track % 16)
+                            u.mem_write(0x400d807c,bytes((status,pitch,velocity)))
                             for name,stop,changed in (('seq_sent_a',0x4009fbb8,1),('seq_sent_b',0x4009fd00,0)):
                                 f.call(name,stop,values={7:track})
-                                want=[(i,'midi_sent',(track,pool,velocity,192)) for i in range(count)] if track<8 else []
+                                want=[(i,'midi_note_accepted',(track,pool,velocity,pitch)) for i in range(count)] if track<8 else []
                                 assert f.log==want,(f.log,want)
-                                f.preserved({changed:0xffffffc0});cases+=1
+                                f.preserved({changed:0xffffff00 | status});cases+=1
             if (ROOT/'modules/edit-events/manifest.py').exists():
                 f=Fixture('edit-events',count,work);u=f.uc
                 u.mem_write(0x47005000,b'old!');u.mem_write(0x47005100,b'new!')
@@ -158,6 +244,12 @@ def main():
                     if claims:f.preserved({0:91},STACK+4)
                     else:f.preserved(sp=STACK-80)
                     cases+=1
+    native_cases=0
+    if (ROOT/'modules/sequencer-events/manifest.py').exists():
+        with tempfile.TemporaryDirectory(prefix='octabam-native-events-') as td:
+            for count in (0,1,3):
+                native_cases+=native_midi_cases(Path(td),count)
+        print(f'[ok] {native_cases} native MIDI cases: packet payloads, free/replacement ownership, rejected notes, zero velocity and native continuation')
     print(f'[ok] {cases} assembled cases for available dispatchers: 0/1/3 unrelated clients, register preservation, ordering and native boundaries')
 
 if __name__=='__main__':main()

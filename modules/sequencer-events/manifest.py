@@ -1,7 +1,7 @@
 """Shared native sequencer boundaries; clients own their musical policies."""
 from remix.schema import Category, Detour, Gate, Kind, Linked, Module, Proof
 
-EVENTS = ('start', 'resume', 'midi_sent')
+EVENTS = ('start', 'resume', 'midi_note_accepted')
 # Build-time registration, following STORE. Tuple order is callback order.
 # No handler may emit MIDI or re-enter the sequencer from these notifications.
 CLIENTS = (
