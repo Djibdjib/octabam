@@ -27,10 +27,10 @@ KIND_TABLE_FLEX = 0x400D6438             # the kind table's FLEX entry (kind 1)
 STOCK_RENDERER = 0x40004008              # its stock value, the sample renderer
 RESOLVER_HOOK = 0x40031ECE               # `move.l 0(a0,d0.l*4),d0; bra.s 0x40031ed6`
 RESOLVER_STOCK = H("20300c00" "6002")
-# dEVILish (modules/devilish, proposed in its own PR after this one) is a separate FX module; when a
+# dEVILish (modules/devilish) is a separate FX module; when a
 # remix carries it, OCTA303's unit learns its FX id through remix.inc, and without it DEVIL_ID is 0x100,
 # which no id byte equals: every 303 track is then the classic one.  0x10 is the id dEVILish claims
-# (PHASER's, with replaces); test_octa303 checks the two agree once modules/devilish exists.
+# (PHASER's, with replaces); test_octa303 checks the two agree.
 DEVIL_ID = 0x10
 
 

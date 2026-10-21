@@ -203,6 +203,5 @@ port: select and edit, unsign, the validator; needs `OT_PROJECT`), both in the m
 
 The manifest declares it in conflict with SYNTH MACHINE, ANALOG BD and BLACKPYRAMIDS_303 (the same
 machine row and FLEX seams); `make modules` shows the matrix. The Devil Fish knobs need the companion
-FX module `devilish`, proposed in its own PR after this one; without it every OCTA303 track is the
-plain 303. Passed in `make check REMIX=acidtrack` on the
+FX module [`devilish`](../devilish/README.md); without it every OCTA303 track is the plain 303. Passed in `make check REMIX=acidtrack` on the
 author's tree, 20 Oct 2026.
