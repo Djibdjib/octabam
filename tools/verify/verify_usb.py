@@ -151,6 +151,12 @@ def cs1_boot(image):
     return out.read_bytes()
 
 
+def has_early_slot(early):
+    """True when some early setting has a CS1 offset: a remix whose USB settings are all
+    fixed values or pins has `early` entries without one, and no block to write."""
+    return any(at is not None for _m, _s, at in early)
+
+
 def _cs1_lay(cs1, base, early, resolved, overrides):
     """The early block into `cs1` (a bytearray from 0x10000000)."""
     cs1[base - 0x10000000] = 0xea
@@ -545,7 +551,7 @@ def main():
     # renumber (AC 1 / AS 2 / IN 3), and the 22-channel row the
     # bInterval-1 endpoint.
     base, early, resolved = early_block(remix, mods)
-    if base and usb:
+    if base and usb and has_early_slot(early):
         # (tag, trk, main, cue, master, in, midi) as the block's value bytes
         rows = [
             ("TRACKS PRE", 1, 0, 0, 0, 0, 1),
@@ -645,7 +651,7 @@ def main():
                 rc = -1
             check(f"runtime {tag}: the port exited cleanly", rc == 0, f"exit {rc}")
     else:
-        print("  [SKIP] runtime: no brain, or no USB module (the resolved values stand)")
+        print("  [SKIP] runtime: no brain, no USB module, or no USB setting with an early CS1 entry (the resolved values stand)")
     print(f"verify_usb: {'OK' if not fails else str(len(fails)) + ' FAILED'} ({log})")
     return 1 if fails else 0
 
