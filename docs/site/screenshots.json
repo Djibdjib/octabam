@@ -841,5 +841,21 @@
       "source": "emulator panel UART",
       "firmware_sha256": "13c82691d05aee0a4329b5a5ded7ad126c31a5de26cef0c7ca650748e027f9af"
     }
+  },
+  "void": {
+    "setup": {
+      "image": "void/setup.png",
+      "caption": "VOID: effect selection and setup parameters.",
+      "remix": "void",
+      "source": "emulator panel UART",
+      "firmware_sha256": "0057aee76367bd82548e35cc3b804a4f8a5a98d8f9f6272a3fe42a88081ffd0d"
+    },
+    "main": {
+      "image": "void/main.png",
+      "caption": "VOID: main parameter page.",
+      "remix": "void",
+      "source": "emulator panel UART",
+      "firmware_sha256": "0057aee76367bd82548e35cc3b804a4f8a5a98d8f9f6272a3fe42a88081ffd0d"
+    }
   }
 }
