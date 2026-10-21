@@ -21,17 +21,20 @@ while stopped, it applies at once and PLAY starts it from step 1.
   pattern T_n plays as the current one, and a change it has queued as a
   queued one.
 - When the current track plays its own pattern, outside GRID REC its
-  trig keys blink that pattern's trigs slowly over the running light. In
+  trig keys blink that pattern's trigs slowly over the running light,
+  from the 16 steps its playhead is in. In
   GRID REC the trigs shown are still the global pattern's (the ones the
   keys edit), and they blink slowly as a warning that this track does not
   play them.
 
 ## Limits
 
-- The track loops at its own pattern's length; tempo, track speed and
-  the sound stay the playing pattern's and Part's.
+- The track loops at its own pattern's length under SCALE MODE PER
+  TRACK, inside the global pattern's MASTER LENGTH; under NORMAL every
+  track wraps at the global pattern's length. Tempo, track speed and the
+  sound stay the playing pattern's and Part's.
 - Editing and recording address the global pattern.
 - Not saved: after a reload or a power cycle every track follows the
   global pattern again.
-- Not run in one image with Kits or either Direct Jump module: take one
-  per remix.
+- Run beside Kits and Direct Jump (Kyoti) under the emulator only so far
+  (`trackpatterns-core`); not yet on a unit.

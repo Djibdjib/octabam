@@ -1070,9 +1070,12 @@ tp_leds:
 	and.l #67108864,%d0
 	tst.l %d0
 	jne .L226
-	move.l 1175264772,%d2
-	moveq #15,%d5
+	move.l %d3,%a0
+	add.l #-2147457840,%a0
+	mvz.b (%a0),%d2
 	mvz.b -2147457603,%d4
+	moveq #15,%d5
+	lsr.l #4,%d2
 	cmp.l %d4,%d5
 	jcs .L243
 	move.l #635712,%d5

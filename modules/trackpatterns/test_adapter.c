@@ -30,6 +30,7 @@ static uint8_t leds[17];               /* steady LED bits at 0x460ba98c */
 static uint8_t slots[4 * 14];          /* LED callbacks at 0x460e762c + 14 * slot */
 static uint8_t ui[5];                  /* track 0x100b14cc .. pattern 0x100b14d0 */
 static uint8_t page[4], grid_rec[4], trig_mode[4], timer[4], light_track[4];
+static uint8_t counters[16];           /* the step counters at 0x800064d0 */
 
 volatile uint8_t *tp_host_addr(uint32_t a) {
     if (a >= 0x80006500u && a < 0x80006500u + sizeof seq) return seq + (a - 0x80006500u);
@@ -40,6 +41,7 @@ volatile uint8_t *tp_host_addr(uint32_t a) {
     if (a >= 0x100b14ccu && a < 0x100b14ccu + sizeof ui) return ui + (a - 0x100b14ccu);
     if (a == 0x80000012u) return midi_mode;
     if (a == 0x80000000u) return light_track;
+    if (a >= 0x800064d0u && a < 0x800064e0u) return counters + (a - 0x800064d0u);
     if (a == 0x460d1e04u) return page;
     if (a == 0x460d1736u) return grid_rec;
     if (a == 0x460d16f0u) return trig_mode;
@@ -251,7 +253,13 @@ int main(void) {
     set32(page, 1);
     set_leds("\x0c\0\0\0");
     tp_leds(1);
-    CHECK(leds_are(0x0d, 0, 0, 0), "page 2: step 17");
+    CHECK(leds_are(0x1c, 0x10, 0x10, 0x10), "GRID REC's page is not followed outside it: the playhead's page 1");
+    set32(page, 0);
+    counters[0] = 16;                                     /* T1's playhead on step 17 */
+    set_leds("\x0c\0\0\0");
+    tp_leds(1);
+    CHECK(leds_are(0x0d, 0, 0, 0), "the playhead on steps 17-32: page 2, step 17");
+    counters[0] = 0;
     set32(page, 0);
     set32(trig_mode, 1);
     set_leds("\x33\x33\x33\x33");

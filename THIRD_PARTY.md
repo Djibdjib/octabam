@@ -59,6 +59,7 @@ in the tree. The recordings are not redistributed: the fits are numbers in the m
 | Roland, TB-303 service notes | the DECAY range, the ENV MOD taper, the slide capacitor | © Roland; values only | `modules/octa303` |
 | Tim Hastie, SYNTH MACHINE 2.9, https://github.com/timhastie/octatrick-modules (`v2.9` = `525f4b1`) | the FLEX integration re-done for one voice (the renderer call `sy_render(track, ping, start, end)`, START resolution, PTCH/RATE neutral, pinned positions, the clean retrig byte, the PLAYBACK page clone) and the semitone tuning system; `octa303.s` is written here | MIT, Tim Hastie 2026 | `modules/octa303` |
 | repeat98, `analog-bassdrum` (this repository) | the measured machine-list seams the OCTA-303 row uses | this repository's MIT | `modules/octa303` |
+| devilfish707, Play Modes investigation, [devilfish707/Octaplay](https://github.com/devilfish707/Octaplay) `playmodes/INVESTIGATION.md` at `acd6b0c` | the sequencer addresses and findings: the per-track step counters, the tick's and the rebuild's step-handler calls, the per-track advance, the UI step query, MIDI mode, the trig-key dispatcher; TRACK PATTERNS writes its own code at those sites | MIT (the repository's LICENSE); addresses and findings only, no code | `modules/trackpatterns` |
 
 ## Firmware modifications built from their authors' repositories (git submodules)
 

@@ -20,6 +20,7 @@ enum {
     SEQ_TRANSPORT  = 0x800065b8u, /* 0 stopped, 1 playing (EUCLID, emu_frames.py) */
     SEQ_BANK       = 0x800065bdu, /* playing bank (DIRECT JUMP)                   */
     SEQ_PATTERN    = 0x800065beu, /* playing pattern                              */
+    SEQ_COUNTERS   = 0x800064d0u, /* per-track step counters, tracks 0..15 (KYOTI) */
     BANK_BLOB      = 0x400e21e0u, /* bank 0 in RAM (STEP_LOCKS.md section 1)      */
     BANK_STRIDE    = 0x9b340u,
     PATTERN_STRIDE = 0x8ed8u,
@@ -201,7 +202,8 @@ static unsigned tp_trigs(unsigned track, unsigned pattern, unsigned page) {
  *    the running light again (tp_playhead).
  *  - The main page, TRACKS trig mode outside GRID REC, where stock shows
  *    only the running light: the trigs of the pattern the track plays on
- *    the keys' first LEDs, blinking slowly, over it.
+ *    the keys' first LEDs, blinking slowly, over it, from the 16 steps its
+ *    playhead is in (as the running light walks them).
  *  - The PATTERN layer with TRACK n held: the key of the pattern T_n plays
  *    is lit as the current one, a change it has queued as a queued one, and
  *    the global pattern's key as one with content.
@@ -222,7 +224,8 @@ int tp_leds(unsigned slot) {
             return (int)(U8(LIGHT_TRACK) % 8u + (U32(MIDI_MODE) ? 8u : 0u));
         }
         if (U32(TRIG_MODE) == 0 && !tp_blink_dark()) {
-            unsigned trigs = tp_trigs(track, pattern, U32(UI_PAGE));
+            /* the page the track's playhead is on, as stock's running light */
+            unsigned trigs = tp_trigs(track, pattern, U8(SEQ_COUNTERS + track) / 16u);
             for (unsigned k = 0; k < 16; ++k)
                 if ((trigs >> k) & 1u) tp_led(2 * k, 1);
         }

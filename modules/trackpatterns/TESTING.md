@@ -251,6 +251,55 @@ as passed; nothing more detailed was reported.
 Not reported: how long it ran, which colour each LED of a pair shows,
 other tracks than T1 and M1, CPU load, cycles.
 
+## Review round 1 (22 Oct 2026, emulator)
+
+After the maintainer's review of `02d69e57`, on `4ba865a1` (main merged).
+
+**Cost.** `ot_emu --mkii`, this build, the gesture, MIDI and global-change
+script (`STEPTPM`); `--watch-pc` on each detour's entry and on the stock
+instruction it returns to; the instruction count between the two, per
+call (the replayed stock instructions included):
+
+| detour | calls | min | median | 99th pct | max |
+|---|---|---|---|---|---|
+| audio tick | 1,096 | 85 | 86 | 89 | 95 |
+| MIDI tick | 1,096 | 88 | 89 | 92 | 98 |
+| audio advance | 1,088 | 60 | 60 | 84 | 186 |
+| MIDI advance | 1,088 | 60 | 60 | 84 | 84 |
+| the LED pass's own part (`0x40a962d2` to `0x4007e9bc`, the LED script) | 572 | 52 | 52 | 658 | 658 |
+
+Memory: the build report's 3,457 B code + data, 0 B `.bss`; stack frames
+from `-fstack-usage` (`tp_leds` 48 B, `tp_key` 24 B, `tp_seq_pattern` 20 B;
+the tick's chain about 72 B below its caller).
+
+**Beside KITS and DIRECT_JUMP_KYOTI.** `remixes/test/trackpatterns-core`
+(`octabam-core` + TRACK PATTERNS) builds; the ledger reports no conflict.
+The gesture, MIDI and global-change run: the same 72 events and values in
+the same order as build 3. The LED run, anchored to its own events (the
+image's load ends about 1.7 s later): A03's trigs blinking outside GRID
+REC, A01's in GRID REC, TRACK 1 + PATTERN lighting LEDs 1, 3, 4, as build 3.
+
+**Patterns over 16 steps.** A03 at 32 steps, T1 trigs 3, 7, 11, 15, 19, 23,
+27, 31 (`STEPTP32`), T1 switched by the gesture:
+
+| A01 (global) | T1's loop on A03 |
+|---|---|
+| SCALE MODE NORMAL, length 16 | wraps at 16; steps 3, 7, 11, 15 only |
+| PER TRACK, MASTER LENGTH 16 | wraps at 16 (the master length restarts every track) |
+| PER TRACK, MASTER LENGTH 32 | wraps at 32: 3, 7, ... 31; T2 (A01) still at 16 |
+
+The trig LEDs then showed GRID REC's page, not the playhead's: fixed in
+`adapter.c` (the page of the track's step counter), with a host test. With
+A03's T1 on 3, 7, 11, 15, 18, 22 (`STEPTP32Q`), the rows sent to the panel
+(`0x460ba99d`) showed keys 3, 7, 11, 15 while T1 played steps 1-16 and keys
+2, 6 while it played 17-32, blinking.
+
+**Other trig modes.** T1 on A03, then the trig mode written to CHROMATIC
+(`poke 0x460d16f3=1`, not the panel's keys): no trig LED row changed after
+it, with this build and with the build without the LED pass alike.
+
+Not run: any of this on a unit.
+
 ## Not yet
 
 On the unit: a long run, more tracks at once, other trig modes than

@@ -20,9 +20,9 @@ another DRAM module already brings them.
 | Pick a track's pattern | Hold [TRACK n], hold [PATTERN], press [TRIG k]; a popup names it (`T1 > A03`). MIDI mode addresses M1–M8 |
 | When it lands | At the end of that track's own loop; while stopped, at once |
 | Back to normal | The global pattern's trig for that track (`T1 FOLLOWS`), or any global pattern change, a bank change included, which clears every override |
-| Length | A track loops at its source pattern's length (its own under SCALE MODE PER TRACK, the pattern's under NORMAL) |
+| Length | Under SCALE MODE PER TRACK a track on another pattern loops at its own length there, inside the global pattern's MASTER LENGTH, which still restarts every track. Under NORMAL every track wraps at the global pattern's length, so a longer pattern's later steps are not played |
 | Sound design, tempo, speed | The playing Part; the playing pattern's tempo and track speed |
-| Trig LEDs | For the current track on its own pattern: outside GRID REC (TRACKS trig mode), where stock shows only the running light, that pattern's trigs blink slowly; in GRID REC the stock trigs (the global pattern the keys edit) blink as a warning. The running light stays. TRACK n + PATTERN lights the pattern T_n plays |
+| Trig LEDs | For the current track on its own pattern: outside GRID REC (TRACKS trig mode), where stock shows only the running light, that pattern's trigs blink slowly, from the 16 steps its playhead is in; in GRID REC the stock trigs (the global pattern the keys edit) blink as a warning. The running light stays. TRACK n + PATTERN lights the pattern T_n plays |
 | Editing, recording | The global pattern, as stock |
 | Saving | Not saved: after a reload or power cycle every track follows the global pattern |
 
@@ -61,7 +61,41 @@ or measured, and names the stock instructions each detour displaces.
   entries of the step handler followed; a global change to A02 cleared both;
   the trig LEDs blinked as above with the running light kept; the same as an
   MKI and as an MKII. `TESTING.md`.
+- Beside KITS and DIRECT_JUMP_KYOTI: `remixes/test/trackpatterns-core`
+  (`octabam-core` with TRACK PATTERNS) builds with no ledger conflict;
+  under the port the gesture, MIDI and global-change run gives the same 72
+  events as the module alone, and the LEDs behave the same.
+- Patterns over 16 steps (port): T1 switched to a 32-step A03 played all
+  32 steps with A01's MASTER LENGTH at 32 under PER TRACK, and stopped at 16
+  with MASTER LENGTH 16 or under NORMAL (the length row above); the trig
+  LEDs showed page 2's trigs while the playhead was on steps 17-32. In
+  CHROMATIC (set by writing the mode, not by the keys) the module drew no
+  trig LED, as the build without the LED pass.
 - `make check REMIX=trackpatterns` (`remixes/test/trackpatterns/`).
+
+## Cost
+
+Measured under the ColdFire port (`ot_emu --mkii`, this build, a run with
+changes landing on T1 and M1 and a global change clearing them): the
+instructions from each detour's entry to the stock instruction it returns
+to, the replayed stock instructions included. These are instruction counts,
+exact for the inputs run, not chip cycles.
+
+| detour | runs | instructions per call: median / 99th percentile / max |
+|---|---|---|
+| audio tick `0x400a2d76` | once per audio track per step | 86 / 89 / 95 |
+| MIDI tick `0x400a39c0` | once per MIDI track per step | 89 / 92 / 98 |
+| audio advance `0x400a3d88` | once per audio track per step | 60 / 84 / 186 |
+| MIDI advance `0x400a3ea8` | once per MIDI track per step | 60 / 84 / 84 |
+
+One step of all 16 tracks: about 2,360 instructions typical, 3,700 at the
+largest counts seen. The stock instructions these sites replace are two or
+three per call. The LED pass adds 52 instructions per pass with no track on
+its own pattern, 658 at most. Memory: the DRAM unit is 3,457 bytes, code and
+data with the 84-byte state (`tp_state`, `tp_toast`), no `.bss`, no heap,
+no battery RAM, no DSP words; the deepest stack, the tick's, is about 72
+bytes below its caller (`-fstack-usage`). Chip timing on a unit is open: a
+CF METER comparison with and without the module.
 
 ## On the unit
 
@@ -76,22 +110,20 @@ or measured, and names the stock instructions each detour displaces.
 
 ## Inferred, open
 
-- Cycles and memory are not measured (the unit is 3,448 bytes in Modwerk's
-  build: code 3,364, state 84). The work per track step is a few dozen
-  instructions plus the engine's bookkeeping; not counted.
-- Not run in one image with OCTAKIT (`kits`), which detours the PATTERN
-  layer's trig handler's entry (`0x40056b2c`, before this module's
-  `0x40056b50`), or with DIRECT JUMP / DIRECT_JUMP_KYOTI, which change how a
-  cued pattern lands. The ledger finds no shared byte with any of them.
-- Patterns longer than 16 steps, other trig modes than TRACKS for the LEDs,
-  MIDI note-offs across a switch on a unit with a long note: not checked
-  beyond the reports above.
+- Chip cycles are not measured (instruction counts above).
+- KITS detours `0x40056b2c`, the entry of the handler this module patches
+  at `0x40056b50`; KITS acts there with FUNC held, the gesture without. Run
+  together under the port only; on a unit: open.
+- On a unit: patterns over 16 steps, the LEDs in trig modes other than
+  TRACKS, MIDI note-offs across a switch with a long note.
 - The track's speed (scale) stays the playing pattern's; overrides are not
   saved; trig LEDs and editing in GRID REC address the global pattern.
 
 ## Credits
 
 The sequencer addresses build on devilfish707's Play Modes investigation
-(Octaplay), which cites octabam (Sam Banks), Tim Hastie's DIRECT JUMP and
-SCALE QUANTIZER, the KYOTI notes (Zac-Kyoti) and EUCLID; the LED model on
-octabam's `docs/firmware/PANEL.md` (Tim Hastie's panel work).
+(Octaplay, `playmodes/INVESTIGATION.md`), which cites octabam (Sam Banks),
+Tim Hastie's DIRECT JUMP and SCALE QUANTIZER, the KYOTI notes (Zac-Kyoti)
+and EUCLID; the LED model on octabam's `docs/firmware/PANEL.md` (Tim
+Hastie's panel work). From Octaplay only addresses and findings are used,
+no code; Octaplay is MIT; `THIRD_PARTY.md` has the row.
