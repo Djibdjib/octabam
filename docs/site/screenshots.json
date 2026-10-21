@@ -825,5 +825,21 @@
       "source": "emulator panel UART",
       "firmware_sha256": "3f208b1219b80976754360f3df0ddce569130aad207b4530da43ba17e21c7029"
     }
+  },
+  "octa303": {
+    "source": {
+      "image": "octa303/source.png",
+      "caption": "OCTA-303 source controls: TUNE, CUT, RES, ENV, DEC, ACC.",
+      "remix": "octa303",
+      "source": "emulator panel UART",
+      "firmware_sha256": "13c82691d05aee0a4329b5a5ded7ad126c31a5de26cef0c7ca650748e027f9af"
+    },
+    "setup": {
+      "image": "octa303/setup.png",
+      "caption": "SRC SETUP with OCTA-303: WAVE, GATE, FINE, SLID, DRIV, ACCV.",
+      "remix": "octa303",
+      "source": "emulator panel UART",
+      "firmware_sha256": "13c82691d05aee0a4329b5a5ded7ad126c31a5de26cef0c7ca650748e027f9af"
+    }
   }
 }

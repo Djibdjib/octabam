@@ -195,7 +195,9 @@ instruction differently from the chip.
 
 `tools/octa303/sim/test_octa303.py` and `tools/verify/verify_octa303_ui.py` (the panel under the
 port: select and edit, unsign, the validator; needs `OT_PROJECT`), both in the manifest;
-`remixes/test/octa303` carries the module alone.
+`remixes/test/octa303` carries the module alone. `make check REMIX=octa303` with a project
+(`OT_PROJECT`) passed on the author's machine, 21 Oct 2026 (`afa20426`, before its rebase onto
+`828edcac`): test_octa303 91/91, verify_octa303_ui (select, unsign, validate), verify_set 0 failures.
 
 The manifest declares it in conflict with SYNTH MACHINE, ANALOG BD and BLACKPYRAMIDS_303 (the same
 machine row and FLEX seams); `make modules` shows the matrix. The Devil Fish knobs need the companion
