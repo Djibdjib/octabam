@@ -57,6 +57,7 @@ Each carries one module, or one combination, for that module's gates: `make chec
 | [`stems`](stems/README.md) | STEM REC on the stock effects: multitrack recording to the card, each track, MAIN, CUE and the inputs as separate WAV files. | on hardware: Yves's MKII, 6 Oct 2026 (STEMS3) |
 | [`stems-brain`](stems-brain/README.md) | STEM REC (UP+REC) with BRAIN on the root: coexistence without two menu growers. | port-gated: verify_stems_menu under ot_emu |
 | [`stuttr`](stuttr/README.md) | STUTTR beside the stock effects (all but PLATE REV, whose words it takes). | local render: verify_stuttr; chance-engage redesign. |
+| [`stuttr-shatter`](stuttr-shatter/README.md) | Refused pair: SHATTER + STUTTR beside stock (PLATE+SPRING harvested). | `make check`: build must refuse: STUTTR conflicts SHATTER (HW S8 stall) |
 | [`tapeecho`](tapeecho/README.md) | Tape Echo replacing Spring Reverb, alone. | on hardware: the author's unit (OCTACLID4): six instances; a seventh freezes it, open |
 | [`testgen`](testgen/README.md) | TESTGEN on FX1 beside the stock effects (all but PLATE REV, whose words it takes). | on hardware: Ignorato's MKII, OCTABAM6, 4 Oct 2026 |
 | [`transient`](transient/README.md) | TRANSIENT beside the stock effects (all but PLATE REV, whose words it takes). | on hardware: Ignorato's MKII, OCTABAM2, 3 Oct 2026 |

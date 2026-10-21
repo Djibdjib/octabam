@@ -96,9 +96,20 @@ project sequencer advances; every page-1/page-2 knob, MODE/SYNC, trig
 splits, two instances per core, engage/release fades heard click-free.
 (Prior G4 was the old always-loop topology.)
 
+## Conflicts
+
+**SHATTER** — `Module.conflicts`. Empty-project play stalls when both are
+in one image (**STUTTR S8** / `latest`; Ilia's MKII, 21 Oct 2026). Bisect:
+NS (no SHATTER), NH (no STUTTR), NB (neither), C8 (CORE+STUTTR) each run;
+only the pair stalls. Cause open (not SHATTER buffer overlap — its asm is
+r7-scratch only). Pair+stock alone not yet HW-checked; build refuses the
+combo until fixed.
+
 ## Open
 
 - Project-BPM tempo sync
+- Root cause of the SHATTER+STUTTR empty-play stall
+
 
 ## Gates
 

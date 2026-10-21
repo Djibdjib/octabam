@@ -67,9 +67,17 @@ MODULE = Module(
     # 15,862 words: under the FX2 rule (+$3DFD, #785) so SIDECHAIN_COMPRESSOR's
     # shared-window keybus stays out of the instance ring.
     claims=Claims(stock_instance_buffer=True, buffer_words=15862),
+    # Empty-project sequencer stall when both sit in one image (STUTTR S8 /
+    # latest; Ilia's MKII 21 Oct 2026). NS / NH / NB / C8 each run; cause open.
+    # SHATTER's asm claims no shared window — not a buffer overlap. Until
+    # fixed, the build refuses the pair (CONTRIBUTING selectable-config rule).
+    conflicts=(("SHATTER",
+                "empty-project sequencer stalls with SHATTER+STUTTR in one "
+                "image (HW S8 21 Oct 2026); cause open"),),
     harness=Harness(layout_char="M", is_server=False),
     gates=(Gate("tools/verify/verify_stuttr.py", remix_arg=False),),
     # dear: engaging demo for renders/gates (not the panel defaults)
     dear={"SIZE": 64, "RATE": 64, "CHNC": 127, "HOLD": 64, "REV": 0,
           "MIX": 127, "MODE": 0, "SYNC": 2},
 )
+
