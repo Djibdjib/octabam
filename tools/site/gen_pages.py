@@ -95,6 +95,7 @@ def _label(m) -> str:
         "bbd": "BBD delay",
         "character-txtr": "Character TXTR",
         "direct-jump-kyoti": "Direct jump (Kyoti)",
+        "distorx": "DisTorX",
         "lofi-amf-fix": "Lo-Fi AMF fix",
         "plocks-p2": "Page 2 parameter locks",
         "rec-trig-mute": "Recorder trig mute",
