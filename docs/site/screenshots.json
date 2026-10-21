@@ -841,5 +841,37 @@
       "source": "emulator panel UART",
       "firmware_sha256": "0c0bc97d43d154a8ed546e16e73afe63633ac4904ae73aaa1ac97f285bd56414"
     }
+  },
+  "octa303": {
+    "source": {
+      "image": "octa303/source.png",
+      "caption": "OCTA-303 source controls: TUNE, CUT, RES, ENV, DEC, ACC.",
+      "remix": "octa303",
+      "source": "emulator panel UART",
+      "firmware_sha256": "13c82691d05aee0a4329b5a5ded7ad126c31a5de26cef0c7ca650748e027f9af"
+    },
+    "setup": {
+      "image": "octa303/setup.png",
+      "caption": "SRC SETUP with OCTA-303: WAVE, GATE, FINE, SLID, DRIV, ACCV.",
+      "remix": "octa303",
+      "source": "emulator panel UART",
+      "firmware_sha256": "13c82691d05aee0a4329b5a5ded7ad126c31a5de26cef0c7ca650748e027f9af"
+    }
+  },
+  "void": {
+    "setup": {
+      "image": "void/setup.png",
+      "caption": "VOID: effect selection and setup parameters.",
+      "remix": "void",
+      "source": "emulator panel UART",
+      "firmware_sha256": "0057aee76367bd82548e35cc3b804a4f8a5a98d8f9f6272a3fe42a88081ffd0d"
+    },
+    "main": {
+      "image": "void/main.png",
+      "caption": "VOID: main parameter page.",
+      "remix": "void",
+      "source": "emulator panel UART",
+      "firmware_sha256": "0057aee76367bd82548e35cc3b804a4f8a5a98d8f9f6272a3fe42a88081ffd0d"
+    }
   }
 }

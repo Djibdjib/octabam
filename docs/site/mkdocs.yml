@@ -48,6 +48,7 @@ nav:
       - Spectrum: reference/modules/spectrum.md
       - Tape Echo: reference/modules/tapeecho.md
       - Transient: reference/modules/transient.md
+      - Void: reference/modules/void.md
       - Vocoder: reference/modules/vocoder.md
       - Wave: reference/modules/wave.md
   - Bus Setup:
@@ -63,6 +64,7 @@ nav:
       - Erase Empty Trigless Locks: reference/modules/erase-empty-trigless-locks.md
       - Euclid Fill: reference/modules/euclid-fill.md
       - Mute Modes: reference/modules/mute-modes.md
+      - OCTA-303: reference/modules/octa303.md
       - Page 2 Parameter Locks: reference/modules/plocks-p2.md
       - Quantize Live Rec Toggle: reference/modules/quantize-live-rec-toggle.md
       - Rec Threshold: reference/modules/rec-threshold.md
