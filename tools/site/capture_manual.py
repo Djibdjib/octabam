@@ -239,6 +239,19 @@ def capture_blackpyramids(p,r):
     shot(p,'blackpyramids-303','setup','SRC SETUP with BLKPYRAMD: WAVE, TUNE, SLID, GATE, VOL.',r)
 
 
+def capture_octa303(p,r):
+    # OCTA-303 is the sixth row of the machine list (STATIC + 5), as BLKPYRAMD.
+    press(p,'t1')
+    p.chord('func','pg_playback')
+    press(p,'down',5)
+    press(p,'yes')
+    close(p)
+    press(p,'pg_playback')
+    shot(p,'octa303','source','OCTA-303 source controls: TUNE, CUT, RES, ENV, DEC, ACC.',r)
+    p.chord('func','pg_playback')
+    shot(p,'octa303','setup','SRC SETUP with OCTA-303: WAVE, GATE, FINE, SLID, DRIV, ACCV.',r)
+
+
 def capture_synth(p,r):
     press(p,'t1');press(p,'pg_playback')
     shot(p,'synth','source','FM synth source page on a FLEX track assigned FMSYNTH.WAV.',r)
@@ -363,7 +376,7 @@ def prepare(remix,project,assignments):
 
 def main():
     ap=argparse.ArgumentParser(description=__doc__)
-    ap.add_argument('groups',nargs='+',choices=['core','plocks','features','inserts','bus','extras','machines','probes','midi-scales','midi-loopback','utilities','varispeed','usb'])
+    ap.add_argument('groups',nargs='+',choices=['core','plocks','features','inserts','bus','extras','machines','probes','midi-scales','midi-loopback','utilities','varispeed','usb','octa303'])
     cfg=Path.home()/'.octabam_project'
     ap.add_argument('--project',default=os.environ.get('OT_PROJECT') or (cfg.read_text().strip() if cfg.is_file() else ''))
     a=ap.parse_args();OUT.mkdir(parents=True,exist_ok=True)
@@ -383,7 +396,8 @@ def main():
             jobs=[('octabam-inserts',capture_fx,assignments)]
         elif group=='bus':jobs=[('octabam-bus',capture_bus,[])]
         elif group=='usb':jobs=[('octabam-bus',capture_usb,[])]
-        elif group=='machines':jobs=[('analog-bassdrum',capture_analog,[]),('octatrick',capture_synth,[]),('blackpyramids-303',capture_blackpyramids,[])]
+        elif group=='octa303':jobs=[('octa303',capture_octa303,[])]
+        elif group=='machines':jobs=[('analog-bassdrum',capture_analog,[]),('octatrick',capture_synth,[]),('blackpyramids-303',capture_blackpyramids,[]),('octa303',capture_octa303,[])]
         elif group=='probes':jobs=[('cfmeter',capture_fx,[(8,'fx2','CF METER')])]
         elif group=='utilities':jobs=[('buffer-saver',capture_buffer_saver,[])]
         elif group=='varispeed':jobs=[('varispeed',capture_varispeed,[])]
