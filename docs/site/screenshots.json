@@ -842,6 +842,22 @@
       "firmware_sha256": "13c82691d05aee0a4329b5a5ded7ad126c31a5de26cef0c7ca650748e027f9af"
     }
   },
+  "shatter": {
+    "setup": {
+      "image": "shatter/setup.png",
+      "caption": "SHATTER: effect selection and setup parameters.",
+      "remix": "shatter",
+      "source": "emulator panel UART",
+      "firmware_sha256": "d656861d68141f0b039034c1dda14a915bec6e527150c6a0cb24b6cb593a3201"
+    },
+    "main": {
+      "image": "shatter/main.png",
+      "caption": "SHATTER: main parameter page.",
+      "remix": "shatter",
+      "source": "emulator panel UART",
+      "firmware_sha256": "d656861d68141f0b039034c1dda14a915bec6e527150c6a0cb24b6cb593a3201"
+    }
+  },
   "void": {
     "setup": {
       "image": "void/setup.png",
