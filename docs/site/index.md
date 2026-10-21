@@ -2,7 +2,7 @@
 
 *A love letter to the Octatrack*
 
-octabam adds community features to the Elektron Octatrack's operating
+Octabam adds community features to the Elektron Octatrack's operating
 system (OS 1.40C): Kits, templates, expanded scenes and parameter locks, USB
 audio and MIDI, and new effects. You pick a **remix**, build it in your
 browser from your own copy of OS 1.40C, and install it from a CF card or
