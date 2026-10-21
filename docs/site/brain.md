@@ -49,7 +49,7 @@ Use **LEFT / RIGHT** or the encoder to edit values. **NO** returns to the
 previous screen; unsaved edits prompt **SAVE CHANGES?**. A name already in
 use is refused.
 
-### Page Shortcut
+### Page shortcut
 
 A page shortcut saves and loads the page in front of you as a template:
 hold a page key (SRC, AMP, LFO, FX1, FX2) and press FUNC. The list that
@@ -64,7 +64,7 @@ default. **SAVE PROJECT** updates its recovery copy.
 On a MIDI track, **NAME KNOB** gives each of the ten assignable CCs a label
 of up to four characters on CTRL1 and CTRL2. An empty name clears it.
 
-## Switch Remixes
+## Switch remixes
 
 ![BRAIN: Switch remixes](img/brain/remixes.png)
 
@@ -111,7 +111,7 @@ BOOT` under the list.
 defaults. Settings persist to `BRAIN/card.work`. The MIDI and event logging
 switches are described under Logs.
 
-## Performance Views
+## Performance views
 
 ![BRAIN: Performance views](img/brain/performance.png)
 
@@ -150,7 +150,7 @@ debug recording. **WRITE DEBUG LOG** saves the last 256 messages to
 `/BRAIN/debug.txt`, excluding clock and active sensing. Both logging
 switches are on by default.
 
-## About This Image
+## About this image
 
 ![BRAIN: About this image](img/brain/about.png)
 
@@ -165,7 +165,7 @@ Use **LEFT / RIGHT** to change tabs.
 | PROJECT | Whether the project was saved with this image, has changed effects, has no saved record, or has damaged BRAIN files. |
 | MODULES | Module names and their authors. |
 
-## BRAIN Files on the Card
+## BRAIN files on the card
 
 | File or location | Contents |
 |---|---|
@@ -182,7 +182,7 @@ then use valid saved defaults from the card. **SAVE FX DEFAULT** stores the
 current FX page. **SAVE PROJECT** updates the saved recovery copy. BRAIN
 creates its folder and working file when needed.
 
-## Advanced Reference
+## Advanced reference
 
 For editing defaults from a computer and the full card-file format, see the
 [BRAIN module documentation](https://github.com/sambanks/octabam/blob/main/modules/brain/README.md).

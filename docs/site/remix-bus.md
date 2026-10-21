@@ -62,7 +62,7 @@ effect (FX2 LOCK).
 The FX1 chooser lists NONE and these three. The 13 stock effects not listed
 give up their DSP code to the bus.
 
-## Prepare an Existing Project
+## Prepare an existing project
 
 For an existing project, assign the bus effects and update its saved effect
 values before playing. Replace `<card>/<set>/<project>` with the project's
@@ -78,7 +78,7 @@ other bus tracks, and stock DELAY to track 8. `stamp-defaults` updates the
 saved effect values for this remix. A project created on the unit after the
 flash needs neither command.
 
-## Build and Install
+## Build and install
 
 Build this remix in the browser on [Build and Install](web-builder.md), or from
 source with:
@@ -93,7 +93,7 @@ For stock OS recovery, follow [Safety and recovery](safety.md).
 If the unit misbehaves, the failure register lists what has gone wrong and
 why: https://github.com/sambanks/octabam/blob/main/docs/contributing/FAILURE_MODES.md
 
-## The Modules
+## The modules
 
 Every module in the image, credited to its author:
 
@@ -101,15 +101,16 @@ Every module in the image, credited to its author:
 
     --8<-- "reference/_remix-octabam-bus.md"
 
-## Memory Use
+## Memory use
 
 | Resource | Stock OS | Octabam Bus |
 |---|---|---|
 | Sample and recorder memory | 14,602 pages | 12,895 pages (platform reserve) |
 | Free DSP words (payload A / B) | — | 44 / 605 |
 
-## Where It Has Run
+## Where it has run
 
-Port gates only: `make check REMIX=octabam-bus` and the reach round. Not on
-a unit. bottleservice, the same bus without the core additions, ran on Sam's
-MKII (images A0–A6; the changelog).
+Cursory testing on an MKII (owner report, 16 Oct 2026). Port gates:
+`make check REMIX=octabam-bus` and the reach round. bottleservice, the same
+bus without the core additions (since retired), ran on an MKII (images
+A0–A6; the changelog).

@@ -14,11 +14,9 @@ As far as octabam goes, my focus these days is on creating a stable, stage-ready
 
 We are getting close to our first stable releases now, so watch this space!
 
-Sam Banks / Bam Shanks
-
 ## What it is
 
-octabam is an unofficial community remixer for the Elektron Octatrack's
+Octabam is an unofficial community remixer for the Elektron Octatrack's
 operating system. It is not affiliated with Elektron. A **module** adds one
 feature; a **remix** is a named set of modules built into one image from
 your own copy of OS 1.40C. The [three official remixes](choosing.md) cover
