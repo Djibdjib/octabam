@@ -50,7 +50,7 @@ def table_inc(modules, remix):
     with the engine a host_slots module (the remix), its MODE cave renames
     there too (build_bus.py), so the shared descriptor keeps the host
     page's one name. An engine not in the remix has no rows."""
-    ids, masks, tabs = [], [], []
+    ids, masks, tabs, labels = [], [], [], []
     for box, key in enumerate(ENGINES):
         m = modules.get(key)
         # DEL and REV (slots 0, 1) are the host page's own knobs, not listed here
@@ -58,13 +58,17 @@ def table_inc(modules, remix):
                  if m is not None else [])
         fid = m.menu.fx2_id if m is not None else 0xff
         ids.append(fid)
+        # an engine not in the remix has id 0xff; its table label carries the box,
+        # so two absent engines do not both define NAMES_ff
+        label = f"NAMES_{fid:02x}" if m is not None else f"NAMES_ff_{box}"
+        labels.append(label)
         masks.append(sum(1 << i for i in named))
         rows = []
         for i in range(12):
             nm = (m.params[i].name or b"") if m is not None else b""
             rows.append("        .byte   " + ", ".join(str(c) for c in (nm + bytes(6))[:6]))
-        tabs.append(f"        .macro  NAMETAB_{box}\n        .globl  NAMES_{fid:02x}\n"
-                    f"NAMES_{fid:02x}:\n" + "\n".join(rows) + "\n        .endm\n")
+        tabs.append(f"        .macro  NAMETAB_{box}\n        .globl  {label}\n"
+                    f"{label}:\n" + "\n".join(rows) + "\n        .endm\n")
     order = []
     for key in ENGINES:
         m = modules.get(key)
@@ -74,7 +78,7 @@ def table_inc(modules, remix):
     tabs.append("        .macro  ORDERTAB\nORDER:\n" + "".join(
         "        .byte   " + ", ".join(map(str, o)) + "\n" for o in order) + "        .endm\n")
     tabs.append("        .macro  NTABS_LONGS\n        .long   "
-                + ", ".join(f"NAMES_{i:02x}" for i in ids) + "\n        .endm\n")
+                + ", ".join(labels) + "\n        .endm\n")
     return ("ENGIDS: .byte   " + ", ".join(map(str, ids)) + "\n"
             "        .even\n"
             "NAMED:  .word   " + ", ".join(f"{m:#x}" for m in masks) + "\n"
