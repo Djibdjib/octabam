@@ -98,8 +98,15 @@ h1, h2, h3, h4, h5, h6 {
   line-height: 1;
   margin-top: -.16em;
 }
-/* The author line sits close under the header row (the article's 2rem gap is pulled back). */
+/* Header row to content: 1rem gap, and a leading h2 adds no margin of its own. */
+article {
+  gap: 1rem;
+}
+article .typography > h1:first-child + h2 {
+  margin-top: 0;
+}
+/* The author line sits close under the header row (the article's 1rem gap is pulled back). */
 article .typography > p.byline {
-  margin-top: -1.5rem;
+  margin-top: -.5rem;
   color: var(--muted-foreground);
 }
