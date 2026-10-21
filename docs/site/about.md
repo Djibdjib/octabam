@@ -2,15 +2,19 @@
 
 ## Why octabam exists
 
-!!! note "To be written"
-    The author's own account goes here: what started the project, what the
-    Octatrack is to them, and what they want it to become. Suggested
-    headings, to keep or replace:
+I started octabam because I love the Octatrack. It's the center of my workflow and my entire creative process, but I've never particularly enjoyed its effects, so I've always relied on Eventide effects on the cue output as an FX loop. When a friend shared the octamax repo with me on Discord, I saw an opportunity to create some new effects that were more to my taste and would streamline my workflow.
 
-    - Where it started
-    - What was missing on the unit
-    - What changed when other people's work came in
-    - What it is for
+After offering to contribute my effects to octamax and speaking with Max on Discord, we decided it would be best if I forked the repo and shared my progress with him. That way he could ingest any parts he wanted, but retain his repo's focus on specific improvements.
+
+Originally I intended to make my effects, get back to music, and share my repo so others could do the same for themselves. That remains the spirit of my focus. However, when things exploded online and people started sharing (and often misrepresenting) my repo on Elektronauts and social media, I decided to make the octahackers Discord so other developers could collaborate and share code in a more appropriate forum. Now there are over 2,000 people on there, with channels for hacking almost every Elektron device ever created, along with channels for specific community efforts such as octabam.
+
+As with all community building efforts (accidental or intentional), there have been some growing pains, but generally it's been an incredibly fruitful collaborative space where people can discuss and share their ideas with like-minded individuals from all around the world. Every day I receive pull requests from new developers with mind-blowing modules that I never could have conceived for the Octatrack, which is hugely rewarding.
+
+As far as octabam goes, my focus these days is on creating a stable, stage-ready range of firmware revisions that will keep the Octatrack churning out the bangers for many years to come.
+
+We are getting close to our first stable releases now, so watch this space!
+
+Sam Banks / Bam Shanks
 
 ## What it is
 
