@@ -39,6 +39,9 @@ and MIDI trigs are empty. Scenes have no locks and LFO depths are zero.
 
 Select a pattern using PTN plus its numbered trig. Select its active track
 with T1, T5 or T2. FX1/FX2 opens the relevant page; double-press opens SETUP.
+For isolated pattern checks, press STOP twice before selecting the next pattern
+and restarting. This clears the previous looping voices. Keep playback running
+only where the case explicitly tests changes during playback.
 For each case record baseline and candidate separately in `RESULTS.md`.
 Budget roughly 20–30 minutes for both images, plus the persistence/soak case.
 
@@ -47,7 +50,7 @@ Budget roughly 20–30 minutes for both images, plus the persistence/soak case.
 ### E01 — Identity and normal playback
 
 Check the running image name and project name. Play A01 for eight bars, then
-A02, A03 and A04 for eight bars each. A01 should pulse in amplitude; A02 should
+A02, A03 and A04 for eight bars each, stopping between patterns. A01 should pulse in amplitude; A02 should
 have rhythmic filter movement; A03 exercises both at once; A04 exercises both
 slots on one track. There must be no new silence, frozen modulation, crash or
 persistent loud artifact compared with baseline. Record a short stereo clip of
