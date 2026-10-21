@@ -1151,7 +1151,7 @@ For an eligible module: the slot size and the state block.
 | | FX1 | FX2 |
 |---|---|---|
 | buffer slot | `0x1000 0x1c00 0x2800 0x3400`, 3,072 words each | `0x4000 0x8000` + the shared-window pair, 16,384 |
-| state block (`r7`) | instance *k* → `0x6000 + (1 + 2k) * 0x100` | instance *k* → `0x6000 + (2 + 2k) * 0x100` |
+| state block (`r7`) | instance *k* → `0x6100 + 0x300 * k` | instance *k* → `0x6200 + 0x300 * k` (✅ measured 20 Oct 2026, issue #815; ❌ retracted: `0x6000 + (1 + 2k) * 0x100` and `0x6000 + (2 + 2k) * 0x100`, right only for k = 0) |
 | in the chain | first | second: it processes what FX1 produced |
 | cycles | 4 slots per core | 4 slots per core; both are paid |
 

@@ -208,6 +208,8 @@ wrong guesses (emulator memory limits, buffer alignment, a stale modulo) that
 were all *reasoned about* rather than disassembled. **Disassembling first would
 have cost one step instead of four** — the rule above is not advice.
 
+Gate: `tools/build/nolabelprefix.py` (called by `build_bus.assemble_syms`; test `tools/verify/tests/test_label_prefix.py`) refuses a source that defines a label that is a prefix of another. It sees only labels at the start of a line, and only within one `assemble_syms` source; the disassembly check cannot see this trap (it decodes the bytes `dsp_asm` wrote). Issue #815 item 5, 21 Oct 2026.
+
 <a name="trap-markers"></a>
 
 ### Build-time markers and base literals count when they appear in comments

@@ -515,14 +515,14 @@ advanced in `P:0x0041e` before process is called. Base table `X:0x255`
 (8 words): `0x01000 0x04000 0x01c00 0x08000 0x02800 0x30000 0x03400
 0x34000`, interleaved FX1/FX2 (FX1 stride `0xc00`, FX2 `0x4000`). Payload B
 takes `0x38000`/`0x3c000` for its shared-window slots. FX2 instance *k* =
-table entry `1 + 2k`, `r7 = 0x6000 + (2 + 2k)·0x100`:
+table entry `1 + 2k`, `r7 = 0x6200 + 0x300·k` (the dispatcher bumps r7 three times per track: FX1, FX2, then once more unconditionally). ✅ measured 20 Oct 2026 with an r7 canary in `ot_emu` (OTDEMO; Zac Kyoti, issue #815). ❌ retracted 21 Oct 2026: `0x6000 + (2 + 2k)·0x100`, right only for k = 0:
 
 | | entry | base A | base B | r7 |
 |---|---|---|---|---|
 | bank track 1 FX2 | 1 | `0x04000` | `0x04000` | `0x6200` |
-| bank track 2 FX2 | 3 | `0x08000` | `0x08000` | `0x6400` |
-| bank track 3 FX2 | 5 | `0x30000` | `0x38000` | `0x6600` |
-| bank track 4 FX2 | 7 | `0x34000` | `0x3c000` | `0x6800` |
+| bank track 2 FX2 | 3 | `0x08000` | `0x08000` | `0x6500` |
+| bank track 3 FX2 | 5 | `0x30000` | `0x38000` | `0x6800` |
+| bank track 4 FX2 | 7 | `0x34000` | `0x3c000` | `0x6B00` |
 
 Read the base in init (`move x:>$213,r4 / move x:(r4),x0`) and carry it to
 process; in process the pointer is another instance's (one effect works by
