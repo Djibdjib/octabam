@@ -128,5 +128,5 @@ EUCLID-only cases; synthetic dispatch tests cover them in software.
 
 The local PR draft remains unpublished until hardware results are added. Include
 device model, image hashes, test date, cases, captures and unresolved differences.
-Generate another pristine project with `tools/hw/euclid_hardware.py --source
+Generate another pristine project with `python3 tools/hw/euclid_hardware.py --source
 <private-template> --out <new-directory>`; the source is never modified.
