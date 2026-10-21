@@ -306,7 +306,7 @@ def run_gates(render, dirty_words=True):
             check(f"{kn}: the module vs the circuit at 8x, band-limited (aliasing): {e:.1f} dB "
                   f"(SUPER OD: -31 .. -44 dB; the 2x core: -40 .. -56)", e < -31)
     except ImportError:
-        print("  [info] the 8x ground truth needs scipy -- skipped")
+        print("  [SKIP] the 8x ground truth needs scipy")
 
     # ---- silence ------------------------------------------------------------------
     for m in (0, 1, 2):
@@ -419,7 +419,7 @@ def precedent():
     if not stock.exists():
         subprocess.run([sys.executable, "tools/build/dsp_disasm_all.py"], capture_output=True)
     if not stock.exists():
-        print("  [info] precedent: out/dsp/payload_A.asm missing (tools/build/dsp_disasm_all.py) -- skipped")
+        print("  [SKIP] precedent: out/dsp/payload_A.asm missing (tools/build/dsp_disasm_all.py)")
         return
 
     def norm(line):
