@@ -34,11 +34,11 @@ Settings PATH (`0x100b14f0 + 0x448·slot`) is set on both paths. Save then
 calls `POST_LOAD(1, slot)` and a batch `REARM`/`REFRESH`, same as stock’s
 flex caller after a load (`0x40084b62`).
 
-**Inferred:** for a slot that just recorded, length / format / pool already
-match the WAV we wrote; skipping the re-read only drops a redundant card
-pass. **Falsify on hardware:** after save (no power cycle) the slot must
-play and show `RECn` like the same slot after PROJECT LOAD from that
-`BUFFERS/RECn.wav`.
+**Inferred (R6):** for a slot that just recorded, length / format / pool
+already match the WAV we wrote; skipping the re-read only drops a
+redundant card pass. **Falsified on R7 (pass):** after save (no power
+cycle) the slot plays and shows `RECn` like the same slot after PROJECT
+LOAD from that `BUFFERS/RECn.wav`.
 
 ## vs BUFFER SAVER
 
@@ -51,14 +51,14 @@ buffer to itself. This module always dumps every non-empty slot to fixed
 
 ## Status
 
-`Proof.CHECK`. `verify_persistent_buffers` covers symbols, a save-smoke
+`Proof.HARDWARE`. `verify_persistent_buffers` covers symbols, a save-smoke
 call on empty buffers, and a staged-load of `BUFFERS/REC1.wav` under the
-port. The **record-then-save** path (takes in the recorder, then PROJECT
-SAVE while the frame ISR is live) is **hardware only** — the port cannot
-drive the PROJECT menu for that.
+port. Record-then-save under a live frame ISR is still not driven by the
+port (PROJECT menu); that path is the hardware table below.
 
-Hardware (author's MKII, personal `minimal` remix, 16–17 Oct 2026).
-Current head is **R7** (R6 was `OCTATRACK_OCTABAMR6` / `MINIMAL R6`):
+Hardware (author's MKII). R1–R6 on personal `minimal` (16–17 Oct 2026).
+**R7** on flash stack `PBUF R7.RMX` (`REMIX=latest` on `ilia`, BUILD R7,
+22 Oct 2026) — tip then carried the no-reload save + flex load:
 
 | BUILD | measured |
 |---|---|
@@ -67,10 +67,10 @@ Current head is **R7** (R6 was `OCTATRACK_OCTABAMR6` / `MINIMAL R6`):
 | R3 | slot load + post-load bound the UI assignment (`REC*.wav` at project root) |
 | R4–R5 | paths under `!BUFFERS/`: WAVs + `PATH=` in `project.work`, UI stayed unassigned (`SLOT_LOAD` status −0x10 INVALID FILENAME — inferred from symptom + status table; falsify: assigned UI with a `!` PATH) |
 | R6 | folder renamed to `BUFFERS/` (no `!`) |
-| R7 | save: PATH + flex post-load only (no re-`SLOT_LOAD`); load: flex loader `0x40096548` + `POST_LOAD(1,·)` — UI assigns immediately after the write |
+| R7 | short + long take: UI shows `RECn` when the write finishes (no second-load lag); all eight slots; empty skipped; PROJECT LOAD + RELOAD; reopen + play; overwrite existing `REC*.wav`; post-save play matches post-load play |
 
 ## Remix
 
 Listed next to STORE (required). Gate carrier:
-`remixes/test/persistent-buffers` (not flashed; hardware was on personal
-`minimal`).
+`remixes/test/persistent-buffers`. Hardware R7 was on personal `latest`
+(`PBUF R7`); R1–R6 on personal `minimal`.
