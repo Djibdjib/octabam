@@ -105,7 +105,7 @@ Accent (v6.8, Din Sync set A5, peak / energy in the first 4–40 ms, relative to
 
 ### The code (✅)
 
-- `tools/octa303/sim/test_octa303.py`: 91/91 in a tree without `modules/devilish` (93/93 with it:
+- `tools/octa303/sim/test_octa303.py`: 91/91 in a tree without `modules/devilish` (94/94 with it:
   three checks read dEVILish's manifest, one checks OCTA303's own `DEVIL_ID`). `octa303.s` executed
   from its source text in a ColdFire simulator equals the Python model `ref303.py` sample for sample:
   both carriers, accents, slides, split frames, extreme knobs, Devil Fish on FX1/FX2, scenes and
