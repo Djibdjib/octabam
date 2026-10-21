@@ -85,10 +85,10 @@ responsiveness, mode transitions and reset behavior, not sample-identical audio.
 Return to the fresh project copy if earlier edits changed the starting values.
 Play A01, switch to A02, A03 and A04, then back to A01; repeat five cycles.
 Patterns should change normally and the intended tracks/slots must respond.
-Press PART to open Part Quick Select. Highlight Part 1, then FUNC+PART
-to open Part Edit and choose SAVE. In Part Edit use
-FUNC+REC to copy Part 1, highlight Part 2 and FUNC+STOP to paste. Select
-Part 2 with YES and change EUCLID's ROT. Switch between Parts 1 and 2 while stopped and while playing,
+Press PART to open Part Quick Select. Highlight Part 2 and press YES to link
+it to the current pattern. Part 2 already has the same prepared effect assignments.
+Change EUCLID's ROT there. Use PART, the arrows and YES to switch between
+Parts 1 and 2 while stopped and while playing,
 then repeat fresh PLAY and pause/resume. Each Part must retain its own parameter
 values; transport resets must still work. Record any difference seen on baseline.
 
