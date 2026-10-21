@@ -61,7 +61,7 @@ MODULE = Module(
         r7_latch_slot=None,
         gate_label=None,
     ),
-    harness=Harness(layout_char="B", is_server=False),
+    harness=Harness(layout_char="4", is_server=False),  # B = MULTIBCOMP
     gates=(Gate("tools/verify/verify_shatter.py", remix_arg=False),),
     dear={"DRV": 127, "FOLD": 127, "CLIP": 100, "CRSH": 100, "FDBK": 80,
           "MIX": 127, "MODE": 2, "TONE": 100, "RATE": 100},
