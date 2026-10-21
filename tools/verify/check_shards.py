@@ -65,6 +65,8 @@ the `verify-remix` recipe and refuses to run when the two name different
 scripts.
 """
 import argparse
+import contextlib
+import fcntl
 import json
 import os
 import pathlib
@@ -91,7 +93,32 @@ SCOPE = None
 
 
 def git(*args, cwd=ROOT, check=True):
-    return subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, check=check)
+    r = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True)
+    if check and r.returncode:
+        # CalledProcessError's message omits git's own, which is what says why
+        print(f"check_shards: git {' '.join(args)} failed ({r.returncode}): {r.stderr.strip()}",
+              file=sys.stderr, flush=True)
+        raise subprocess.CalledProcessError(r.returncode, r.args, r.stdout, r.stderr)
+    return r
+
+
+@contextlib.contextmanager
+def _worktree_lock():
+    """One `git worktree add` or `remove` at a time against this repository.
+    The shards, refhash's trees and reach's overlap tree are created by
+    different processes and threads at once, and `git worktree add` failed
+    with status 128 in CI when they overlapped. flock on a file in the git
+    common directory: every open file description conflicts, threads and
+    processes alike, and every worktree of the repository shares it."""
+    common = pathlib.Path(subprocess.check_output(
+        ["git", "rev-parse", "--git-common-dir"], cwd=ROOT, text=True).strip())
+    common = (ROOT / common).resolve()
+    with open(common / "octabam-worktree.lock", "a+") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock, fcntl.LOCK_UN)
 
 
 def host_arch():
@@ -124,8 +151,9 @@ def make_shard(path, log, fresh=False, port=True):
     already there."""
     keep = shard_ok(path) and not fresh
     if not keep:
-        remove_shard(path)
-        git("worktree", "add", "--detach", str(path), "HEAD")
+        with _worktree_lock():
+            _remove_shard(path)
+            git("worktree", "add", "--detach", str(path), "HEAD")
     else:
         # Drop the previous run's applied diff and untracked copies, then
         # move to this tree's HEAD.
@@ -170,11 +198,16 @@ def make_shard(path, log, fresh=False, port=True):
                 raise SystemExit(f"check_shards: {' '.join(cmd)} failed in {path} ({r.returncode}): {log}")
 
 
-def remove_shard(path):
+def _remove_shard(path):
     if path.exists():
         git("worktree", "remove", "--force", str(path), check=False)
         shutil.rmtree(path, ignore_errors=True)
     git("worktree", "prune", check=False)
+
+
+def remove_shard(path):
+    with _worktree_lock():
+        _remove_shard(path)
 
 
 def clean_env():
