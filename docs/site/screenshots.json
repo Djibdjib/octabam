@@ -873,5 +873,21 @@
       "source": "emulator panel UART",
       "firmware_sha256": "0057aee76367bd82548e35cc3b804a4f8a5a98d8f9f6272a3fe42a88081ffd0d"
     }
+  },
+  "stuttr": {
+    "setup": {
+      "image": "stuttr/setup.png",
+      "caption": "STUTTR: effect selection and setup parameters.",
+      "remix": "stuttr",
+      "source": "emulator panel UART",
+      "firmware_sha256": "fb63da46575a46a02b2e1e56a4995581dd7ffffa74ff982e00bb32b330476b89"
+    },
+    "main": {
+      "image": "stuttr/main.png",
+      "caption": "STUTTR: main parameter page.",
+      "remix": "stuttr",
+      "source": "emulator panel UART",
+      "firmware_sha256": "fb63da46575a46a02b2e1e56a4995581dd7ffffa74ff982e00bb32b330476b89"
+    }
   }
 }

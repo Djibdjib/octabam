@@ -931,6 +931,7 @@ def main():
              "lofi2": ("PLATE REV", "SPRING REV"),   # LOFI2's 1,372 words with its table; PLATE alone is 594
              "bbd": ("PLATE REV", "SPRING REV"),   # BBD's 1,112 words from PLATE's start, clear of the SPRING words DARK calls
              "shatter": ("PLATE REV",),   # SHATTER runs in its words; the other 13 stay
+             "stuttr": ("PLATE REV",),   # STUTTR runs in its words; the other 13 stay
              "testgen": ("PLATE REV",),     # TESTGEN runs in its words; the other 13 stay
              "resonator": ("PLATE REV",),   # RESONATOR runs in its words; the other 13 stay
              "vocoder": ("PLATE REV", "DJ EQ"),   # VOCODER runs in PLATE's words; DJ EQ out so the tables sit in X
