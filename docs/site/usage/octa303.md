@@ -6,7 +6,9 @@ x0xb0x reference set). With the companion effect dEVILish on the track
 
 ## Access
 
-[FUNC] + [SRC] > MACHINE, choose **OCTA-303** (below PICKUP), [YES]. A new
+Double-tap the [TRACK] key to open the machine list, choose **OCTA-303**
+(below PICKUP), [YES]. [FUNC] + [SRC] opens the same list; on a track with a
+sample it shows the sample list first, and [LEFT] reaches the machines. A new
 OCTA-303 track starts at TUNE C3, CUT RES ENV DEC 64, ACC 0.
 
 ![SRC SETUP with OCTA-303: WAVE, GATE, FINE, SLID, DRIV, ACCV.](../../img/octa303/setup.png)

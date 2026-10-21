@@ -22,7 +22,9 @@ Markers as in `CHIP.md`: ✅ measured, 🟡 inferred.
 
 ## Using it
 
-1. On a track, **FUNC + SRC**, choose **OCTA-303** (below PICKUP), **YES**.
+1. Double-tap the track key (the machine list), choose **OCTA-303** (below PICKUP), **YES**.
+   FUNC + SRC opens the same list, but on a FLEX or STATIC track with a sample it opens the sample
+   list first: LEFT reaches the machines (the stock behaviour).
 2. Sequence it like any track. **Accent** = an ACC parameter lock. **Slide** = a trigless trig or a
    trigless PTCH (TUNE) lock on the following step.
 3. The CHROMATIC keys play semitones on an OCTA-303 track.
