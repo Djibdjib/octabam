@@ -7,7 +7,7 @@ the existing Part operations. Consumers choose the context for their producer:
 Loopback reads each MIDI track's applied Part, independently of the Part selected
 for editing or retained by an audio voice.
 
-## Stock Compatibility
+## Stock compatibility
 
 Stock 1.40C cold project load clamps the routing flags to zero (EXT). Saving
 the bank on stock overwrites its INT/BOTH settings. Loading alone does not

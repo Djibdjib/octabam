@@ -1,9 +1,9 @@
 """octabam-bus -- the core ColdFire modules plus the delay and reverb bus.
 
-CORE (see octabam-inserts) with bottleservice's effects: BusDelay on T1's FX2,
+CORE (see octabam-inserts) with the bus effects: BusDelay on T1's FX2,
 BusVerb on T5's FX2, SEND on every other track's FX2, the stock DELAY on T8,
 SPECTRUM, CHARACTER and MODULATION on FX1, TEMPO SYNC, TEMPO BUS, MODE DEFAULTS,
-RIG HOSTS and FX2 LOCK. USB is MAIN CUE (bottleservice: MASTER).
+RIG HOSTS and FX2 LOCK. USB is MAIN CUE.
 """
 
 from remix.schema import Pin, Proof, Remix

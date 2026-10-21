@@ -3,7 +3,7 @@ diatonic modes in all twelve keys. OFF bypasses scale correction. Major
 and natural Minor keep their original saved values and playback behavior;
 Dorian, Phrygian, Lydian, Mixolydian and Locrian add five more choices per key.
 
-## How to Use It
+## How to use it
 
 Select a MIDI track, set its output channel and program some notes. Open
 ARP SETUP with **FUNC + AMP**, then press encoder **F** to enable KEY if it is OFF and turn F to select
@@ -17,7 +17,7 @@ down. It changes note pitches; it does not generate chords.
 
 **C MIX** instead uses C, D, E, F, G, A and Bb.
 
-## Storage and Compatibility
+## Storage and compatibility
 
 KEY is stored in the existing Part setting. Stock 1.40C cold project load
 clamps additional mode values to **B Minor**. Saving the bank on stock writes
@@ -29,7 +29,7 @@ Quantizer is separate.
 This module works independently. Combinations with other MIDI modules are
 not qualified.
 
-## Verification Limits
+## Verification limits
 
 These are LCD captures from the emulator using the standalone MIDI Scales
 remix (BUILD=91), not photographs of hardware. Linked-code checks cover all

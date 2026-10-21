@@ -140,6 +140,10 @@ def _remix_pages() -> dict[str, str]:
     return dict(re.findall(r"^\s*-\s*(\S+?):\s*(\S+\.md)\s*$", cfg, re.M))
 
 
+def _remix_label(name: str) -> str:
+    return name.replace("octabam-", "Octabam ").title() if name.startswith("octabam-") else name
+
+
 def _module_rows(ms) -> list[str]:
     out = ["| Feature | Author |", "|---|---|"]
     for m in ms:
@@ -156,18 +160,18 @@ def modules_page(mods) -> str:
     for cat, ms in index.by_category(mods).items():
         if not ms:
             continue
-        lines += [f"## {title_case(CATEGORY_TITLE[cat].lower())}", ""]
+        lines += [f"## {CATEGORY_TITLE[cat]}", ""]
         for m in ms:
             lines += [f"- [{_label(m)}]({_page(m)})"]
         lines += [""]
     from remix import stock
-    lines += ["## Stock Effects", "",
+    lines += ["## Stock effects", "",
               "The available stock effects depend on your remix. "
               "Octabam Core retains all 14; the insert and bus remixes retain "
               "the stock DELAY.", ""]
     for m in stock.MODULES:
         lines.append(f"- [{_label(m)}]({_page(m)})")
-    lines += ["", "## Understanding Test Status", "", PROOF_LEGEND]
+    lines += ["", "## Understanding test status", "", PROOF_LEGEND]
     return "\n".join(lines) + "\n"
 
 
@@ -200,11 +204,11 @@ def screen_reference(m) -> list[str]:
     rest = [r for k, r in _records(m).items() if k != hero_key]
     lines = []
     if rest:
-        lines += ["## Screen Reference", ""]
+        lines += ["## Screen reference", ""]
         for record in rest:
             lines += _figure(record)
     if m.name in notes:
-        lines += ["## Display Behaviour", "", notes[m.name], ""]
+        lines += ["## Display behaviour", "", notes[m.name], ""]
     return lines
 
 
@@ -249,11 +253,11 @@ def module_page(m, mods, official) -> str:
     lines += hero(m)
     if fragment.is_file():
         lines += [f'--8<-- "usage/{m.name}.md"', ""]
-        lines += screen_reference(m)
         if m.is_stock:
             lines += ["**Status:** stock: ships in every image, as on a stock unit.", ""]
         else:
             lines += [f"**Status:** {index.proof_text(m)}.", ""]
+        lines += screen_reference(m)
     else:
         lines += [m.doc, ""]
         lines += screen_reference(m)
@@ -287,7 +291,7 @@ def module_page(m, mods, official) -> str:
     carrying = [n for n, r in official if m.key in r.modules]
     pages = _remix_pages()
     if carrying:
-        cells = [f"[{n}](../../{pages[n]})" if n in pages else n for n in carrying]
+        cells = [f"[{_remix_label(n)}](../../{pages[n]})" if n in pages else _remix_label(n) for n in carrying]
         rows.append("| Included in | " + ", ".join(cells) + " |")
     elif not m.is_stock:
         rows.append("| Included in | no official remix |")
