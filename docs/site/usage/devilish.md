@@ -27,4 +27,4 @@ dEVILish from the chooser. It takes PHASER's place on both menus.
 | 2 | CUTX | the wide cutoff range |
 | 2 | ENVX | env mod tripled |
 
-Page 1 follows locks, scenes and the crossfader like any effect's knobs.
+Page 1 follows locks, scenes, the crossfader and the LFOs like any effect's knobs.

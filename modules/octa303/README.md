@@ -107,11 +107,11 @@ Accent (v6.8, Din Sync set A5, peak / energy in the first 4–40 ms, relative to
 
 ### The code (✅)
 
-- `tools/octa303/sim/test_octa303.py`: 91/91 in a tree without `modules/devilish` (94/94 with it:
+- `tools/octa303/sim/test_octa303.py`: 89/89 in a tree without `modules/devilish` (92/92 with it:
   three checks read dEVILish's manifest, one checks OCTA303's own `DEVIL_ID`). `octa303.s` executed
   from its source text in a ColdFire simulator equals the Python model `ref303.py` sample for sample:
-  both carriers, accents, slides, split frames, extreme knobs, Devil Fish on FX1/FX2, scenes and
-  crossfader, the gate state machine (fuzzed), the SETUP page, the machine registration helpers and
+  both carriers, accents, slides, split frames, extreme knobs, Devil Fish on FX1/FX2 (read from the DSP
+  voice record: locks, scenes and LFOs applied), the gate state machine (fuzzed), the SETUP page, the machine registration helpers and
   the validator wrapper.
 - No overflow: the VCA input is clamped from the tables so the product fits 32 bits (fuzzed
   over thousands of knob combinations).

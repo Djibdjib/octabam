@@ -14,7 +14,8 @@ Markers as in `CHIP.md`: ✅ measured, 🟡 inferred.
 ## Knobs
 
 Every default is the TB-303 (Whittle, "Limiting the Devil Fish to TB-303 sounds"). Page 1 can be
-locked and morphed by scenes and the crossfader, as any effect's knobs.
+locked, morphed by scenes and the crossfader and modulated by the track's LFOs, as any effect's knobs
+(page 2 has no LFO destinations on any effect).
 
 | page | name | range | default | what it does |
 |---|---|---|---|---|
@@ -38,7 +39,11 @@ With dEVILish on the track, its SLID replaces the OCTA-303 SETUP page's SLID.
 - **ColdFire:** the module is a menu entry with twelve knobs (a clone of DARK REV's descriptor,
   FX id `0x10`, PHASER's, which it replaces on both menus). The OCTA303 voice compares each track's live FX1 / FX2 id with that id
   (`DEVIL_ID`, handed to `octa303` through `remix.inc`) and, on a match, reads the slot's knobs
-  from the frame builder's live lane — locks, scenes and crossfader applied (MIDI.md Appendix C).
+  as the DSP gets them: page 1 from the track's DSP voice record, where the frame builder has applied
+  the locks, the scene morph and the LFOs before the 303 renders (`docs/firmware/LFO.md` section 5,
+  MIDI.md Appendix C); page 2 from the live lane. Until 21 Oct 2026 the voice morphed the lane's bytes
+  itself, which no LFO reaches: an LFO on a dEVILish knob did nothing on the unit (the owner's MKI,
+  image DEVPR1).
   The knob laws are tables in `tools/octa303/o3tables.py` (`DF_*`); the engine is
   `modules/octa303/octa303.s`.
 - **DSP:** a pass-through (init and proc return at once, 5 words): an in-place insert that touches no frame.
@@ -49,7 +54,8 @@ With dEVILish on the track, its SLID replaces the OCTA-303 SETUP page's SLID.
 
 - ✅ `tools/octa303/sim/test_octa303.py` (the `octa303` gate): the Devil Fish engine in
   `octa303.s` equals `ref303.py` sample for sample, on FX1 and FX2, with knobs moved, locked and
-  taken away, at the extremes, and through scenes and the crossfader; the neutral knobs equal no
+  taken away, at the extremes, and from the voice record with an LFO's fractional low bytes, a moving
+  LFO and either ping; the neutral knobs equal no
   dEVILish; a remix without it is neutral; the module's knob order and defaults are the engine's.
 - ✅ DSP cost 1 cycle/sample (`make cycles REMIX=acidtrack`).
 - ✅ On the unit: the author's MKI, `acidtrack` images up to ACIDV71, October 2026: the current
@@ -77,7 +83,7 @@ With dEVILish on the track, its SLID replaces the OCTA-303 SETUP page's SLID.
 
 ## Gates
 
-`tools/octa303/sim/test_octa303.py` (through `octa303`: 94/94 with `modules/devilish` in the
+`tools/octa303/sim/test_octa303.py` (through `octa303`: 92/92 with `modules/devilish` in the
 tree, its three manifest checks included); `make check REMIX=devilish` (`remixes/test/devilish`:
 OCTA303 and dEVILish beside the stock effects but PHASER, whose id dEVILish takes).
 
