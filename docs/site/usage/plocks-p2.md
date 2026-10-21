@@ -3,7 +3,7 @@ available on stock page 1.
 
 A step can carry locks for both FX pages.
 
-## Create and Remove a Lock
+## Create and remove a lock
 
 Open the FX1 or FX2 SETUP page, hold one or more trigs and turn a knob:
 each held step gets that slot's page-2 lock. Hold FUNC while turning to
@@ -23,7 +23,7 @@ The locks move with the data: trig copy and paste, clear a trig's locks,
 pattern copy and paste, clear a pattern and its undo each carry or clear
 them. SAVE PROJECT writes them and a power cycle loads them back.
 
-## Limits and Saving
+## Limits and saving
 
 - Page 2 has no slide: a slide trig moves page 1 only.
 - A held step with no trig takes a page-2 lock that never plays.

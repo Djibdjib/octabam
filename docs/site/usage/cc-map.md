@@ -1,7 +1,7 @@
 MIDI CC numbers stock ignores now reach page 2 of FX1 and FX2. Stock
 incoming CC writes page 1 only (CC 16–45).
 
-## The CC Numbers
+## The CC numbers
 
 | CC | Writes |
 |---|---|

@@ -37,7 +37,7 @@ Octabam Inserts it is also on FX2; in Octabam Bus it is FX1 only.
 | 2 | MODE | LADR / SEM / ISO / VOWL | — | Selects the filter model. |
 | 2 | SHPE | 0–127 | 0 | SEM only (blank in other modes): LP → BP → HP |
 
-## Old Projects
+## Old projects
 
 MODE's saved values moved on 27 Sep 2026 (BP 2 → SEM 1, ISO 3 → 2, VOWL
 4 → 3); SHPE keeps its stored value, so a part saved on BP comes back as

@@ -111,6 +111,4 @@ Every module in the image, credited to its author:
 ## Where it has run
 
 Cursory testing on an MKII (owner report, 16 Oct 2026). Port gates:
-`make check REMIX=octabam-bus` and the reach round. bottleservice, the same
-bus without the core additions (since retired), ran on an MKII (images
-A0–A6; the changelog).
+`make check REMIX=octabam-bus` and the reach round.

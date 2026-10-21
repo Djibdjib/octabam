@@ -34,8 +34,8 @@ remixes add effects to this set: [`octabam-inserts`](../octabam-inserts/README.m
 
 ## Where it has run
 
-Port gates only: `make check REMIX=octabam-core` and the reach round. Not on
-a unit.
+Cursory testing on an MKII (owner report, 16 Oct 2026). Port gates:
+`make check REMIX=octabam-core` and the reach round.
 
 ## How to flash
 

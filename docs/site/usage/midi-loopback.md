@@ -2,7 +2,7 @@ Route each MIDI track to external MIDI, the Octatrack's internal MIDI receiver,
 or both. For example, an internal MIDI track can sequence audio-track CC
 controls while another MIDI track drives external equipment.
 
-## How to Use It
+## How to use it
 
 1. On a MIDI track, open NOTE SETUP with FUNC + SRC.
 2. Choose A: CHAN, then press A to apply it and open ROUTING.
