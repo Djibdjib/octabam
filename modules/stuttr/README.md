@@ -51,6 +51,13 @@ dry ──RATE tick──► CHNC roll ──miss──► dry
 SIDECHAIN_COMPRESSOR's cross-core keybus; a 16,384-word ring would write
 into them. Init sets maxlen to 15,862 on FX2 (3,072 on FX1).
 
+## Cost / instances per core
+
+Measured `make check REMIX=stuttr`: **426 cycles/sample**. Four FX2 slots
+share a core → worst-core **1704** against ~3120 usable after stock
+(~1415). So **4 instances per core** fit the FX2 slot map and the cycle
+budget; a fifth is not offered by the panel.
+
 ## Storage and stock firmware
 
 The page descriptor is cloned from **DARK REV**; the FX id is **MULTIBCOMP**
@@ -72,13 +79,18 @@ back to stock.
 
 Local render gates (`verify_stuttr`): MIX 0 bit-exact; CHNC 0 stays dry;
 CHNC 127 + HOLD engages; SIZE loop gaps; HALF lengthens gaps vs FWD;
-REV 127 reverses; every named knob renders.
+REV 127 reverses; every named knob renders; max-knob (all 127, each MODE,
+~3 s / 0.5 FS) hits **0 rail samples**; two FX2 instances each have energy;
+CHNC 8 sits between dry and always-on; REV 64 is neither always-fwd nor
+always-rev (LFSR); grab onsets spread at CHNC 127; MODE RND varies gaps.
 
 ## On the unit
 
 Prior MKII flash (remix `glitch` **BUILD G4**, 19 Oct 2026) exercised the
 **previous** always-loop topology (JITR/FDBK/DECY/LOOP–SCRAM). This
-chance-engage redesign is port-proven; hardware re-proof pending.
+chance-engage redesign is **not** re-flashed yet — `Proof.RENDER` until a
+BUILD tag lists every knob / MODE / SYNC, trig splits, two instances per
+core, and whether the ~64-sample fades were heard click-free.
 
 ## Open
 
