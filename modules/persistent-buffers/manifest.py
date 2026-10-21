@@ -18,7 +18,7 @@ MODULE = Module(
     author_url="https://github.com/ilia-murzinov",
     proof=Proof.CHECK,
     proof_note="verify_persistent_buffers: symbols + port save/load; author MKII "
-               "R2–R6 (17 Oct 2026): head is R6, path BUFFERS/RECn.wav (no !)",
+               "R2–R6 (17 Oct 2026); R7: save binds UI without re-load",
     doc="On project save, dump non-empty recorder buffers to BUFFERS/REC1.wav..REC8.wav "
         "(overwrite); on project load, restore them.",
     linked=(Linked("pbf", "modules/persistent-buffers/pbuf.s", dram=True),),
