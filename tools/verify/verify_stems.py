@@ -1523,7 +1523,8 @@ def ot_check(card_path, tag, fixture=FIXTURE):
     """Each WAV of the take has its .ot beside it: 832 bytes with a good
     checksum, the project's tempo (TEMPOx24 in the card's project.work),
     the trim the whole file, its length in bars * 100 at that tempo,
-    timestretch NORMAL, no loop, gain 0 dB and no slices."""
+    timestretch NORMAL, no loop, no slices, and the gain by kind: +12 dB
+    (72) for a track or an input, +24 dB (96) for MAIN and CUE."""
     import re
     files = card_files(card_path)
     fx = json.loads(pathlib.Path(fixture).read_text())
@@ -1542,8 +1543,8 @@ def ot_check(card_path, tag, fixture=FIXTURE):
         bars = (n // 16 * tempo * 100 + 158760 // 2) // 158760 if f and tempo else None
         ok = (f is not None and f["sum"] == f["want_sum"] and f["tempo"] == tempo
               and f["trim_start"] == 0 and f["trim_end"] == n and f["trim_len"] == f["loop_len"] == bars
-              and (f["stretch"], f["loop"], f["gain"], f["quant"], f["loop_point"], f["slices"])
-              == (2, 0, 0x30, 0xff, 0, 0))
+              and (f["stretch"], f["loop"], f["quant"], f["loop_point"], f["slices"]) == (2, 0, 0xff, 0, 0)
+              and f["gain"] == (96 if w.rsplit("/", 1)[1].upper() in ("MAIN.WAV", "CUE.WAV") else 72))
         check(f"{tag}: {w.rsplit('/', 1)[1][:-4]}.ot holds the take's tempo and the file's length",
               ok, f"{f}, tempo {tempo}, samples {n}, bars*100 {bars}")
 
