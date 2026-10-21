@@ -53,6 +53,7 @@
 | Formatters have the stock signature fmt(buf, value) -> sprintf.
 
         .text
+        .global fm_descriptor, pg_resolve
         .set    RESOLVER_RET, 0x40031ed6
         .set    FLEX_P, 0x400d31ae       | the stock FLEX PLAYBACK descriptor (P form)
         .set    KIND_FLEX, 0x400d6438    | the kind table's FLEX entry: sy_render's address (the manifest's SymbolRef)
@@ -67,14 +68,14 @@
 
         .set    SIG_OFF, 0x8edbc         | Part NEIGHBOR PLAYBACK: "CX", 1 (machine.s)
 
-| ---- CX OSC machine descriptor (machine.s calls this fixed address) ------------
+| ---- CX OSC machine descriptor (machine.s fm_row RD_DESC; DRAM or cave) --------
 fm_descriptor:
         moveal  KIND_FLEX,%a0            | sy_render
         moveal  %a0@(-4),%a0             | po_pgdesc
         lea     pg_over(%pc),%a1
         jmp     %a0@
 
-| ---- the resolver detour (+16 after fm_descriptor) ----------------------------
+| ---- the resolver (PLACE=DRAM: detour jmp; CAVE: jmp abs to cave+16) ----------
 | 0x40031ece -> jmp pg_resolve. Signature "CX",1 in the Part (marker path off).
 pg_resolve:
         movel   %a0@(0,%d0:l:4),%d0      | replay: the machine's descriptor

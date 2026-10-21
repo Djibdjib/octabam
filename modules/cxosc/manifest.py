@@ -10,9 +10,22 @@ and BLACKPYRAMIDS_303.
 
 import os
 
-from remix.schema import CavePatch, Detour, Gate, Kind, Linked, Module, Proof, SymbolRef, Category
+from remix.schema import (
+    Apply, CavePatch, Category, Detour, Gate, Kind, Linked, Module, Option,
+    Proof, Setting, Store, SymbolRef,
+)
 
 _HERE = os.path.relpath(os.path.dirname(os.path.realpath(__file__)))
+
+# PLACE: DRAM (default) links page.s into the platform runtime and leaves the
+# stock DELAY curve table's last words alone (issue #771 / Keep on 0x400d24d0).
+# CAVE is the pinned ROM form at PAGE_AT; refused where DELAY is listed.
+PAGE_AT = 0x400d24d0
+PAGE_LEN = 1780
+PG_RESOLVE_AT = 16
+RESOLVER_HOOK = 0x40031ece
+RESOLVER_STOCK = bytes.fromhex("20300c00" "6002")
+PLACES = ("CAVE", "DRAM")
 
 
 def engine_abi():
@@ -31,8 +44,21 @@ def machine_limits():
         return f.read()
 
 
+def _cxosc_place(modules) -> str:
+    seq = modules.values() if isinstance(modules, dict) else modules
+    for m in seq:
+        if getattr(m, "name", None) == "cxosc":
+            return dict(getattr(m, "build_values", {}) or {}).get("PLACE", "DRAM")
+    return "DRAM"
+
+
 def machine_include(modules, remix=None):
-    return remix_include(modules, remix) + machine_limits()
+    text = remix_include(modules, remix) + machine_limits()
+    # CAVE: page.s is not linked; machine.s's .long fm_descriptor needs the
+    # absolute cave base. DRAM: the Linked page unit exports the symbol.
+    if _cxosc_place(modules) != "DRAM":
+        text += f"\n        .set    fm_descriptor, {PAGE_AT:#x}\n"
+    return text
 
 
 KIND_TABLE_STATIC = 0x400d6434
@@ -146,12 +172,6 @@ PART_UNDO_STOCK = bytes.fromhex("4879460bf218" "4ebafef0")
 PREVIEW_HOOK = 0x40096d22
 PREVIEW_STOCK = bytes.fromhex("7710" "23c346105424" "10bc0001")
 
-PAGE_AT = 0x400d24d0
-PAGE_LEN = 1780
-PG_RESOLVE_AT = 16
-RESOLVER_HOOK = 0x40031ece
-RESOLVER_STOCK = bytes.fromhex("20300c00" "6002")
-
 PINNED_PAGE = bytes.fromhex(
     "2079400d64382068fffc43fa00604ed020300c000c80400d31ae66000048243c"
     "000018b24c012800d48920422803c8fc001ed1c4d1fc0008edbc7bd00c850000"
@@ -218,6 +238,21 @@ def emit_page(addr: int):
     assert addr == PAGE_AT, "the page cave is pinned"
     return b"", ((RESOLVER_HOOK, RESOLVER_STOCK,
                   bytes.fromhex("4ef9") + (addr + PG_RESOLVE_AT).to_bytes(4, "big")),)
+
+
+def _variant(values):
+    """PLACE -> the page's placement (DRAM default avoids DELAY Keep #771)."""
+    if values["PLACE"] != "DRAM":
+        return {}
+    return {
+        "linked": MODULE.linked + (Linked("page", os.path.join(_HERE, "page.s"),
+                                          cpu="5475", dram=True),),
+        "cf_patches": (),
+        "detours": MODULE.detours + (Detour(
+            RESOLVER_HOOK, RESOLVER_STOCK, "page", "pg_resolve",
+            "PLAYBACK page resolver: CX OSC track reads PTCH/RATO/INDX/FOLD/SYMM/FDBK "
+            "(DRAM form; leaves the stock DELAY table tail alone)", kind="jmp"),),
+    }
 
 
 MODULE = Module(
@@ -369,4 +404,9 @@ MODULE = Module(
             report_note=" (resolver -> pg_resolve +16: CX OSC PLAYBACK; fm_descriptor at cave base)",
         ),
     ),
+    store=Store("ilia.cxosc"),
+    variant=_variant,
+    settings=(Setting(1, "PLACE", Option(*PLACES), default="DRAM", apply=Apply.BUILD,
+                      doc="DRAM: page in the platform runtime (leaves stock DELAY table tail alone); "
+                          "CAVE: pinned ROM cave at 0x400d24d0, refused where DELAY is listed"),),
 )

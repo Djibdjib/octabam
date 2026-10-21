@@ -1390,7 +1390,7 @@ fm_row:
         .byte   'C', 'X', 1, 1           | the signature "CX", 1; engine kind 1
         .long   fm_name
         .long   fm_defaults
-        .long   FM_DESC                  | page.s's fm_descriptor: the CX OSC page (built on first use)
+        .long   fm_descriptor            | page.s (DRAM Linked, or cave at 0x400d24d0 when PLACE=CAVE)
         .byte   0, 0, 0, 0               | flags: its SETUP bytes are FLEX's (kept when it is left, as 2.10)
 | THE ROWS after the stock five, in list order (2.11): CX OSC, then each machine module
 | on this engine the remix carries -- SY DRUM's descriptor is its own unit's sd_row.

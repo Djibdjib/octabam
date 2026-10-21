@@ -50,6 +50,14 @@ selection guard; how that sits against ColdFire headroom on a loaded Part is
 **SYNTH MACHINE**, **ANALOG BD**, **BLACKPYRAMIDS_303** (shared ROM hooks such
 as MIDI note-on `0x4000e746`). The build refuses the pair.
 
+## PLACE
+
+Setting `ilia.cxosc` / `PLACE` (Apply.BUILD, default **DRAM**): the PLAYBACK
+page lives in the platform runtime with `poly.s`, and the resolver at
+`0x40031ece` is a detour to `pg_resolve`. That leaves the stock DELAY curve
+table tail at `0x400d24d0` alone (issue #771). **CAVE** is the pinned ROM
+form at that address; the ledger refuses it in a remix that lists DELAY.
+
 ## Proof / hardware
 
 **Port:** `make check REMIX=cxosc` runs `verify_cxosc` (FOLD/SYMM/RATO/FDBK
