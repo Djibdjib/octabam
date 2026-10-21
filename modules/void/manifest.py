@@ -97,7 +97,7 @@ MODULE = Module(
         bus_role=BusRole.NONE,
         ybase=YBase.NEVER,
     ),
-    harness=Harness(layout_char="B", is_server=False),  # W taken by RESONATOR; V = DARK REV
+    harness=Harness(layout_char="M", is_server=False),  # B = MULTIBCOMP; W = RESONATOR; V = DARK
     gates=(Gate("tools/verify/verify_void.py", remix_arg=False),),
     dear={"BAL": 127, "RATE": 127, "SHPE": 2, "DPTH": 127, "DRV": 127,
           "FDBK": 100, "COLR": 0, "HPF": 127, "NTYP": 2},
