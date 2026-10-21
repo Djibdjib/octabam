@@ -5,9 +5,11 @@ from remix.schema import Proof, Remix
 REMIX = Remix(
     name="distorx",
     family="effects",
-    proof=Proof.RENDER,
-    proof_note="verify_distorx (dsp_host): bit-exact against distorx_ref.fixed() in every MODE, "
-               "the circuit gates, MIX 0, the MODE fade",
+    proof=Proof.HARDWARE,
+    proof_note="the owner's MKI, image DTXPR1 (BUILD 91, this remix), 21 Oct 2026: every knob in every MODE, "
+               "MODE changed while playing without a click, FX1 and FX2, four at once on both cores for 5 minutes, "
+               "an LFO on DRIV/TONE, a scene with another MODE through the crossfader, save and reload; "
+               "verify_distorx (dsp_host)",
     doc="DISTORX on FX1 and FX2 beside the stock effects (all but CHORUS, PLATE REV and SPRING REV, whose words it takes).",
     modules=(
         "DISTORX",

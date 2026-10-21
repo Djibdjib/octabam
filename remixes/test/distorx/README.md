@@ -6,3 +6,6 @@ table) need one run that long: CHORUS + PLATE REV + SPRING REV give theirs
 stays (`modules/distorx/README.md` "Where it goes").
 
 `make check REMIX=distorx`.
+
+**Hardware:** the owner's MKI, image DTXPR1 (BUILD 91), 21 Oct 2026 (module README
+"On the unit (DTXPR1)").

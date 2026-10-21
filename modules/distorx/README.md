@@ -300,6 +300,14 @@ What changed:
   slow-downs (by ear; no recording of this session).
 - A part saved with PAD keeps a byte in slot 6 that nothing reads.
 
+**On the unit (DTXPR1, the final tree of this module's PR, remix `distorx`, BUILD 91, the owner's
+MKI, 21 Oct 2026):** the project opens; T1 (kick) FX2 = DISTORX at MODE OFF leaves the sound as it
+was; SD-1 → RAT → TURB while playing, no click; LEVL, TONE, DRIV and IN each act in each pedal;
+MIX 0 is the dry sound; on FX1 of another track (T3, hats) as well; four at once (T1, T3, T5, T6,
+both cores) for five minutes: no clicks, no noise, no slow-down; an LFO on DRIV or TONE moves the
+sound, no hang; a scene with another MODE through the crossfader, no click; save, power-cycle,
+reload: DISTORX and its knobs are kept. By ear, no recording.
+
 ## Open
 
 - The `-pword` (dirty LFO word) renders of `verify_distorx`: skipped on the owner's tree, whose
