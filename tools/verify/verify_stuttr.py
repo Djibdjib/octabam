@@ -45,6 +45,9 @@ if (init, proc) == send_probe.entry_points(MEM, SEND.menu.fx2_id):
 print(f"entries: init=P:0x{init:04x} proc=P:0x{proc:04x}")
 
 DEFAULTS = [(p.default or 0) for p in MOD.params]
+# Panel default SYNC=8 spaces RATE ticks; gates need FREE for CHNC mid / SIZE.
+DEFAULTS[K["SYNC"]] = 0
+
 
 
 def params(**kw):

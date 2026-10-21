@@ -84,18 +84,21 @@ REV 127 reverses; every named knob renders; max-knob (all 127, each MODE,
 CHNC 8 sits between dry and always-on; REV 64 is neither always-fwd nor
 always-rev (LFSR); grab onsets spread at CHNC 127; MODE RND varies gaps.
 
+## Defaults
+
+SIZE / RATE / HOLD mid (64); CHNC 0 (dry until raised); REV 0; MIX 127;
+MODE FWD; SYNC **8**.
+
 ## On the unit
 
-Prior MKII flash (remix `glitch` **BUILD G4**, 19 Oct 2026) exercised the
-**previous** always-loop topology (JITR/FDBK/DECY/LOOP–SCRAM). This
-chance-engage redesign is **not** re-flashed yet — `Proof.RENDER` until a
-BUILD tag lists every knob / MODE / SYNC, trig splits, two instances per
-core, and whether the ~64-sample fades were heard click-free.
+Ilia's MKII, **STUT NS.RMX** (latest−SHATTER via BRAIN; 21 Oct 2026): empty
+project sequencer advances; every page-1/page-2 knob, MODE/SYNC, trig
+splits, two instances per core, engage/release fades heard click-free.
+(Prior G4 was the old always-loop topology.)
 
 ## Open
 
 - Project-BPM tempo sync
-- Hardware re-proof of the chance-engage page
 
 ## Gates
 

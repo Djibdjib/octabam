@@ -18,10 +18,11 @@ MODULE = Module(
     kind=Kind.DSP_EFFECT,
     category=Category.TRACK, author="ilia-murzinov",
     author_url="https://github.com/ilia-murzinov",
-    proof=Proof.RENDER,
-    proof_note="Chance-engage redesign (SIZE/RATE/CHNC/HOLD/REV/MIX + "
-               "MODE FWD/HALF/QUART/RND); verify_stuttr. Prior MKII G4 was "
-               "the old always-loop topology — re-proof on hardware pending.",
+    proof=Proof.HARDWARE,
+    proof_note="Ilia's MKII, STUT NS.RMX (latest−SHATTER; BRAIN switch), "
+               "21 Oct 2026: empty-project play; every page-1/page-2 knob, "
+               "MODE/SYNC, trig splits, two instances/core, engage/release "
+               "fades click-free; verify_stuttr",
     doc="Chance grain repeater: grab, hold-loop, reverse/slow modes.",
     menu=MenuEntry(
         # MULTIBCOMP 0x19 — stock null stub, FX2-only; page clone still from
@@ -34,13 +35,13 @@ MODULE = Module(
         build_tag=False,
     ),
     params=(
-        Param(b"SIZE", 40, active=True, formatter=_P,
+        Param(b"SIZE", 64, active=True, formatter=_P,
               doc="grain length ((kn+1)^2 words; FX2 ~0.1..180 ms)"),
-        Param(b"RATE", 40, active=True, formatter=_P,
+        Param(b"RATE", 64, active=True, formatter=_P,
               doc="how often CHNC may attempt a grab (slow left, fast right)"),
-        Param(b"CHNC", 64, active=True, formatter=_P,
+        Param(b"CHNC", 0, active=True, formatter=_P,
               doc="0 = never stutter; 127 = always grab on RATE tick"),
-        Param(b"HOLD", 40, active=True, formatter=_P,
+        Param(b"HOLD", 64, active=True, formatter=_P,
               doc="after a hit: how long to keep repeating before dry"),
         Param(b"REV", 0, active=True, formatter=_P,
               doc="per-repeat reverse probability (0 = always forward)"),
@@ -49,7 +50,7 @@ MODULE = Module(
         Param(b"MODE", 0, 4, active=True, formatter=_S,
               labels=("FWD", "HALF", "QUART", "RND"),
               doc="1x / half / quarter / per-repeat random rate"),
-        Param(b"SYNC", 0, 4, active=True, formatter=_S,
+        Param(b"SYNC", 2, 4, active=True, formatter=_S,
               labels=("FREE", "16", "8", "4"),
               doc="divisions of the RATE attempt clock"),
         _BLANK, _BLANK, _BLANK, _BLANK,
@@ -68,6 +69,7 @@ MODULE = Module(
     claims=Claims(stock_instance_buffer=True, buffer_words=15862),
     harness=Harness(layout_char="M", is_server=False),
     gates=(Gate("tools/verify/verify_stuttr.py", remix_arg=False),),
-    dear={"SIZE": 48, "RATE": 36, "CHNC": 127, "HOLD": 64, "REV": 0,
-          "MIX": 127, "MODE": 0, "SYNC": 0},
+    # dear: engaging demo for renders/gates (not the panel defaults)
+    dear={"SIZE": 64, "RATE": 64, "CHNC": 127, "HOLD": 64, "REV": 0,
+          "MIX": 127, "MODE": 0, "SYNC": 2},
 )
