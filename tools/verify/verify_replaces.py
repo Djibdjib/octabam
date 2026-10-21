@@ -23,8 +23,11 @@ WHAT IS CHECKED, per remix, per payload, for every stock effect id:
 
   * the module carrying it DECLARED it (MenuEntry.replaces naming that
     effect), or
-  * the id is untouched -- FX2_IDS still points at the stock descriptor and
-    the dispatch entries still hold the pristine image's values.
+  * the id is untouched -- FX2_IDS still holds the pristine image's pointer
+    and the dispatch entries still hold the pristine image's values.
+    (Most stock effects point FX2_IDS at P = E+0x38; MULTIBCOMP's id is
+    wired to NONE in both menus while its descriptor still sits in the
+    param-page table -- compare against the pristine slot, not stock.py's P.)
 
 BOTH MENUS ARE CHECKED. FX1 resolves its own descriptors (FX1_IDS, and the
 chooser list it scrolls), so an id can be correct on FX2 and wrong on FX1 --
@@ -195,11 +198,15 @@ def check_image(name, img, pristine, fails):
                         f"0x{rd32(img, a):08x}, not stock's "
                         f"0x{rd32(pristine, a):08x} -- nothing declared "
                         f"replaces={eff.key!r}")
+        # Pristine FX2_IDS, not donor P: MULTIBCOMP (and any FX2-only stub
+        # whose chooser slot is NONE) has a descriptor in stock.py but
+        # FX2_IDS[id] == NONE on a stock image.
+        want_fx2 = rd32(pristine, FX2_IDS + eid * 4)
         got_desc = rd32(img, FX2_IDS + eid * 4)
-        if got_desc != want_desc:
+        if got_desc != want_fx2:
             fails.append(
                 f"{name}: FX2_IDS[0x{eid:02x}] ({eff.key}) is "
-                f"0x{got_desc:08x}, not stock's 0x{want_desc:08x} -- nothing "
+                f"0x{got_desc:08x}, not stock's 0x{want_fx2:08x} -- nothing "
                 f"in this remix declared replaces={eff.key!r}")
         for tag, xtab, nul_i, nul_p in PAYLOADS:
             for slot, nul in ((eid, nul_i), (32 + eid, nul_p)):
