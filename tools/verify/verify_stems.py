@@ -1540,7 +1540,7 @@ def ot_check(card_path, tag, fixture=FIXTURE):
     for w in wavs:
         f = ot_fields(card_get(files, w[:-4] + ".ot"))
         n = wav_fmt(files[w])[4] // wav_fmt(files[w])[2] if f else None
-        bars = (n // 16 * tempo * 100 + 158760 // 2) // 158760 if f and tempo else None
+        bars = (n // 16 * tempo + 158760 // 2) // 158760 if f and tempo else None   # 16-sample frames * BPM*24 / 158760
         ok = (f is not None and f["sum"] == f["want_sum"] and f["tempo"] == tempo
               and f["trim_start"] == 0 and f["trim_end"] == n and f["trim_len"] == f["loop_len"] == bars
               and (f["stretch"], f["loop"], f["quant"], f["loop_point"], f["slices"]) == (2, 0, 0xff, 0, 0)
