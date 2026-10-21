@@ -1,7 +1,9 @@
 # `void` — VOID
 
-Replaces **COMB FILTER** (FX2 id `0x13`). Code sits in harvested **PLATE REV**
-words.
+Replaces **COMB FILTER** (FX2 id `0x13`, `replaces="COMB FILTER"`). In any remix
+that carries VOID, COMB is off the FX chooser; a Part saved with stock COMB
+opens without that effect (re-pick VOID or stamp defaults). Code sits in
+harvested **PLATE REV** words.
 
 Grit: track input blended with white / pink / brown noise,
 amplitude-modulated by an audio-rate LFO, then a mild HP/LP body and a soft
@@ -32,8 +34,8 @@ SETUP top row: COLR · HPF · NTYP.
 ## Storage and stock firmware
 
 The page descriptor is cloned from **DARK REV** (`donor_desc=0x400d58b8`).
-VOID's FX id is stock COMB's (`0x13`): a Part saved under stock COMB knobs
-will not match VOID's layout — re-pick VOID or stamp defaults after flashing.
+VOID keeps COMB's id (`0x13`) but not COMB's knob layout — page bytes from a
+COMB Part will not match VOID's names.
 
 If the same page bytes are loaded under DARK REV, they read as DARK's knobs:
 
