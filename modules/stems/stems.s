@@ -62,6 +62,9 @@
         .equ    UNCACHED,      0x08000000   | the same RAM, data cache bypassed (PLAN.md, "The RAM")
         .equ    DTCN3,         0xfc07c00c   | DMA timer 3: free-running at the bus clock (modules/cfmeter)
         .equ    BUS_MHZ,       132          | its counts a microsecond: 7.58 ns a count
+        .equ    TEMPO24,       0x80001814   | long: the tempo, BPM * 24, clamped 720..7200 (DSP.md, RECORDER.md)
+        .equ    OT_SIZE,       832          | an Octatrack attributes file (.ot), every field big-endian
+        .equ    OT_BARS_DIV,   158760       | 16-sample frames * tempo24 / this = bars * 100
         .equ    CARD_UDMA,     0x46c85c8c   | byte: the card's Ultra DMA mode, if any (STEM_REC.md 11.7)
         .equ    CARD_MWDMA,    0x46c85c8b   | byte: its multiword DMA mode, if any
         .equ    CARD_SPC,      0x46107990   | byte: the mounted volume's sectors a cluster: the raw
@@ -263,6 +266,8 @@ stems_zdone:     .long   0          | the writer's: the take's frames every file
         .balign 4
 stems_lsrc:      .long   0          | the sources latched at the start
 stems_lfmt:      .long   0          | the format latched at the start
+stems_ltempo:    .long   0          | the tempo latched at the start, BPM * 24, for the .ot files
+stems_fsmp:      .space  4*MAX_FILES  | per file: its samples on the card, for its .ot
 stems_nf:        .long   0          | files in the take
 stems_ftab:      .space  4*MAX_FILES  | per file: kind << 24 | channels << 16 | bytes per frame
         .global stems_ffn, stems_farg, stems_ntrk, stems_tbytes
@@ -779,6 +784,11 @@ fmt_peak:       .asciz  "PEAK %d%s"         | "%" as an argument: %% is untested
 fmt_log:        .asciz  "/BRAIN/STEMS/%s.TXT"
 nm_brain:       .asciz  "/BRAIN"
 nm_logdir:      .asciz  "/BRAIN/STEMS"
+| The .ot's first 23 bytes: FORM, a zero size, DPS1SMPA, then 00 00 00 00 00 02 00
+ot_hdr:         .ascii  "FORM"
+                .byte   0,0,0,0
+                .ascii  "DPS1SMPA"
+                .byte   0,0,0,0,0,2,0
 lbl_ok:         .asciz  "OK"
 st_f_take:      .asciz  "STEM REC STATS %s\r\n"
 st_f_status:    .asciz  "status %s\r\n"
@@ -1169,6 +1179,8 @@ stems_m8check:
 | frame. Uses d0-d4 and a0-a2.
 stems_layout:
         clr.l   stems_tfr           | the take's frames, counted by the hook from here
+        move.l  TEMPO24,%d0
+        move.l  %d0,stems_ltempo
         move.l  stems_tracks,%d0
         andi.l  #SRC_BITS,%d0
         tst.b   MASTER_TRK
@@ -2878,6 +2890,8 @@ stems_finish:
         mulu.l  %d0,%d1                     | block align
         move.l  %d3,%d0
         divu.l  %d1,%d0
+        lea     stems_fsmp,%a0
+        move.l  %d0,(%a0,%d4.l*4)           | its samples, for its .ot
         mulu.l  %d1,%d0
         move.l  %d0,%d3                     | whole frames of this file only
         moveq   #HDR_SIZE,%d2
@@ -2948,6 +2962,7 @@ stems_finish:
         bsr.w   stems_zrd           | every frame on the card: stems_rd reaches stems_wr
 .Lz_rd:
         bsr.w   stems_stats         | the readout, beside the closed files
+        bsr.w   stems_otfiles       | each file's tempo and length, for timestretch
         clr.l   stems_nopen
         clr.l   stems_wfail
         movem.l (%sp),%d2-%d4/%a2
@@ -3230,6 +3245,144 @@ stems_stats:
 .Lo_out:
         movem.l (%sp),%d2-%d7/%a2-%a3
         lea     32(%sp),%sp
+        rts
+
+| ---- each file's .ot: the take's tempo and the file's length ------------
+| The Octatrack reads a sample's tempo from the attributes file beside it
+| (<name>.ot); without one it guesses a power of two bars from the length,
+| so a take that isn't one, two, four ... bars timestretched at the wrong
+| tempo. Per file with samples on the card: the tempo latched at the start,
+| the trim and loop lengths in bars * 100, timestretch NORMAL, no loop,
+| gain 0 dB, the trim the whole file, no slices, and the checksum, the sum
+| of bytes 16 to 829. Written after STATS.TXT, through file 0's sector-0
+| copy. Nothing after a failed card write. Uses d0-d6, a0-a2.
+stems_otfiles:
+        lea     -24(%sp),%sp
+        movem.l %d2-%d6/%a2,(%sp)
+        tst.l   stems_wfail
+        bne.w   .Lt_out
+        moveq   #0,%d3              | d3: the file
+.Lt_file:
+        cmp.l   stems_nopen,%d3
+        bcc.w   .Lt_out
+        lea     stems_fsmp,%a0
+        move.l  (%a0,%d3.l*4),%d5   | d5: its samples
+        beq.w   .Lt_next            | nothing on the card: no .ot
+        moveq   #0,%d1
+        bsr.w   stems_sec0
+        movea.l %a0,%a2             | a2: the .ot
+        move.l  #255,%d0
+.Lt_clr:
+        clr.l   (%a0)+              | 1,024 bytes: the file, then the second sector's rest
+        subq.l  #1,%d0
+        bpl.s   .Lt_clr
+        movea.l %a2,%a0
+        lea     ot_hdr,%a1
+        moveq   #23,%d0
+.Lt_hdr:
+        move.b  (%a1)+,(%a0)+
+        subq.l  #1,%d0
+        bne.s   .Lt_hdr
+        move.l  stems_ltempo,%d4    | d4: BPM * 24
+        move.l  %d4,%d0
+        bsr.w   stems_ot32          | 0x17 the tempo
+        move.l  %d5,%d0             | d6: bars * 100, rounded; F * t would pass
+        lsr.l   #4,%d0              | 32 bits, so (F >> 8) * t, then the rest
+        move.l  %d0,%d2             | d2: F, the 16-sample frames
+        lsr.l   #8,%d0
+        mulu.l  %d4,%d0             | (F >> 8) * t
+        move.l  %d0,%d6
+        move.l  #OT_BARS_DIV,%d1
+        divu.l  %d1,%d6             | its quotient
+        move.l  #OT_BARS_DIV,%d1
+        mulu.l  %d6,%d1
+        sub.l   %d1,%d0             | its remainder
+        lsl.l   #8,%d0
+        lsl.l   #8,%d6
+        andi.l  #0xff,%d2
+        mulu.l  %d4,%d2
+        add.l   %d2,%d0             | (r << 8) + (F & 255) * t
+        addi.l  #OT_BARS_DIV/2,%d0
+        move.l  #OT_BARS_DIV,%d1
+        divu.l  %d1,%d0
+        add.l   %d0,%d6
+        move.l  %d6,%d0
+        bsr.w   stems_ot32          | 0x1b the trim length
+        move.l  %d6,%d0
+        bsr.w   stems_ot32          | 0x1f the loop length
+        moveq   #2,%d0
+        bsr.w   stems_ot32          | 0x23 timestretch NORMAL
+        moveq   #0,%d0
+        bsr.w   stems_ot32          | 0x27 no loop
+        clr.b   (%a0)+
+        move.b  #0x30,(%a0)+        | 0x2b the gain, 0x30: 0 dB
+        move.b  #0xff,(%a0)+        | 0x2d the trig quantization: direct
+        moveq   #0,%d0
+        bsr.w   stems_ot32          | 0x2e the trim start
+        move.l  %d5,%d0
+        bsr.w   stems_ot32          | 0x32 the trim end
+        moveq   #0,%d0
+        bsr.w   stems_ot32          | 0x36 the loop point; no slices
+        lea     16(%a2),%a0
+        move.l  #OT_SIZE-2-16,%d1
+        moveq   #0,%d0
+        moveq   #0,%d2
+.Lt_sum:
+        move.b  (%a0)+,%d2
+        add.l   %d2,%d0
+        subq.l  #1,%d1
+        bne.s   .Lt_sum
+        move.b  %d0,OT_SIZE-1(%a2)  | the checksum, big-endian
+        lsr.l   #8,%d0
+        move.b  %d0,OT_SIZE-2(%a2)
+        bsr.w   stems_make_file     | <take>/<file>.wav, then .ot in its place
+        lea     stems_fpath,%a0
+.Lt_end:
+        tst.b   (%a0)+
+        bne.s   .Lt_end
+        move.b  #0x6f,-4(%a0)       | o
+        move.b  #0x74,-3(%a0)       | t
+        clr.b   -2(%a0)
+        pea     MODE_W
+        pea     stems_fpath
+        RAWCALL RAW_OPEN_PTR
+        addq.l  #8,%sp
+        move.l  %d0,%d6             | d6: the handle
+        ble.s   .Lt_next
+        pea     2
+        move.l  %a2,-(%sp)
+        move.l  %d6,-(%sp)
+        RAWCALL RAW_WRITE_PTR
+        lea     12(%sp),%sp
+        pea     OT_SIZE
+        move.l  %d6,-(%sp)
+        RAWCALL RAW_SETLEN_PTR
+        addq.l  #8,%sp
+        move.l  %d6,-(%sp)
+        RAWCALL RAW_CLOSE_PTR
+        addq.l  #4,%sp
+.Lt_next:
+        addq.l  #1,%d3
+        bra.w   .Lt_file
+.Lt_out:
+        movem.l (%sp),%d2-%d6/%a2
+        lea     24(%sp),%sp
+        rts
+
+| ---- d0 into a0, big-endian, a byte at a time: the .ot's longs aren't
+| aligned. Advances a0. Uses d1.
+stems_ot32:
+        move.l  %d0,%d1
+        swap    %d1
+        lsr.l   #8,%d1
+        move.b  %d1,(%a0)+
+        move.l  %d0,%d1
+        swap    %d1
+        move.b  %d1,(%a0)+
+        move.l  %d0,%d1
+        lsr.l   #8,%d1
+        move.b  %d1,(%a0)+
+        move.b  %d0,(%a0)+
         rts
 
 | ---- the raw file routines, measured (a test seam; STEM_REC.md 12.1) -----

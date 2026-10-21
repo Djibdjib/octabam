@@ -1123,6 +1123,7 @@ def stream(s):
           f"rd {rd}, wr {wr}, frames {nfr}")
     wav_check(card, nfr, dump, "stream", g=gain_of(log, 0))
     stats_check(card, "stream", nfr, 1, 16, fbytes=64)
+    ot_check(card, "stream")
     if "stems_peak" in s:
         raw = run_path("stream", "peak")
         peak = int.from_bytes(raw.read_bytes(), "big") if raw.exists() else None
@@ -1499,6 +1500,52 @@ def stats_check(card_path, tag, nfr, nfiles, bits, status="OK", fixture=FIXTURE,
               f"write {wfast}, ring {ring}, {len(text)} bytes")
     check(f"{tag}: STATS.TXT's cluster is the card's", clus == [spc], f"{clus} vs {spc} sectors a cluster")
     return {"took": took, "ring": ring, "writes": wr, "hook": hook, "frame": frame, "cluster": clus}
+
+
+def ot_fields(data):
+    """An Octatrack attributes file (.ot), big-endian: the fields STEM REC
+    writes, the checksum it carries and the one recomputed (the byte sum
+    from offset 16 up to the checksum), or None when the size or the
+    header is wrong."""
+    if data is None or len(data) != 832 or data[:16] != b"FORM\0\0\0\0DPS1SMPA":
+        return None
+    tempo, trim_len, loop_len, stretch, loop = struct.unpack_from(">5I", data, 0x17)
+    gain, quant = struct.unpack_from(">HB", data, 0x2b)
+    trim_start, trim_end, loop_point = struct.unpack_from(">3I", data, 0x2e)
+    slices = struct.unpack_from(">I", data, 0x33a)[0]
+    return {"tempo": tempo, "trim_len": trim_len, "loop_len": loop_len, "stretch": stretch,
+            "loop": loop, "gain": gain, "quant": quant, "trim_start": trim_start,
+            "trim_end": trim_end, "loop_point": loop_point, "slices": slices,
+            "sum": struct.unpack_from(">H", data, 830)[0], "want_sum": sum(data[16:830]) & 0xffff}
+
+
+def ot_check(card_path, tag, fixture=FIXTURE):
+    """Each WAV of the take has its .ot beside it: 832 bytes with a good
+    checksum, the project's tempo (TEMPOx24 in the card's project.work),
+    the trim the whole file, its length in bars * 100 at that tempo,
+    timestretch NORMAL, no loop, gain 0 dB and no slices."""
+    import re
+    files = card_files(card_path)
+    fx = json.loads(pathlib.Path(fixture).read_text())
+    names = new_entries(files, fixture)
+    if len(names) != 1:
+        check(f"{tag}: .ot: one take", False, f"{names}")
+        return
+    work = card_get(files, f"{fx['set']}/{fx['project']}/project.work")
+    m = re.search(rb"TEMPOx24=(\d+)", work or b"")
+    tempo = int(m.group(1)) if m else None
+    folder = f"{stems_pool(fx)}{names[0]}/".lower()
+    wavs = sorted(p for p in files if p.lower().startswith(folder) and p.lower().endswith(".wav"))
+    for w in wavs:
+        f = ot_fields(card_get(files, w[:-4] + ".ot"))
+        n = wav_fmt(files[w])[4] // wav_fmt(files[w])[2] if f else None
+        bars = (n // 16 * tempo * 100 + 158760 // 2) // 158760 if f and tempo else None
+        ok = (f is not None and f["sum"] == f["want_sum"] and f["tempo"] == tempo
+              and f["trim_start"] == 0 and f["trim_end"] == n and f["trim_len"] == f["loop_len"] == bars
+              and (f["stretch"], f["loop"], f["gain"], f["quant"], f["loop_point"], f["slices"])
+              == (2, 0, 0x30, 0xff, 0, 0))
+        check(f"{tag}: {w.rsplit('/', 1)[1][:-4]}.ot holds the take's tempo and the file's length",
+              ok, f"{f}, tempo {tempo}, samples {n}, bars*100 {bars}")
 
 
 def slot_frames(dump_path, k, g=None):
