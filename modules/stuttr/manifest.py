@@ -74,7 +74,7 @@ MODULE = Module(
     conflicts=(("SHATTER",
                 "empty-project sequencer stalls with SHATTER+STUTTR in one "
                 "image (HW S8 21 Oct 2026); cause open"),),
-    harness=Harness(layout_char="M", is_server=False),
+    harness=Harness(layout_char="0", is_server=False),  # M = VOID
     gates=(Gate("tools/verify/verify_stuttr.py", remix_arg=False),),
     # dear: engaging demo for renders/gates (not the panel defaults)
     dear={"SIZE": 64, "RATE": 64, "CHNC": 127, "HOLD": 64, "REV": 0,
