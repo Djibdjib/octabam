@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""CX OSC voice gate under Unicorn: FOLD / SYMM / RATO / FDBK move the output,
-and FOLD=SYMM=FDBK=127 stays bounded (rail sample counts).
+"""CX OSC gates under Unicorn: voice knobs + the one-track-per-Part guard.
 
-Calls the linked `sy_render` in out/platform/runtime with a planted Part
-signature and PLAYBACK words — ColdFire, not dsp_host. Instruction counts
-are diagnostics, not hardware cycles.
+1. Voice: FOLD / SYMM / RATO / FDBK move the output; FOLD=SYMM=FDBK=127 stays
+   bounded (rail sample counts). Calls `sy_render` with a planted Part.
+2. Guard: `ml_guard_p` refuses a second CX OSC track in a Part ("CX OSC: 1 MAX")
+   and allows the track's own machine again / a first choice / a stock row.
+
+ColdFire, not dsp_host. Instruction counts are diagnostics, not hardware cycles.
 
     python3 tools/verify/verify_cxosc.py          # after make bus REMIX=cxosc
     make check REMIX=cxosc                        # Gate on the module
@@ -20,7 +22,11 @@ import sys
 from unicorn import Uc, UC_ARCH_M68K, UC_MODE_BIG_ENDIAN, UC_HOOK_CODE, UC_HOOK_MEM_UNMAPPED
 from unicorn.m68k_const import (
     UC_CPU_M68K_CFV4E,
+    UC_M68K_REG_A0,
     UC_M68K_REG_A7,
+    UC_M68K_REG_D0,
+    UC_M68K_REG_D1,
+    UC_M68K_REG_D2,
     UC_M68K_REG_PC,
     UC_M68K_REG_SR,
 )
@@ -48,6 +54,8 @@ STOP, STACK = 0x10000, 0x20000
 
 Q14_PEAK = 0x4000
 RAIL = 0x7FFFF0  # top-24 sample near full scale
+FM_ROW = 5  # machine.s: sixth list row = CX OSC
+MSG_FM_MAX = b"CX OSC: 1 MAX"
 
 
 def die(msg):
@@ -59,6 +67,79 @@ def check(label, ok, detail=""):
     if not ok:
         die(f"{label}" + (f" ({detail})" if detail else ""))
     print(f"  [PASS] {label}" + (f" — {detail}" if detail else ""))
+
+
+def clear_part(uc):
+    """Eight tracks: FLEX, no CX signature."""
+    uc.mem_write(PART_PTR_AT, struct.pack(">I", BANK))
+    uc.mem_write(PART_IDX_AT, b"\x00")
+    for t in range(8):
+        uc.mem_write(BANK + MACH_OFF + t, b"\x01")
+        uc.mem_write(BANK + SIG_OFF + 30 * t, bytes(3))
+
+
+def sign_cx(uc, track):
+    uc.mem_write(BANK + MACH_OFF + track, b"\x01")
+    uc.mem_write(BANK + SIG_OFF + 30 * track, b"CX\x01")
+
+
+def call_ml_guard_p(uc, symbols, row, track):
+    """ml_guard_p(a0=Part, d1=row, d2=track) -> d0 (0 = allow, else message ptr)."""
+    if "ml_guard_p" not in symbols:
+        die("ml_guard_p missing from runtime.elf")
+    uc.reg_write(UC_M68K_REG_A7, STACK)
+    uc.mem_write(STACK, struct.pack(">I", STOP))
+    uc.reg_write(UC_M68K_REG_A0, BANK)  # part 0 = bank base
+    uc.reg_write(UC_M68K_REG_D1, row)
+    uc.reg_write(UC_M68K_REG_D2, track)
+    try:
+        uc.emu_start(symbols["ml_guard_p"], STOP, count=100_000)
+    except Exception as e:
+        die(f"ml_guard_p fault at pc={uc.reg_read(UC_M68K_REG_PC):#x}: {e}")
+    if uc.reg_read(UC_M68K_REG_PC) != STOP:
+        die(f"ml_guard_p did not return (pc={uc.reg_read(UC_M68K_REG_PC):#x})")
+    return uc.reg_read(UC_M68K_REG_D0)
+
+
+def read_cstr(uc, addr, n=32):
+    if addr == 0:
+        return b""
+    raw = bytes(uc.mem_read(addr, n))
+    return raw.split(b"\0", 1)[0]
+
+
+def check_guard(uc, symbols):
+    """One CX OSC per Part: refuse a second choice; allow first / own / stock."""
+    clear_part(uc)
+    d0 = call_ml_guard_p(uc, symbols, FM_ROW, 0)
+    check("guard: first CX OSC on T1 allowed", d0 == 0, f"d0={d0:#x}")
+
+    sign_cx(uc, 0)
+    d0 = call_ml_guard_p(uc, symbols, FM_ROW, 0)
+    check("guard: choosing CX OSC again on the same track allowed", d0 == 0)
+
+    d0 = call_ml_guard_p(uc, symbols, FM_ROW, 1)
+    msg = read_cstr(uc, d0)
+    check(
+        "guard: second track refused with CX OSC: 1 MAX",
+        d0 != 0 and msg == MSG_FM_MAX,
+        f"d0={d0:#x} msg={msg!r}",
+    )
+
+    # Stock row (FLEX = 1): always allowed even with one CX OSC present
+    d0 = call_ml_guard_p(uc, symbols, 1, 1)
+    check("guard: stock row on a free track allowed beside one CX OSC", d0 == 0)
+
+    # Paste-style: destination Part already has CX on T1; choosing CX on T3
+    clear_part(uc)
+    sign_cx(uc, 0)
+    d0 = call_ml_guard_p(uc, symbols, FM_ROW, 2)
+    msg = read_cstr(uc, d0)
+    check(
+        "guard: paste onto another track refused (same ml_guard_p)",
+        d0 != 0 and msg == MSG_FM_MAX,
+        f"msg={msg!r}",
+    )
 
 
 def map_page(uc, addr, size=0x1000):
@@ -93,6 +174,8 @@ def load_runtime():
     symbols = {f[2]: int(f[0], 16) for f in (line.split() for line in nm.splitlines()) if len(f) == 3}
     if "sy_render" not in symbols:
         die("sy_render missing from runtime.elf")
+    if "ml_guard_p" not in symbols:
+        die("ml_guard_p missing from runtime.elf")
     headers = subprocess.check_output(
         ["m68k-elf-objdump", "-h", str(RUNTIME / "runtime.elf")], text=True
     )
@@ -242,6 +325,8 @@ def main():
     if loaded is None:
         return 0
     uc, symbols, _base = loaded
+
+    check_guard(uc, symbols)
 
     base = dict(ptch=64, rato=32, indx=48, fold=0, symm=0, fdbk=0)
     variants = {
