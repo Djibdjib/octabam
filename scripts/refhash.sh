@@ -6,10 +6,11 @@
 # of the stock OS (out/raw/section_3_MAIN_OS.bin), so the baseline is untracked
 # and only means anything on the machine that saved it.
 #
-#   scripts/refhash.sh check    # every artifact and every build report must match
-#                               # the baseline of this branch's merge-base with
-#                               # origin/main (tools/verify/refhash_store.py: saved
-#                               # once per merge-base, shared by every worktree)
+#   scripts/refhash.sh check    # every artifact must match the baseline of this
+#                               # branch's merge-base with origin/main
+#                               # (tools/verify/refhash_store.py: saved once per
+#                               # merge-base). rc=0 <report> lines may differ;
+#                               # rc!=0 reports are compared (tools/verify/refhash_compare.py)
 #   scripts/refhash.sh save     # a LOCAL baseline of this tree, for
 #                               # REFHASH_LOCAL=1 scripts/refhash.sh check
 #
@@ -135,20 +136,9 @@ case "${1:-}" in
     # printed in a hint changes every report hash while the bins stay
     # identical (trap-report-api). CI baselines the merge-base, so those
     # PRs can never re-save; pass when every non-<report> line matches.
-    if python3 - <<'PY'
-from pathlib import Path
-def arts(p):
-    out, case = {}, None
-    for line in Path(p).read_text().splitlines():
-        if line.startswith("case "):
-            case = line
-            out[case] = []
-        elif case and "<report>" not in line and line.strip():
-            out[case].append(line)
-    return out
-b, c = arts("out/refhash/baseline/manifest.txt"), arts("out/refhash/current/manifest.txt")
-raise SystemExit(0 if b == c else 1)
-PY
+    # Cases with rc!=0 keep their <report> (often the only line).
+    if python3 tools/verify/refhash_compare.py \
+         out/refhash/baseline/manifest.txt out/refhash/current/manifest.txt
     then
       echo "  ARTIFACTS BIT-IDENTICAL (${#CASES[@]} cases); reports differ (build-report API)"
       echo "  (common when a replaces= module joins LEFT STOCK — trap-report-api)"
