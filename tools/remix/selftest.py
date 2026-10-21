@@ -918,6 +918,7 @@ def main():
                                   "quantize-live-rec-toggle", "erase-empty-trigless-locks",
                                   "mute-modes", "kyoti-mute-jump", "kyoti-fixes", "rec-trig-mute",
                                   "euclid-fill", "varispeed", "copy-project")},
+             "trackpatterns": (),   # pgstath's ColdFire module on the stock effects, no DSP words
              # the twelve io remixes: the IN module's RX inject is placed in SPATIALIZER's words
              **{f"usb-io-{o}-{i}": ("SPATIALIZER",) for o in ("tracks", "tracks-main-cue", "main-cue", "main") for i in ("ab", "cd", "abcd")},
              "octatrick": ("SPATIALIZER",),   # USB's ABCD input inject, as in the io remixes
