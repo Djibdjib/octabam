@@ -24,7 +24,7 @@ STATIONS = ("SPECTRUM", "CHARACTER", "MODULATION")
 
 REMIX = Remix(
     name="octabam-inserts",
-    family="mods", proof=Proof.PORT, proof_note="Shared event migration: hardware acceptance pending",
+    family="mods", proof=Proof.HARDWARE, proof_note="EUCLID transport integration: scoped hardware checks ([PR #851](https://github.com/sambanks/octabam/pull/851))",
     doc="CORE + SPECTRUM, CHARACTER, MODULATION, TRANSIENT and EUCLID on FX1 and FX2, LOFI2 (FX2), the stock DELAY and GATE VERB on FX2.",
     modules=STATIONS + ("MODE DEFAULTS", "DELAY", "GATE VERB") + INSERTS + ("LOFI2",) + CORE,
     fallback="NONE",
