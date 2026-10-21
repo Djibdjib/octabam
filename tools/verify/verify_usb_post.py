@@ -49,7 +49,7 @@ sys.path.insert(0, str(ROOT / "tools/harness"))
 import toolpath  # noqa: E402,F401
 import usb_post_model as M  # noqa: E402
 from remix import registry  # noqa: E402
-from verify_usb import early_block, cs1_block  # noqa: E402
+from verify_usb import early_block, cs1_block, has_early_slot  # noqa: E402
 
 EMU = ROOT / "out/emu/ot_emu"
 PY = ROOT / ".venv/bin/python3"
@@ -375,6 +375,9 @@ def main():
     # rows do the same). Every other early setting keeps its resolved value.
     remix = registry.remix(os.environ.get("REMIX"))
     base, early, resolved = early_block(remix, registry.modules())
+    if not has_early_slot(early):
+        print("  [SKIP] verify_usb_post: TRACKS is fixed in this image (no USB setting has an early CS1 entry to hold POST)")
+        return 0
     cs1 = work / "cs1_post.bin"
     cs1.write_bytes(cs1_block(base, early, resolved, {"TRACKS": 2}))
     xlv = xlv_table_from_elf(sym)
