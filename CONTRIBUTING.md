@@ -109,6 +109,16 @@ with everyone.
 **`key` is API.** It appears in the build report, and tools parse the
 report. Renaming a key, or rewording a report line, is a breaking change.
 
+**A module may not crash or degrade the unit in any configuration the user
+can select.** A module that does is not accepted. Selectable
+configurations include the number of instances, the tracks they sit on,
+parameter ranges, and combinations with other modules in the same remix.
+A guard removes the configuration (a refused selection, a clamp, a bypass on
+overrun); documenting the failure does not. `DspSection.max_per_core` declares
+an instance ceiling for the cycle price and the unit does not enforce it, so
+it is not a guard. The module README names the guard and what it was
+measured against.
+
 ## The oracle rule
 
 **A port is done when the author's build and this repo's build agree byte for byte.**
