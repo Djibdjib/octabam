@@ -889,5 +889,21 @@
       "source": "emulator panel UART",
       "firmware_sha256": "fb63da46575a46a02b2e1e56a4995581dd7ffffa74ff982e00bb32b330476b89"
     }
+  },
+  "cxosc": {
+    "source": {
+      "image": "cxosc/source.png",
+      "caption": "CX OSC PLAYBACK: PTCH RATO INDX FOLD SYMM FDBK.",
+      "remix": "cxosc",
+      "source": "emulator panel UART",
+      "firmware_sha256": "47560f6033490386b25b9ff3feac5502b3de03dc70f9faaec7d17a463f249a99"
+    },
+    "setup": {
+      "image": "cxosc/setup.png",
+      "caption": "SRC SETUP: CX OSC selected in the machine list.",
+      "remix": "cxosc",
+      "source": "emulator panel UART",
+      "firmware_sha256": "47560f6033490386b25b9ff3feac5502b3de03dc70f9faaec7d17a463f249a99"
+    }
   }
 }
