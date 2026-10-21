@@ -934,6 +934,7 @@ def main():
              "distorx": ("SPATIALIZER", "CHORUS", "PLATE REV", "SPRING REV"),   # DISTORX on SPATIALIZER's id; its 1,586 words in one run; DARK REV stays
              "shatter": ("PLATE REV",),   # SHATTER runs in its words; the other 13 stay
              "stuttr": ("PLATE REV",),   # STUTTR runs in its words; the other 13 stay
+             "devilish": ("PHASER",),   # dEVILish is on PHASER's id; its pass-through runs in PHASER's words
              "testgen": ("PLATE REV",),     # TESTGEN runs in its words; the other 13 stay
              "resonator": ("PLATE REV",),   # RESONATOR runs in its words; the other 13 stay
              "vocoder": ("PLATE REV", "DJ EQ"),   # VOCODER runs in PLATE's words; DJ EQ out so the tables sit in X
