@@ -45,6 +45,21 @@ the laws (`modules/modulation/README.md` "Sources"):
 | TAL-NoiseMaker chorus, Surge XT chorus/Ensemble, JunoX, chowdsp BBD | GPL | laws only |
 | Rakarrack/guitarix Vibe, BYOD Solo-Vibe, Zyn APhaser | GPL | laws only |
 
+## Measurements, circuit values and laws behind ColdFire modules (no code transcribed)
+
+What a module's model is fitted to or built from, when nothing of the source's own text or audio is
+in the tree. The recordings are not redistributed: the fits are numbers in the module's tables.
+
+| source | what is used | licence / status | used in |
+|---|---|---|---|
+| Din Sync, *TB-303 reference recordings for x0xb0x* (25 files, 400 notes at C2 with known knob positions), http://www.dinsync.info/2010/02/tb-303-reference-recordings-for-x0xb0x.html | the calibration target: band levels, peaks, the resonance's ring decay, brightness over time, accent peaks; fitted constants in `tools/octa303/o3tables.py` (and `ladder_cache.json`, coefficients solved from them) | recordings published for x0xb0x builders; licence not stated; not redistributed (measured locally, numbers only) | `modules/octa303` |
+| tinyloops, *Programming the Roland TB-303*, https://tinyloops.com/tb303/index.html | two example recordings (the resonant "drops", "saw with only accents") for the ring decay and the accent | licence not stated; not redistributed (numbers only) | `modules/octa303` |
+| Robin Whittle, *Devil Fish* manual (2019) and "TB-303 unique" notes, Real World Interfaces, https://www.firstpr.com.au/rwi/dfish/ | circuit values and behaviour: the gate length (3.5 of 6 clocks), the accent RC (47k x 0.033 µF; 47k + 100k with 1 µF), the slide RC, the square's duty by pitch | © Robin Whittle; laws and component values only, no text | `modules/octa303` (and the Devil Fish laws `DF_*` in `tools/octa303/o3tables.py`, read by the `devilish` knobs) |
+| Tim Stinchcombe, analysis of the TB-303 diode ladder ("diode2"), https://www.timstinchcombe.co.uk/index.php?pge=diode2 | the transfer function the ladder's low-frequency behaviour was checked against | © Tim Stinchcombe; laws only | `modules/octa303` |
+| Roland, TB-303 service notes | the DECAY range, the ENV MOD taper, the slide capacitor | © Roland; values only | `modules/octa303` |
+| Tim Hastie, SYNTH MACHINE 2.9, https://github.com/timhastie/octatrick-modules (`v2.9` = `525f4b1`) | the FLEX integration re-done for one voice (the renderer call `sy_render(track, ping, start, end)`, START resolution, PTCH/RATE neutral, pinned positions, the clean retrig byte, the PLAYBACK page clone) and the semitone tuning system; `octa303.s` is written here | MIT, Tim Hastie 2026 | `modules/octa303` |
+| repeat98, `analog-bassdrum` (this repository) | the measured machine-list seams the OCTA-303 row uses | this repository's MIT | `modules/octa303` |
+
 ## Firmware modifications built from their authors' repositories (git submodules)
 
 | module | upstream | licence |
