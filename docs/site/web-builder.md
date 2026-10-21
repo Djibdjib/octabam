@@ -11,7 +11,7 @@ locally and nothing is uploaded.
     load, and some change effect parameter layouts or default track
     assignments. A project created on the unit after installation needs no
     preparation; for older projects see the preparation steps on the
-    [remix page](choosing.md).
+    [remix pages](choosing.md).
 
 ## What you need
 

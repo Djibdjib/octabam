@@ -9,7 +9,7 @@ effects and both effect menus stay as stock has them, with stock LO-FI's AMF
 knob fixed (the LOFI AMF FIX module). [Octabam Inserts](remix-inserts.md)
 and [Octabam Bus](remix-bus.md) add effects to this set.
 
-## Included Features
+## Included features
 
 - [BRAIN](brain.md): templates, settings, defaults, and remix switching.
 - [KITS](reference/modules/kits.md): save and recall a Kit for each pattern.
@@ -19,7 +19,7 @@ and [Octabam Bus](remix-bus.md) add effects to this set.
 - [USB](reference/modules/usb.md): MIDI input and output, plus audio to a computer: the 16 track channels, MAIN and CUE by default.
 - Recorder, sequencing, mute, and storage fixes listed below.
 
-## Build and Install
+## Build and install
 
 [Build and Install](web-builder.md) builds this remix in the browser. To build
 from source instead:
@@ -38,7 +38,7 @@ from source instead:
 If the unit misbehaves, the failure register lists what has gone wrong and
 why: https://github.com/sambanks/octabam/blob/main/docs/contributing/FAILURE_MODES.md
 
-## Module List
+## Module list
 
 Every module in the image, credited to its author:
 
@@ -51,14 +51,14 @@ module. Its settings (TRACKS, MAIN, CUE, MASTER, MIDI) are changed on the
 unit in PROJ > BRAIN > SETTINGS and take effect at the next boot; IN is fixed
 at OFF in this remix. See [USB](reference/modules/usb.md).
 
-## Memory Use
+## Memory use
 
 | Resource | Stock OS | Octabam Core |
 |---|---|---|
 | Sample and recorder memory | 14,602 pages | 12,895 pages (platform reserve) |
 | Free DSP words | — | 0. LOAD METER does not fit, so BRAIN has no LOAD view DSP rows. |
 
-## Where It Has Run
+## Where it has run
 
-Port gates only: `make check REMIX=octabam-core` and the reach round. Not on
-a unit.
+Cursory testing on an MKII (owner report, 16 Oct 2026). Port gates:
+`make check REMIX=octabam-core` and the reach round.

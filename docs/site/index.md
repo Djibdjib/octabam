@@ -6,7 +6,7 @@ Octabam adds community features to the Elektron Octatrack's operating
 system (OS 1.40C): Kits, templates, expanded scenes and parameter locks, USB
 audio and MIDI, and new effects. You pick a **remix**, build it in your
 browser from your own copy of OS 1.40C, and install it from a CF card or
-over MIDI. octabam is unofficial community software; see [About](about.md).
+over MIDI. Octabam is unofficial community software; see [About](about.md).
 
 ## Get started
 
@@ -24,14 +24,12 @@ over MIDI. octabam is unofficial community software; see [About](about.md).
 
 ## Everyday use
 
-| To… | Open… |
-|---|---|
-| Save templates or change defaults | [BRAIN](brain.md) |
-| Assign a saved sound setup to a pattern | [Kits and patterns](reference/modules/kits.md) |
-| Lock parameters on an effect's second page | [Page 2 parameter locks](reference/modules/plocks-p2.md) |
-| Control MIDI tracks with scenes | [MIDI scenes](reference/modules/midi-scenes.md) |
-| Record MAIN and CUE on a computer | [USB audio and MIDI](reference/modules/usb.md) |
-| Look up an effect or shortcut | [Feature directory](reference/modules.md) |
+- Save templates or change defaults: [BRAIN](brain.md)
+- Assign a saved sound setup to a pattern: [Kits and patterns](reference/modules/kits.md)
+- Lock parameters on an effect's second page: [Page 2 parameter locks](reference/modules/plocks-p2.md)
+- Control MIDI tracks with scenes: [MIDI scenes](reference/modules/midi-scenes.md)
+- Record MAIN and CUE on a computer: [USB audio and MIDI](reference/modules/usb.md)
+- Look up an effect or shortcut: [Feature directory](reference/modules.md)
 
 ## Reading this manual
 

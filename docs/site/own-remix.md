@@ -10,7 +10,7 @@ feature or contribute a module, start with the
 [developer documentation](https://github.com/sambanks/octabam/blob/main/CONTRIBUTING.md)
 and the [module author guide](https://github.com/sambanks/octabam/blob/main/docs/contributing/MODULES.md).
 
-## 1. Prepare the Build Environment
+## 1. Prepare the build environment
 
 Follow the [build guide](https://github.com/sambanks/octabam/blob/main/docs/guide/BUILDING.md) through installing the toolchain and
 preparing your own OS 1.40C. The interactive remixer also needs its optional
@@ -23,7 +23,7 @@ make emu-setup
 See the [remixer guide](https://github.com/sambanks/octabam/blob/main/docs/guide/REMIXER.md)
 for detailed setup notes, Linux and WSL2 audio, and the keyboard controls.
 
-## 2. Select Modules and Effects
+## 2. Select modules and effects
 
 Start the interactive remixer:
 
@@ -44,11 +44,10 @@ For the full key reference and hand-editing options, see the
 [remixer guide](https://github.com/sambanks/octabam/blob/main/docs/guide/REMIXER.md).
 
 Select **USB** for USB MIDI and optional audio in either direction. Its
-TRACKS, MAIN, CUE, MASTER, IN and MIDI settings replace the four former USB
-module selections. They are changed on the unit in PROJ > BRAIN > SETTINGS
+TRACKS, MAIN, CUE, MASTER, IN and MIDI settings are changed on the unit in PROJ > BRAIN > SETTINGS
 and take effect at the next boot. A remix can fix one with a `Pin`.
 
-## 3. Record and Check the Remix
+## 3. Record and check the remix
 
 Add `remixes/<name>/README.md` describing what the remix includes and what
 has been tested. Update the remix index, then run:
@@ -63,7 +62,7 @@ It is the minimum check before flashing; a successful build alone does not
 show that the remix works on hardware. For image creation and installation,
 continue to [Build and Install](web-builder.md#install-the-image).
 
-## Next Steps
+## Next steps
 
 - [Choose a ready-made remix](choosing.md) if you want a tested starting
   selection.
