@@ -69,8 +69,9 @@ MODULE = dataclasses.replace(
     proof=Proof.HARDWARE, proof_note="`octatrick-usb` on his MKI, 26 Sep 2026 (OCTATRICK9) through 2.9; the last two 2.9 fixes under the port")
 
 
-# PLACE: where the PLAYBACK page lives. CAVE (the default) is the author's
-# pinned ROM cave at 0x400d24d0, the bytes his build ratified (`PINNED_PAGE`).
+# PLACE: where the PLAYBACK page lives. DRAM (the default) links page.s into the platform
+# runtime. CAVE is the author's pinned ROM cave at 0x400d24d0, the bytes his build ratified
+# (`PINNED_PAGE`); the ledger refuses it in a remix that lists the stock DELAY (stock.py).
 # The stock DELAY reads `0x400d1ce0 + 4 * (x >> 6)` for an index up to 511 and
 # its table ends at 0x400d24d0, so the first words of that run are read as
 # data when the delay time is long and the tempo slow: the page's first bytes
@@ -101,7 +102,7 @@ def _variant(values):
 
 MODULE = dataclasses.replace(
     MODULE, store=Store("timhastie.synth"), variant=_variant,
-    settings=(Setting(1, "PLACE", Option(*PLACES), default="CAVE", apply=Apply.BUILD,
-                      doc="CAVE: the page in the pinned ROM cave at 0x400d24d0 (the author's bytes); "
-                          "DRAM: in octabam's platform runtime, leaving the stock DELAY's table "
-                          "read untouched"),))
+    settings=(Setting(1, "PLACE", Option(*PLACES), default="DRAM", apply=Apply.BUILD,
+                      doc="DRAM: the page in octabam's platform runtime, leaving the stock DELAY's table "
+                          "read untouched; CAVE: the pinned ROM cave at 0x400d24d0 (the author's bytes), "
+                          "refused where the stock DELAY is listed"),))
