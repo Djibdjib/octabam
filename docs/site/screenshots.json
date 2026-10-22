@@ -921,5 +921,21 @@
       "source": "emulator panel UART",
       "firmware_sha256": "47560f6033490386b25b9ff3feac5502b3de03dc70f9faaec7d17a463f249a99"
     }
+  },
+  "morph": {
+    "window": {
+      "image": "morph/window.png",
+      "caption": "T1 + UP: the MORPH window, T1 armed; STEPS, x and MODE on A, B and C.",
+      "remix": "morph",
+      "source": "emulator panel UART",
+      "firmware_sha256": "20a95c603255f608e4b4ff06e8811d4c985d6b95bd22982ae0a426ff5611f508"
+    },
+    "settings": {
+      "image": "morph/settings.png",
+      "caption": "STEPS 8 and x 2: a cycle of 16 steps.",
+      "remix": "morph",
+      "source": "emulator panel UART",
+      "firmware_sha256": "20a95c603255f608e4b4ff06e8811d4c985d6b95bd22982ae0a426ff5611f508"
+    }
   }
 }
