@@ -66,7 +66,9 @@ On radiohagen's MKII (owner report, 21 Oct 2026), repeated fresh starts and
 pause/resume recovered normally with one EUCLID instance, instances on several
 tracks, and both FX slots on one track. Ordinary and arpeggiated MIDI notes
 played and stopped normally. These observations preceded the shared MIDI
-callback pitch correction; corrected-image MIDI hardware testing remains open.
+callback pitch correction. On 22 Oct 2026 the owner repeated ordinary and
+arpeggiated MIDI start/resume/stop checks on corrected `EUCL EVENTS 98`
+(source `152edb0b`), with no missing, doubled or stuck notes reported.
 EUCLID subscribes only to start/resume. Sample-accurate reset timing and multiple
 registered clients were not measured on the unit.
 
