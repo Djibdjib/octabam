@@ -66,3 +66,27 @@ callback payload, free/replacement ownership, rejection and zero-velocity bypass
 Composed-image checks verify exclusive hook ownership and that
 selected client callbacks are installed. EUCLID's existing tests cover its
 control engine, DSP and playback integration.
+
+### Empty MIDI-client cost
+
+`verify_system_events.py` executes each detour from its installed entry jump to
+the native continuation, with no MIDI clients, for all eight tracks and both
+pool kinds. Both `0x4009fbb2` (free-note acceptance) and `0x4009fcfa` (ownership
+replacement) execute **35 instructions**, including the entry jump and displaced
+work, versus **one stock instruction**: **34 added instructions per accepted
+note**. The dispatcher body alone is 34 instructions, excluding the entry jump.
+The stock instruction and patched path are measured in separate emulator
+instances. This counts instructions, not ColdFire cycles, elapsed time or MIDI
+latency; memory accesses and multi-register instructions are not cycle-weighted.
+
+### Hardware scope
+
+Owner checks on radiohagen's MKII (21 Oct 2026) covered fresh start and
+pause/resume recovery with one EUCLID instance, instances on several tracks,
+and both FX slots on one track, plus ordinary and arpeggiated MIDI playback
+and clean stop. No fault was reported. These checks preceded the callback pitch
+correction; MIDI hardware testing on the corrected image remains open.
+The module therefore retains `Proof.CHECK`. Multi-client behavior and precise
+callback payloads have software coverage only. EUCLID's unchanged interrupt-mask
+guard is documented in its README under "Clock restart ordering"; callback
+registration does not introduce a new selectable instance limit.

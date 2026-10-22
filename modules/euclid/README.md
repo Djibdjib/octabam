@@ -62,6 +62,14 @@ Rotation and odd Euclidean lengths do not rotate the track swing grid. The
 
 Cursory testing on Sam's MKII (owner report, 16 Oct 2026).
 
+On radiohagen's MKII (owner report, 21 Oct 2026), repeated fresh starts and
+pause/resume recovered normally with one EUCLID instance, instances on several
+tracks, and both FX slots on one track. Ordinary and arpeggiated MIDI notes
+played and stopped normally. These observations preceded the shared MIDI
+callback pitch correction; corrected-image MIDI hardware testing remains open.
+EUCLID subscribes only to start/resume. Sample-accurate reset timing and multiple
+registered clients were not measured on the unit.
+
 ## Clock restart ordering
 
 `eu_clock_start` runs from the PLAY sites in task context; `eu_clock_update`

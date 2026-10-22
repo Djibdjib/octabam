@@ -26,7 +26,8 @@ def event_inc(modules, remix=None):
 MODULE = Module(
     name='sequencer-events', key='SEQUENCER EVENTS', kind=Kind.CF_PATCH,
     category=Category.PARTS, author='radiohagen',
-    author_url='https://github.com/radiohagen', proof=Proof.CHECK, proof_note='',
+    author_url='https://github.com/radiohagen', proof=Proof.CHECK,
+    proof_note='Assembled dispatcher tests (0/1/3 clients), native MIDI and installed-hook checks; empty MIDI path adds 34 instructions. Scoped MKII transport/MIDI owner checks (21 Oct 2026) preceded the callback pitch correction; corrected-image hardware retest pending ([PR #851](https://github.com/sambanks/octabam/pull/851)).',
     doc='Platform: shared transport and accepted MIDI-output notifications.',
     linked=(Linked('sequencerevents', 'modules/sequencer-events/events.s', dram=True, include=event_inc),),
     gates=(Gate('tools/verify/verify_system_events.py', once=True, venv=True),

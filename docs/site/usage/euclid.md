@@ -50,3 +50,11 @@ from the chooser. In Octabam Inserts only.
 | Setup | MIX | dry/wet; 0 is an exact dry passthrough |
 
 SEQUENCER EVENTS coordinates PLAY/resume notifications with other selected modules. EUCLID retains its own phase-reset policy.
+
+## Hardware evidence
+
+Sam's MKII has a cursory owner report from 16 October 2026. On 21 October,
+radiohagen reported normal start/resume recovery on an MKII with one instance,
+instances on several tracks, and both FX slots on one track. MIDI playback
+checks preceded a correction to the shared MIDI callback; testing that corrected
+image on hardware remains open. EUCLID uses only the transport callbacks.

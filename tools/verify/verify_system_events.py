@@ -68,6 +68,7 @@ class Fixture:
         self.log=[];self.claims=set();self.arrived=None;self.stop=DONE
         self.native_count=0
         self.sent=None
+        self.instructions=0
         u.hook_add(UC_HOOK_CODE,self.hook)
 
     def ret(self,result=None):
@@ -79,6 +80,7 @@ class Fixture:
     def hook(self,u,pc,size,data):
         if pc==self.stop:
             self.arrived=pc;u.emu_stop();return
+        self.instructions+=1
         if pc in self.callbacks:
             client,event=self.callbacks[pc]
             args=tuple(u.reg_read(r) for r in REGS[:4])
@@ -112,6 +114,7 @@ class Fixture:
 
     def call(self,name,stop=DONE,values=None,args=()):
         u=self.uc;self.log=[];self.arrived=None;self.stop=stop;self.native_count=0
+        self.instructions=0
         self.before=[0x12340000+i for i in range(len(REGS))]
         for i,v in (values or {}).items():self.before[i]=v
         u.reg_write(UC_M68K_REG_SR,0x2700)
@@ -199,6 +202,37 @@ def native_midi_cases(work, count):
     return cases
 
 
+def empty_midi_cost(work):
+    """Count executed instructions from the installed detour to its continuation.
+
+    Include the entry JMP and displaced work; exclude the continuation itself.
+    Compare with the stock instruction at that same site in a separate emulator
+    (never rewrite already translated code). This is not a CPU-cycle benchmark.
+    """
+    declaration=runpy.run_path(str(ROOT/'modules/sequencer-events/manifest.py'))
+    for detour in declaration['MODULE'].detours:
+        if detour.symbol not in ('seq_sent_a','seq_sent_b'):continue
+        patched=Fixture('sequencer-events',0,work)
+        stock=Fixture('sequencer-events',0,work)
+        patched.uc.mem_write(detour.site,b'\x4e\xf9'+patched.sym[detour.symbol].to_bytes(4,'big'))
+        stock.uc.mem_write(detour.site,detour.expect)
+        stop=detour.site+len(detour.expect)
+        counts=set()
+        for track in range(8):
+            for pool in (0,1):
+                for f in (patched,stock):
+                    f.sym['note_site']=detour.site
+                    f.uc.mem_write(0x46c77b1e+10*track,bytes((pool,)))
+                    f.uc.mem_write(0x400d807c,bytes((0x90,61,93)))
+                    f.call('note_site',stop,values={7:track})
+                    assert not f.log
+                    changed=1 if detour.symbol=='seq_sent_a' else 0
+                    f.preserved({changed:0xffffff90})
+                counts.add((patched.instructions,stock.instructions))
+        assert counts=={(35,1)}, (detour.symbol,counts)
+        print(f'[ok] empty MIDI dispatcher at {detour.site:#x}: 35 instructions including entry JMP and displaced work; stock 1; added 34 (8 tracks x 2 pool kinds; not cycles)')
+
+
 def main():
     cases=0
     with tempfile.TemporaryDirectory(prefix='octabam-system-events-') as td:
@@ -247,6 +281,7 @@ def main():
     native_cases=0
     if (ROOT/'modules/sequencer-events/manifest.py').exists():
         with tempfile.TemporaryDirectory(prefix='octabam-native-events-') as td:
+            empty_midi_cost(Path(td))
             for count in (0,1,3):
                 native_cases+=native_midi_cases(Path(td),count)
         print(f'[ok] {native_cases} native MIDI cases: packet payloads, free/replacement ownership, rejected notes, zero velocity and native continuation')
