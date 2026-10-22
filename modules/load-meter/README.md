@@ -178,6 +178,12 @@ the chip's; the numbers on a unit are a hardware-round item.
   traffic, nothing stock writes the claimed words but payload B's boot
   zero loop, and an injected burn (`LM_BURN` builds) raises each core's
   busy by N/2 counts.
+- `tools/verify/verify_usb_load_meter.py`: the USB module's vendor request
+  `0xc0/0x57` (wValue low 0, 1, 2: `lm_stats`, `lm_dsp`, `lm_ot`; 20, 48 and
+  256 bytes) returns the meter's cells, equal to the same words peeked at
+  the symbol, with seq rising, a 0.5 s window, plausible periods and busy,
+  sampled slots; wValue 3 STALLs. `tools/hw/load_meter.py` reads them from
+  a unit (`--watch`, or `--for N --json` for a summary over N seconds).
 - `tools/verify/verify_brain.py` (BRAIN's gate) runs the PERFORMANCE screen on the
   `octabam-bus` remix, which carries this module.
 - `tools/verify/verify_dsp_vectors.py`, `verify_two_core` and `make

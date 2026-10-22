@@ -259,6 +259,7 @@ last section), the hardware capture setup — protocol in `docs/history/CAPTURE_
 | tool | what it does |
 |---|---|
 | `tools/hw/capture_hw.py` | records the unit through an audio interface and analyses the capture numerically |
+| `tools/hw/load_meter.py` | LOAD METER's three blocks over the vendor request `0xc0/0x57` (`octabam-bus`, `octabam-inserts`): the frame interrupt's share, each DSP core's busy/period, each effect slot's cost; once, `--watch`, or `--for N --json` |
 | `tools/hw/usb_counters.py` | the audio-out's ring counters (`--in`: the audio-in's) over their vendor requests, once or `--watch` |
 | `tools/hw/usb_in_tones.py` | USB IN on a unit with no interface: a tone per host channel into inputs A-D, MAIN and CUE recorded back over USB, per channel each tone's level, the residual after the tones, the worst second and the DC; run on two images to A/B an inject change; `--save` keeps the audio |
 | `tools/hw/usb_soak.py` | USB IN/OUT soak on a unit for N minutes: a click into input A once a second, found on MAIN, its round trip in samples of the same stream; lost or repeated frames show as a latency step, beside missing clicks, host xruns and both rings' counter deltas; a CLEAN verdict; `--csv` keeps every click |

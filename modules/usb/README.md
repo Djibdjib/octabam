@@ -1187,6 +1187,14 @@ this open; anchor is the frames skipped at that poll.
 - `usb_host.py … counters` reads them under the port.
 - `verify_usb` checks them after its stream.
 
+A second vendor GET, `0xc0/0x57`, returns LOAD METER's cells when the
+remix carries it (`LM_STATS`, `LM_DSP`, `LM_OT` are `defsyms`, 0 without
+the module, and a request then STALLs as stock does): wValue low 0 is
+`lm_stats` (20 bytes), 1 `lm_dsp` (48), 2 `lm_ot` (256), big-endian longs
+(`modules/load-meter/README.md`). `tools/hw/load_meter.py` reads and
+summarises them from a unit; `verify_usb_load_meter` checks the request
+under the port.
+
 #### Bus reset and session end
 
 The stock USBSTS.URI handler (`jsr 0x4001d6b8` at `0x4001e91c`: flush, dTD

@@ -65,6 +65,7 @@
 .set GETIFACE_STOCKP,0x400e20a1     | the stock 1-byte "00" the send reads
 .set SETUP_BMREQ,    0x46c8ce08     | SETUP bmRequestType
 .set SETUP_BREQ,     0x46c8ce09     | SETUP bRequest
+.set SETUP_WVALL,    0x46c8ce0a     | SETUP wValue low
 .set SETUP_WVALH,    0x46c8ce0b     | SETUP wValue high = control selector
 .set SETUP_WIDXH,    0x46c8ce0d     | SETUP wIndex high = entity id
 .set EP0_SEND_TAIL,  0x4001de5c     | jsr usb_ep0_send(len, buf); addq; done
@@ -1882,12 +1883,41 @@ audio_ctrl_shim:
     | stream. Any driver a host attached to the interfaces is bypassed: a
     | device-recipient control request needs no interface claim.
     cmpil   #0xc0,%d0
-    bnes    .Lctrl_class
+    bne     .Lctrl_class
     mvzb    SETUP_BREQ,%d0
     cmpil   #0x55,%d0
-    bne     .Lctrl_stock
+    bne     .Lctrl_lm
     pea     usbaudio_consumed
     moveq   #60,%d0
+    bra     .Lctrl_send
+    | 0xc0/0x57 reads LOAD METER's published figures (modules/load-meter), the
+    | block wValue low names: 0 lm_stats (5 longs), 1 lm_dsp (12), 2 lm_ot
+    | (16 slots of {last, sum, count, max}). Each LM_* is 0 without that
+    | module, and a request for a block it does not have STALLs as stock does.
+.Lctrl_lm:
+    cmpil   #0x57,%d0
+    bne     .Lctrl_stock
+    mvzb    SETUP_WVALL,%d0
+    tstl    %d0
+    bnes    1f
+    movel   #LM_STATS,%d1
+    beq     .Lctrl_stock
+    pea     LM_STATS
+    moveq   #20,%d0
+    bra     .Lctrl_send
+1:  cmpil   #1,%d0
+    bnes    2f
+    movel   #LM_DSP,%d1
+    beq     .Lctrl_stock
+    pea     LM_DSP
+    moveq   #48,%d0
+    bra     .Lctrl_send
+2:  cmpil   #2,%d0
+    bne     .Lctrl_stock
+    movel   #LM_OT,%d1
+    beq     .Lctrl_stock
+    pea     LM_OT
+    movel   #256,%d0
     bra     .Lctrl_send
 .Lctrl_class:
     cmpil   #0x21,%d0               | class SET, interface recipient

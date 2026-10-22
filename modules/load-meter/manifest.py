@@ -95,5 +95,6 @@ MODULE = Module(
     # outside the order lm_scrub is measured against: refused until measured.
     conflicts=(("STEM REC", "reads MAIN before lm_scrub's place in the frame interrupt is shown to precede it"),),
     gates=(Gate("tools/verify/verify_load_meter.py", remix_arg=False, venv=True, stage="image"),
-           Gate("tools/verify/verify_dsp_vectors.py"),),
+           Gate("tools/verify/verify_dsp_vectors.py"),
+           Gate("tools/verify/verify_usb_load_meter.py", venv=True, stage="image"),),
 )
