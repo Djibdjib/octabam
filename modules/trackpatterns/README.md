@@ -94,8 +94,15 @@ three per call. The LED pass adds 52 instructions per pass with no track on
 its own pattern, 658 at most. Memory: the DRAM unit is 3,457 bytes, code and
 data with the 84-byte state (`tp_state`, `tp_toast`), no `.bss`, no heap,
 no battery RAM, no DSP words; the deepest stack, the tick's, is about 72
-bytes below its caller (`-fstack-usage`). Chip timing on a unit is open: a
-CF METER comparison with and without the module.
+bytes below its caller (`-fstack-usage`).
+
+On a unit (MKII, CF METER, 300 BPM, a trig on every step of 15 tracks;
+`TESTING.md`):
+- With the module loaded and every track following, idle time and the
+  frame interrupt match the build without it within the noise.
+- With eight tracks on their own patterns, the LED pass and gestures, idle
+  is 1.5 points lower, about 5.4 µs of each 362.8 µs frame. The frame
+  interrupt's mean is unchanged, and no frame ran late.
 
 ## On the unit
 
@@ -107,15 +114,29 @@ CF METER comparison with and without the module.
   passed. The same tests passed earlier that day on images built from this
   source in Modwerk's copy of octabam (`OCTABAM1`, `OCTABAM2`). Not reported:
   run length, LED colours, other tracks.
+- 22 Oct 2026, the same MKII, image `OCTABAM8` (`make image
+  REMIX=trackpatterns-core BUILD=8`, with KITS and DIRECT_JUMP_KYOTI;
+  hashes in `TESTING.md`): the gesture on T1 and on M1, a global change, save
+  and power cycle: reported as passed. KITS' and DIRECT JUMP's own actions
+  were not tried on it.
+- 22 Oct 2026, the same MKII, image `OCTABAM9` (`make image
+  REMIX=trackpatterns BUILD=9`): T1 on a 32-step pattern under PER TRACK
+  with MASTER LENGTH 32 played all 32 steps, with the trig LEDs following
+  the playhead's page; in the other trig modes, CHROMATIC included, the
+  module drew no trig LED: reported as working as expected.
 
 ## Inferred, open
 
-- Chip cycles are not measured (instruction counts above).
+- Chip cycles per detour are not measured (instruction counts above). The
+  unit's load is measured as a whole (CF METER, above), and in 3c it is not
+  separated from the gestures' UI work.
 - KITS detours `0x40056b2c`, the entry of the handler this module patches
-  at `0x40056b50`; KITS acts there with FUNC held, the gesture without. Run
-  together under the port only; on a unit: open.
-- On a unit: patterns over 16 steps, the LEDs in trig modes other than
-  TRACKS, MIDI note-offs across a switch with a long note.
+  at `0x40056b50`; KITS acts there with FUNC held, the gesture without. On
+  a unit the gesture passed beside KITS (`OCTABAM8`); KITS' own action
+  beside the module has not been tried.
+- On a unit: MIDI note-offs across a switch with a long note; MASTER
+  LENGTH 16 and NORMAL with a 32-step override, and GRID REC's page 2, were
+  not reported separately.
 - The track's speed (scale) stays the playing pattern's; overrides are not
   saved; trig LEDs and editing in GRID REC address the global pattern.
 

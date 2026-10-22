@@ -36,5 +36,6 @@ while stopped, it applies at once and PLAY starts it from step 1.
 - Editing and recording address the global pattern.
 - Not saved: after a reload or a power cycle every track follows the
   global pattern again.
-- Run beside Kits and Direct Jump (Kyoti) under the emulator only so far
-  (`trackpatterns-core`); not yet on a unit.
+- Beside Kits and Direct Jump (Kyoti) (`trackpatterns-core`): on an MKII
+  the gesture, a global change and a save and power cycle passed; Kits' and
+  Direct Jump's own actions have not been tried beside it.

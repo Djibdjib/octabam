@@ -61,7 +61,7 @@ Each carries one module, or one combination, for that module's gates: `make chec
 | [`tapeecho`](tapeecho/README.md) | Tape Echo replacing Spring Reverb, alone. | on hardware: the author's unit (OCTACLID4): six instances; a seventh freezes it, open |
 | [`testgen`](testgen/README.md) | TESTGEN on FX1 beside the stock effects (all but PLATE REV, whose words it takes). | on hardware: Ignorato's MKII, OCTABAM6, 4 Oct 2026 |
 | [`trackpatterns`](trackpatterns/README.md) | TRACK PATTERNS with the stock effects: hold TRACK + PATTERN + TRIG for a pattern per track. | on hardware: MKII, OCTABAM3, 21 Oct 2026: functional tests and trig LEDs passed (contributor's report) |
-| [`trackpatterns-core`](trackpatterns-core/README.md) | TRACK PATTERNS on octabam-core (KITS, DIRECT_JUMP_KYOTI and the other core modules). | `make check` |
+| [`trackpatterns-core`](trackpatterns-core/README.md) | TRACK PATTERNS on octabam-core (KITS, DIRECT_JUMP_KYOTI and the other core modules). | on hardware: MKII, OCTABAM8, 22 Oct 2026: gesture on T1 and M1, global change, save and power cycle passed (contributor's report) |
 | [`transient`](transient/README.md) | TRANSIENT beside the stock effects (all but PLATE REV, whose words it takes). | on hardware: Ignorato's MKII, OCTABAM2, 3 Oct 2026 |
 | [`usb-io-main-ab`](usb-io-main-ab/README.md) | stock - SPATIALIZER + USB (MAIN out, AB in). | port-gated: `make check` (verify_usb, verify_usb_in) under the port, 28 Sep 2026; not on hardware in this form |
 | [`usb-io-main-abcd`](usb-io-main-abcd/README.md) | stock - SPATIALIZER + USB (MAIN out, ABCD in). | port-gated: `make check` (verify_usb, verify_usb_in) under the port, 28 Sep 2026; not on hardware in this form |

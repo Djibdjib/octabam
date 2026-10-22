@@ -15,7 +15,8 @@ STOCK14 = ("FILTER", "EQUALIZER", "DJ EQ", "PHASER", "FLANGER", "CHORUS", "SPATI
 
 REMIX = Remix(
     name="trackpatterns-core",
-    family="mods", proof=Proof.CHECK, proof_note="",
+    family="mods", proof=Proof.HARDWARE,
+    proof_note="MKII, OCTABAM8, 22 Oct 2026: gesture on T1 and M1, global change, save and power cycle passed (contributor's report)",
     doc="TRACK PATTERNS on octabam-core (KITS, DIRECT_JUMP_KYOTI and the other core modules).",
     modules=("TRACK PATTERNS",) + CORE + ("LOFI AMF FIX",) + STOCK14,
     fallback="NONE",

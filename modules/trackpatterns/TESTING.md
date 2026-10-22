@@ -300,8 +300,116 @@ it, with this build and with the build without the LED pass alike.
 
 Not run: any of this on a unit.
 
+## Build 8: beside KITS and DIRECT_JUMP_KYOTI (22 Oct 2026)
+
+`make image REMIX=trackpatterns-core BUILD=8` in octabam at `f1eb1507`,
+from the contributor's own OS 1.40C; rebuilt at `05d8701c` (main merged),
+the card file is byte-identical.
+
+| file | SHA-256 |
+|---|---|
+| `OCTATRACK_OCTABAM8.bin` | `2a698188558cf31b7d9c30b0cc978ec97bdcbb5da654e67347ddb272c41c9458` |
+| `OCTATRACK_OS1.40C_OCTABAM8.syx` | `4b38d1aaf72b7a2cc25f8ce9303fe1dcee687e08384375b6225d47e0aab1a403` |
+
+### On the unit: MKII, 22 Oct 2026, reported by pgstath
+
+Image `OCTABAM8` above (`2a698188…`), the test project of build 3, A01
+playing. The contributor reported 1a to 1d as passed and skipped 1e;
+nothing more detailed was reported.
+
+| # | test | result |
+|---|---|---|
+| 1a | hold TRACK 1, hold PATTERN, TRIG 3: popup `T1 ▸ A03`, T1 switches at its own loop start, the other tracks stay on A01 | pass |
+| 1b | MIDI mode, TRACK 1 + PATTERN + TRIG 3: M1 switches to A03 at its loop start, no hanging note | pass |
+| 1c | PATTERN + TRIG 2 (no TRACK held): A02 at the pattern's end, T1 and M1 included | pass |
+| 1d | T1 on A03, SAVE PROJECT, power cycle, reload: the patterns unchanged, every track following the global pattern | pass |
+| 1e | a KITS action and a DIRECT JUMP action of their own | not tried |
+
+Not reported: how long it ran, other tracks than T1 and M1, the trig LEDs.
+
+## CF METER with and without the module (22 Oct 2026)
+
+Two images from `05d8701c`, made from local probe remixes that are not in
+the tree. Both have USB (TRACKS PRE, MAIN 1, CUE 1, MASTER 0, IN OFF), CF
+METER, CF METER IDLE and the stock effects except DARK REV, which gives up
+its words to the meter:
+
+- `OCTABAM10`: TRACK PATTERNS and the modules above.
+- `OCTABAM11`: the same without TRACK PATTERNS.
+
+| file | SHA-256 |
+|---|---|
+| `OCTATRACK_OCTABAM10.bin` | `2bab0a39c9019b020e0f190330354fd85ed0136ccb2042847d04be887fcfd382` |
+| `OCTATRACK_OS1.40C_OCTABAM10.syx` | `bf715b8761f4498a736ce7d8075b560024d4b5da52a549f823d05af5bfd4b21a` |
+| `OCTATRACK_OCTABAM11.bin` | `90fa968b70ae07cc81376b082f38c03b0e05a8f84778ee03a532d3c84379c916` |
+| `OCTATRACK_OS1.40C_OCTABAM11.syx` | `75511ebe723d795ae3599f501fff5106b1f84a007d2938223fbbfcfefe83814c` |
+
+### On the unit: MKII, 22 Oct 2026, workload reported by pgstath
+
+T8 FX2 was CF METER with BURN, MEM and DBRN at 0. T8's USB channels 15/16
+were recorded on a Mac for 120 s per take (the recorder of `tools/hw/rec`)
+and decoded with `tools/harness/cfmeter.py`. Each take gives 59 cycles of
+2 s.
+
+The contributor's workload, the same in every take: 300 BPM; a trig on
+every step of T1–T7 and M1–M8 in A01; A02 and A03 copies of A01; T8 left
+as the readout.
+
+| take | image | what played | idle %, mean (sd) | frame interrupt, median mean | its longest, median / worst | TUE / ROE |
+|---|---|---|---|---|---|---|
+| 3a | OCTABAM11 | A01, untouched | 17.58 (2.94) | 244.6 µs | 292.7 / 326.4 µs | 0 / 0 |
+| 3b | OCTABAM10 | A01, every track following | 17.78 (2.88) | 244.3 µs | 293.9 / 328.2 µs | 0 / 0 |
+| 3c | OCTABAM10 | T1–T4 and M1–M4 on A02 / A03 by the gesture, T1 current outside GRID REC (the LED pass drawing), a few gestures during the take | 16.10 (3.74) | 244.4 µs | 297.3 / 336.2 µs | 0 / 0 |
+
+Every take has a frame period of 362.8 µs and 5,520 DSP frames in every
+2 s window.
+
+- **3b against 3a.** With the module loaded and every track following,
+  idle is 0.19 points higher (0.4 standard errors) and the frame interrupt
+  is the same: no difference within the noise.
+- **3c against 3a.**
+  - With eight tracks on their own patterns, the LED pass and gestures,
+    idle is 1.49 points lower (2.4 standard errors). That is about 5.4 µs
+    of each 362.8 µs frame.
+  - The frame interrupt's mean is unchanged (245.1 against 245.9 µs over
+    all cycles), so the extra work is outside the interrupt (inferred).
+  - The interrupt's worst run is 336.2 µs against 326.4 µs, 26.6 µs under
+    the frame.
+  - 3a had no key presses. Part of the difference is 3c's gestures, popups
+    and MIDI-mode switches, not separated from the module's own work.
+- **The DSP period.** In 3c's median row it ranges 356.6–370.7 µs, against
+  361.1–364.2 µs in 3a and 3b. There is no underrun or overrun.
+
+Not reported: whether the overrides in 3c sounded as expected.
+
+## Build 9: over 16 steps and other trig modes (22 Oct 2026)
+
+`make image REMIX=trackpatterns BUILD=9` in octabam at `f1eb1507`. Rebuilt
+at `05d8701c`, the card file is byte-identical.
+
+| file | SHA-256 |
+|---|---|
+| `OCTATRACK_OCTABAM9.bin` | `4fb7b88903d21f5ea90f524978c14a0d79e063cd986c0c9dbc93d406eb16d2e7` |
+| `OCTATRACK_OS1.40C_OCTABAM9.syx` | `b382bfdcfdc7e40b81a1af816589634394ba59011a496eb6326002b92267d337` |
+
+### On the unit: MKII, 22 Oct 2026, reported by pgstath
+
+Image `OCTABAM9` above, with the test sheet's setup:
+- A04: T1 at 32 steps, with different trigs on steps 1–16 and 17–32.
+- A01: SCALE MODE PER TRACK, MASTER LENGTH 32 or more, T1 at 16 steps.
+
+The contributor reported the 32-step pattern and the other trig modes as
+working as expected; nothing more detailed was reported.
+
+| # | test | expected | result |
+|---|---|---|---|
+| 2a | A01 playing, T1 on A04 by the gesture, T1 current, outside GRID REC | T1 plays all 32 steps; the trig keys blink A04's steps 1–16 while the playhead is on 1–16 and 17–32's while it is on 17–32; the running light kept | as expected |
+| 2d | the same, switched to each other trig mode, CHROMATIC included, then back to TRACKS | the module draws no trig LED there; the blink returns in TRACKS | as expected |
+| 2b | MASTER LENGTH 16 on A01 | T1 restarts after 16 | not reported separately |
+| 2c | SCALE MODE NORMAL on A01 | T1 wraps at A01's length | not reported separately |
+| 2e | GRID REC in a 32-step pattern, page 2 | the stock trigs blink as the warning | not reported separately |
+
 ## Not yet
 
-On the unit: a long run, more tracks at once, other trig modes than
-TRACKS. Anywhere: the track's speed from its own pattern, persistence,
-cycle counts, memory accounting.
+On the unit: a long run, more tracks at once. Anywhere: the track's speed
+from its own pattern, persistence, chip cycles per detour.
