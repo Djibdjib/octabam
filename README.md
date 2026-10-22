@@ -22,6 +22,14 @@ form (`.github/ISSUE_TEMPLATE/`) asking for the remix, image build,
 hardware model and steps to reproduce.
 The licence is MIT.
 
+## Unofficial firmware
+
+This is unofficial firmware, not made, endorsed or supported by Elektron.
+Flashing it is generally safe and can be reverted by flashing the stock OS
+again ([BUILDING.md](docs/guide/BUILDING.md) section 7). Elektron is not
+responsible for any damage to your Octatrack. See
+[Before you flash anything](#before-you-flash-anything).
+
 ## Start here
 
 | you want to | read |
