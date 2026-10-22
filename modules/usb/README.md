@@ -1408,9 +1408,13 @@ So `IN_TARGET` alone does not set the latency. Two levers, both in
 - Each sample is joined from its hi/lo halfwords with one `insert` and
   stored with `(r1)+`, and one outer `do #2` runs both passes: 9
   instructions a sample in the loop, 15 before (21 Oct 2026). Bit-exact
-  against the previous inject in the emulator over every IN value;
-  `insert`, `move a1,x:(r1)+`, the negative `lua`, the nested `do` and the
-  `brclr` to the outer loop's last address have not run on a unit yet. The other forms have a stock site in payload A or
+  against the previous inject in the emulator over every IN value. On
+  Bryan T's MKII (21 Oct 2026, `usb-io-main-cue-abcd`, OCTABAM1 against
+  OCTABAM2 built from main), `tools/hw/usb_in_tones.py` reads the same on
+  both: each input at unity on its own side, the other side below -178 dB,
+  the rest within +-1.5 LSB. Both carry a DC offset on MAIN R (about -410
+  LSB, -86 dBFS; MAIN L under 10) while the host sends zeros: added after
+  the inject, source not read. The other forms have a stock site in payload A or
   ran on Bryan T's unit; the source lists them.
 
 **USB CROSSBAR** is required: without it the controller's 16-byte RX FIFO

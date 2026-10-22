@@ -48,14 +48,15 @@
 ; Forms with a stock site in payload A: move x:(r0)+,a (P:$b2), lua (r1+$4),r1
 ; (P:$341), do #<n (P:$9f), move x:(rN)+,x1 (P:$ae), brclr #n,x1 (P:$63e);
 ; move r6,a / add #>n,a / move a,r0 and the flag tests ran in the shipped
-; inject (build 16 on Bryan T's unit). Not yet run on a unit: insert
-; #co,x1,a (no stock site known; the emulator's insert offsets from bit 0 of
-; the 56-bit accumulator), move a1,x:(r1)+, lua with a negative
-; displacement, a do loop nested in another, and a brclr to the outer loop's
-; last address. 29 words (39 before); 16 samples x 2 channels cost 9
-; instructions a sample, 15 before. Bit-exact against the previous inject in
-; the emulator over every IN value, both banks and all nine RX blocks, with
-; random stale bytes.
+; inject (build 16 on Bryan T's unit). No stock site known, run on Bryan T's
+; MKII (21 Oct 2026, usb-io-main-cue-abcd, OCTABAM1): insert #co,x1,a (the
+; offset counts from bit 0 of the 56-bit accumulator), move a1,x:(r1)+, lua
+; with a negative displacement, a do loop nested in another, and a brclr to
+; the outer loop's last address. 29 words (39 before); 16 samples x 2
+; channels cost 9 instructions a sample, 15 before. Bit-exact against the
+; previous inject in the emulator over every IN value, both banks and all
+; nine RX blocks, with random stale bytes; verify_usb_in passes; on the unit
+; tools/hw/usb_in_tones.py reads the same as with the 39-word inject.
 
 inject:
         move    r2,x:>$204              ; the displaced instruction
