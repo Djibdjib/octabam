@@ -67,16 +67,22 @@ Composed-image checks verify exclusive hook ownership and that
 selected client callbacks are installed. EUCLID's existing tests cover its
 control engine, DSP and playback integration.
 
-### Empty MIDI-client cost
+### Empty-client cost
+
+Each event independently omits dispatch work at build time when it has no
+selected handlers. The hooks and displaced native instructions remain installed.
+Empty `start` and `resume` paths execute **3 instructions** versus **one stock
+instruction**: **2 added instructions per event**. Tests cover all eight subsets
+of event registrations, including MIDI-only, start-only and resume-only clients,
+and compare the native PLAYING write, registers, stack and condition codes.
 
 `verify_system_events.py` executes each detour from its installed entry jump to
 the native continuation, with no MIDI clients, for all eight tracks and both
 pool kinds. Both `0x4009fbb2` (free-note acceptance) and `0x4009fcfa` (ownership
 replacement) execute **4 instructions**, including the entry jump and displaced
 work, versus **one stock instruction**: **3 added instructions per accepted
-note**. Build-time client counts omit the dispatch call when no MIDI handlers
-are selected; both hooks remain installed. A selected MIDI client enables the
-full dispatcher. Tests cover empty and transport-only registrations.
+note**. A selected MIDI client enables the full dispatcher. Tests cover empty
+and transport-only registrations.
 The stock instruction and patched path are measured in separate emulator
 instances. This counts instructions, not ColdFire cycles, elapsed time or MIDI
 latency; memory accesses and multi-register instructions are not cycle-weighted.

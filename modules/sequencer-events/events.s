@@ -23,17 +23,21 @@
     .endm
 seq_start:
     move.l %d0,0x800065b8
+    .if seq_ev_start_count
     SAVE
     lea seq_ev_start,%a0
     bsr.w seq_fire
     REST
+    .endif
     jmp 0x4009c3da
 seq_resume:
     move.l %d0,0x800065b8
+    .if seq_ev_resume_count
     SAVE
     lea seq_ev_resume,%a0
     bsr.w seq_fire
     REST
+    .endif
     jmp 0x4009c4da
 seq_sent_a:
     /* Keep the native boundary, but omit callback work without MIDI clients. */

@@ -235,6 +235,37 @@ def empty_midi_cost(work, transport_clients):
         print(f'[ok] empty MIDI dispatcher at {detour.site:#x}: 4 instructions including entry JMP and displaced work; stock 1; added 3 ({transport_clients} transport clients, 8 tracks x 2 pool kinds; not cycles)')
 
 
+def transport_registration_cases(work):
+    """Exercise independent event selection against stock transport boundaries."""
+    declaration=runpy.run_path(str(ROOT/'modules/sequencer-events/manifest.py'))
+    events=declaration['EVENTS']
+    cases=0
+    for mask in range(1 << len(events)):
+        handled=tuple(event for i,event in enumerate(events) if mask & (1 << i))
+        for detour in declaration['MODULE'].detours:
+            if detour.symbol not in ('seq_start','seq_resume'):continue
+            event=detour.symbol.removeprefix('seq_')
+            patched=Fixture('sequencer-events',int(bool(handled)),work,handled=handled)
+            stock=Fixture('sequencer-events',0,work)
+            patched.uc.mem_write(detour.site,b'\x4e\xf9'+patched.sym[detour.symbol].to_bytes(4,'big'))
+            stock.uc.mem_write(detour.site,detour.expect)
+            stop=detour.site+len(detour.expect)
+            for playing in (0,1,0x80000000,0xffffffff):
+                for f in (patched,stock):
+                    f.sym['transport_site']=detour.site
+                    f.call('transport_site',stop,values={0:playing})
+                    f.preserved()
+                    assert bytes(f.uc.mem_read(0x800065b8,4))==struct.pack('>I',playing)
+                want=[(0,event)] if event in handled else []
+                assert [(i,e) for i,e,a in patched.log]==want,(handled,event,patched.log)
+                assert all(a[0]==playing for i,e,a in patched.log)
+                if event not in handled:
+                    assert (patched.instructions,stock.instructions)==(3,1), (event,handled,patched.instructions,stock.instructions)
+                assert read_sr(patched.uc,DONE-16)==read_sr(stock.uc,DONE-16), 'native condition codes'
+                cases+=1
+    print(f'[ok] {cases} transport cases across every event-registration subset: native PLAYING write, callbacks, registers, stack and condition codes; empty start/resume 3 instructions vs stock 1, added 2 (not cycles)')
+
+
 def main():
     cases=0
     with tempfile.TemporaryDirectory(prefix='octabam-system-events-') as td:
@@ -283,6 +314,7 @@ def main():
     native_cases=0
     if (ROOT/'modules/sequencer-events/manifest.py').exists():
         with tempfile.TemporaryDirectory(prefix='octabam-native-events-') as td:
+            transport_registration_cases(Path(td))
             for transport_clients in (0,1):
                 empty_midi_cost(Path(td),transport_clients)
             for count in (0,1,3):

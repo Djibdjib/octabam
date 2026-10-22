@@ -29,7 +29,7 @@ MODULE = Module(
     name='sequencer-events', key='SEQUENCER EVENTS', kind=Kind.CF_PATCH,
     category=Category.PARTS, author='radiohagen',
     author_url='https://github.com/radiohagen', proof=Proof.CHECK,
-    proof_note='Assembled dispatcher tests (0/1/3 clients), native MIDI and installed-hook checks; empty MIDI path adds 3 instructions. MKII owner checks: EUCLID configurations and ordinary/arpeggiated MIDI start/resume/stop on EUCL EVENTS 98 (22 Oct 2026). Empty-client optimization awaits hardware retest; callback payloads and multiple clients remain software-tested ([PR #851](https://github.com/sambanks/octabam/pull/851)).',
+    proof_note='Assembled dispatcher tests (0/1/3 clients), independent event registrations, native MIDI and installed-hook checks; empty start/resume adds 2 instructions, MIDI adds 3. MKII owner checks: EUCLID configurations and ordinary/arpeggiated MIDI start/resume/stop on EUCL EVENTS 98 (22 Oct 2026). Empty-client optimization awaits hardware retest; callback payloads and multiple clients remain software-tested ([PR #851](https://github.com/sambanks/octabam/pull/851)).',
     doc='Platform: shared transport and accepted MIDI-output notifications.',
     linked=(Linked('sequencerevents', 'modules/sequencer-events/events.s', dram=True, include=event_inc),),
     gates=(Gate('tools/verify/verify_system_events.py', once=True, venv=True),
