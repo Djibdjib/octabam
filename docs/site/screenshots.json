@@ -832,14 +832,14 @@
       "caption": "DISTORX: effect selection and setup parameters.",
       "remix": "distorx",
       "source": "emulator panel UART",
-      "firmware_sha256": "0c0bc97d43d154a8ed546e16e73afe63633ac4904ae73aaa1ac97f285bd56414"
+      "firmware_sha256": "35c12958d83d93f97b0f5d5e2b0ac0dd7ca828224eb0c3aebac5415e714c0c3e"
     },
     "main": {
       "image": "distorx/main.png",
       "caption": "DISTORX: main parameter page.",
       "remix": "distorx",
       "source": "emulator panel UART",
-      "firmware_sha256": "0c0bc97d43d154a8ed546e16e73afe63633ac4904ae73aaa1ac97f285bd56414"
+      "firmware_sha256": "35c12958d83d93f97b0f5d5e2b0ac0dd7ca828224eb0c3aebac5415e714c0c3e"
     }
   },
   "octa303": {
