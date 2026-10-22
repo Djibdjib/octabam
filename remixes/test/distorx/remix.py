@@ -6,7 +6,7 @@ REMIX = Remix(
     name="distorx",
     family="effects",
     proof=Proof.HARDWARE,
-    proof_note="the owner's MKI, image DTXPR1 (BUILD 91, this remix), 21 Oct 2026: every knob in every MODE, "
+    proof_note="the owner's MKI, image DTXPR1 (BUILD 91, this remix, DISTORX then on 0x0a), 21 Oct 2026: every knob in every MODE, "
                "MODE changed while playing without a click, FX1 and FX2, four at once on both cores for 5 minutes, "
                "an LFO on DRIV/TONE, a scene with another MODE through the crossfader, save and reload; "
                "verify_distorx (dsp_host)",

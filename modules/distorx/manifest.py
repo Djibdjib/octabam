@@ -327,9 +327,10 @@ MODULE = Module(
     kind=Kind.DSP_EFFECT,
     category=Category.TRACK, author="MaMarko", author_url="https://github.com/braikomarko-hub",
     proof=Proof.HARDWARE,
-    proof_note="v9 on the owner's MK1, image ACIDV71 (BUILD 88, remix acidtrack), 20 Oct 2026: five DISTORX at once "
-               "(T1 kick SD-1, T3 hats RAT, T5 OCTA303 SD-1, T6 TURB, with dEVILish), no clicks, no slow-downs, by ear. "
-               "v7 (ACIDV68..ACIDV70) had junk blocks on T1 under load; v9 is lighter (289 vs 381 cycles/sample)",
+    proof_note="the owner's MKI, image DTXPR1 (BUILD 91, remix distorx, DISTORX then on id 0x0a), 21 Oct 2026: every "
+               "knob in every MODE, MODE changed while playing, FX1 and FX2, four at once on both cores, an LFO, a "
+               "scene through the crossfader, save and reload. The 0x05 (SPATIALIZER) form, image DTXPR2, not yet "
+               "flashed",
     doc="SD-1 + RAT + Turbo RAT in one insert: MODE picks the pedal (OFF first), a 3 ms fade between them.",
     menu=MenuEntry(
         fx2_id=0x05,                  # SPATIALIZER's (README "FX id"): every non-stock id is a module's
