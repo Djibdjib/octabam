@@ -34,9 +34,10 @@ MODULE = Module(
     category=Category.TRACK,
     author="MaMarko", author_url="https://github.com/braikomarko-hub",
     proof=Proof.HARDWARE,
-    proof_note="the owner's MKI, acidtrack images up to ACIDV71, October 2026: in daily use for days, many "
-               "hours, on two or three OCTA303 tracks beside DisTorX; the Devil Fish engine is bit-exact in "
-               "OCTA303's source simulator (test_octa303)",
+    proof_note="the owner's MKI, image DEVPR2 (BUILD 93, remix devilish, on 0x10), 22 Oct 2026: every knob of both "
+               "pages, FX1 and FX2, an LFO on a knob moving the 303, a scene and a lock, a non-303 track passing, two "
+               "303 tracks for five minutes, save and reload. Before, in daily use in the acidtrack images up to "
+               "ACIDV71 (on 0x1f / 0x1e). The Devil Fish engine is bit-exact in OCTA303's source simulator",
     doc="The Devil Fish mods (Robin Whittle) for an OCTA303 track: twelve knobs read by the 303 "
         "voice; the DSP passes the audio through.",
     menu=MenuEntry(
