@@ -920,6 +920,8 @@
       "remix": "cxosc",
       "source": "emulator panel UART",
       "firmware_sha256": "47560f6033490386b25b9ff3feac5502b3de03dc70f9faaec7d17a463f249a99"
+    }
+  },
   "devilish": {
     "setup": {
       "image": "devilish/setup.png",
