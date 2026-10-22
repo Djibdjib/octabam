@@ -35,6 +35,7 @@ nav:
       - Character: reference/modules/character.md
       - Character TXTR: reference/modules/character-txtr.md
       - Delay Server: reference/modules/busdelay.md
+      - DisTorX: reference/modules/distorx.md
       - Euclid: reference/modules/euclid.md
       - Gate Verb: reference/modules/gateverb.md
       - LOFI2: reference/modules/lofi2.md
