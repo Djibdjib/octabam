@@ -469,6 +469,14 @@ def main():
                     at = part_start + ot_project.FX2_OFF + track
                     if not page2_ok(data[at]):
                         data[at] = fallback
+                    # record() turns +3. A copied value at/above this image's
+                    # limit clamps to the same value (e.g. a reverb id reused
+                    # for a three-choice selector in Inserts), falsely making
+                    # a correctly recorded lock look like an unedited Part.
+                    count = rd32(rd32(DESC2 + 4 * data[at]) + 0x9a + 4 * 6)
+                    knob_at = part_start + ot_project.P2_OFF + track * ot_project.P2_STRIDE + 6
+                    if data[knob_at] >= count - 1:
+                        data[knob_at] = 0
         ot_project._bank_write(copy, int(bankfile.stem[4:]), usable_fx, guard=False)
 
     card = OUT / "card.img"
