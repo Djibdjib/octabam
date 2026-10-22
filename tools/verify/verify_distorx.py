@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """DISTORX render gates: the assembled module against its bit-exact model,
-the SD-1 against SUPER OD and the 1981 service notes, the RAT against its
+the SD-1 against the 1981 service notes, the RAT against its
 own circuit and ElectroSmash's analysis.
 
 Renders the module straight through dsp_host (the render-gate shape: the id
@@ -80,7 +80,7 @@ def knobs(**kw):
 
 def acid_line(n, seed=1):
     """A 303-like line: a saw through a resonant 4-pole low-pass whose
-    cutoff falls after every note, at -6 dBFS (verify_superod's)."""
+    cutoff falls after every note, at -6 dBFS."""
     rng = np.random.default_rng(seed)
     step = int(FS * 60 / 132 / 4)
     notes = rng.choice([36, 36, 39, 43, 48, 46, 41], size=n // step + 1)
@@ -179,7 +179,7 @@ def run_gates(render, dirty_words=True):
         ok &= L == sig[:len(L)] and R == sig[:len(R)]
     check("v8 MODE OFF (the default): exact passthrough, every other knob at an extreme (noise, square, acid)", ok)
 
-    # ---- the SD-1's service notes (SUPER OD's gate) ----------------------------------
+    # ---- the SD-1's service notes ----------------------------------------------------
     print("SD-1: the 1981 service notes (WAVEFORM CHECKING), 150 Hz square, 200 mVp-p:")
     n = FRAMES * 900
     tt = np.arange(n) / FS
@@ -304,7 +304,7 @@ def run_gates(render, dirty_words=True):
             sl = slice(FS // 5, len(y) - D)
             e = 10 * np.log10(np.mean((y[D:][sl] - tr[sl]) ** 2) / np.mean(tr[sl] ** 2))
             check(f"{kn}: the module vs the circuit at 8x, band-limited (aliasing): {e:.1f} dB "
-                  f"(SUPER OD: -31 .. -44 dB; the 2x core: -40 .. -56)", e < -31)
+                  f"(the 2x core: -40 .. -56)", e < -31)
     except ImportError:
         print("  [SKIP] the 8x ground truth needs scipy")
 

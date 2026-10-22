@@ -1,4 +1,4 @@
-"""DISTORX on FX1 and FX2 beside the stock effects (CHORUS, PLATE REV and SPRING REV give up their words)."""
+"""DISTORX on FX1 and FX2 in SPATIALIZER's row, beside the stock effects (CHORUS, PLATE REV and SPRING REV give up their words)."""
 
 from remix.schema import Proof, Remix
 
@@ -10,15 +10,15 @@ REMIX = Remix(
                "MODE changed while playing without a click, FX1 and FX2, four at once on both cores for 5 minutes, "
                "an LFO on DRIV/TONE, a scene with another MODE through the crossfader, save and reload; "
                "verify_distorx (dsp_host)",
-    doc="DISTORX on FX1 and FX2 beside the stock effects (all but CHORUS, PLATE REV and SPRING REV, whose words it takes).",
+    doc="DISTORX on FX1 and FX2 in SPATIALIZER's row, beside the stock effects but CHORUS, PLATE REV and SPRING REV, whose words it takes.",
     modules=(
         "DISTORX",
         "FILTER", "EQUALIZER", "DJ EQ", "PHASER", "FLANGER",
-        "SPATIALIZER", "COMB FILTER", "COMPRESSOR", "LO-FI",
+        "COMB FILTER", "COMPRESSOR", "LO-FI",
         "DELAY", "DARK REV",
     ),
     fx1=("DISTORX",
          "FILTER", "EQUALIZER", "DJ EQ", "PHASER", "FLANGER",
-         "SPATIALIZER", "COMB FILTER", "COMPRESSOR", "LO-FI"),
+         "COMB FILTER", "COMPRESSOR", "LO-FI"),
     fallback="NONE",
 )

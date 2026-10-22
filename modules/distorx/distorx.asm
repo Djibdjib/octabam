@@ -14,12 +14,10 @@
 ; so DISTORX can be put on a track live and faded in; the SD-1 at 1x like the
 ; RAT; a settled block (d = 0, MIX 127) writes the wet alone. All for core 1's
 ; budget on T1 (README "On the unit").
-; The SD-1 path is modules/superod/superod.tmpl.asm's arithmetic exactly:
-; its slots, its constants, its loop. Shared callees replace some of its
-; straight-line per-block code (the knob stretch, the LN lookup, the TONE
-; polynomials as a loop over a P table), word for word the same arithmetic;
-; the one addition is the MODE fade, which multiplies MIX by (1 + d) and is
-; MIX exactly when d = 0.
+; The SD-1 path is the circuit of README "The SD-1" (manifest.py's constants).
+; Shared callees carry its per-block decode (the knob stretch, the LN lookup,
+; the TONE polynomials as a loop over a P table); the MODE fade multiplies MIX
+; by (1 + d) and is MIX exactly when d = 0.
 ;
 ; ---- the MODE fade -----------------------------------------------------------
 ; d in [-1, 0] steps 1/128 a sample: towards -1 while the knob asks for
@@ -29,7 +27,7 @@
 ; $3b the pedal running (m << 16: 0 OFF, 1 SD-1, 2 RAT, 3 TURBO; init OFF)
 ; $30 v8: 1 = a settled block (d = 0, the knob's pedal on, MIX 127)   $3d d   $3e d's step this block   $3f the knob's
 ;
-; ---- the SD-1: see modules/superod/superod.tmpl.asm for its slot map ---------
+; ---- the SD-1's slots ------------------------------------------------------
 ; ($00..$3a, $3c; this file keeps every one of them)
 ;
 ; ---- the RAT, at the sample rate (twice it until 15 Oct 2026) ---------------
@@ -63,7 +61,7 @@
 ;   knob cache, $30 the settled-block flag; free $17..$1a $24..$27 $2f $31)
 ; per block parking: $14 $15 $1b $1c (the decode's own)
 ; registers through the RAT loop: r1 SRT/8  r2 -SRT/8  r3 VSAT  n3 -VSAT
-;   (r1 and r2 the dispatcher reloads after proc; r3 and n3 SUPER OD's)
+;   (r1 and r2 the dispatcher reloads after proc; r3 and n3 the SD-1's too)
 ; ---------------------------------------------------------------------------
 
 init:
@@ -161,7 +159,7 @@ dtx_nofast:
         cmp     x0,a
         bne     dtx_rat
 ; ===========================================================================
-; MODE 1: THE SD-1 (SUPER OD's per-block decode, then its loop)
+; MODE 1: THE SD-1 (its per-block decode, then its loop)
 ; ===========================================================================
 ; ---- v8: the knobs as last decoded ($20 LEVL $21 TONE $22 DRIV, $23 = 1 when
 ; valid; the init and every switch clear it): the same three words, the same
@@ -319,7 +317,7 @@ dtx_tpe:
         mpy     x0,y1,a
         move    a,x:(r7+$10)            ; the output gain / 8
 ; ===========================================================================
-; THE SD-1 SAMPLE LOOP (SUPER OD's)
+; THE SD-1 SAMPLE LOOP
 ; ===========================================================================
 sod_go:
         do      n7,>sod_end
@@ -444,7 +442,7 @@ sod_end:
 
 ; ---------------------------------------------------------------------------
 ; sod_nl -- v = F(z): z in x0 (volts/4), v in a. Uses a b x0 x1 y0 y1 r3 n3
-; r5 n5; reads r4 (the table base) and r7. Straight-line. (SUPER OD's.)
+; r5 n5; reads r4 (the table base) and r7. Straight-line.
 ; ---------------------------------------------------------------------------
 sod_nl:
         move    x0,a
@@ -1001,7 +999,7 @@ dtx_out:
 
 ; ---------------------------------------------------------------------------
 ; dtx_knob -- a page-1 knob word in a -> x0 = knob x 128/127, limited below
-; 1.0 (SUPER OD's stretch). Uses a x0 y1.
+; 1.0. Uses a x0 y1.
 ; ---------------------------------------------------------------------------
 dtx_knob:
         and     #>$7fffff,a
@@ -1038,7 +1036,7 @@ dtx_tab:
 
 ; ---------------------------------------------------------------------------
 ; dtx_ln -- ln(m)/16 for m in [0.5, 1) in a (a clean load or a normf), from
-; the LN table, interpolated (SUPER OD's). Uses a b x0 x1 y0 y1 r5 n5.
+; the LN table, interpolated. Uses a b x0 x1 y0 y1 r5 n5.
 ; ---------------------------------------------------------------------------
 dtx_ln:
         sub     #>$400000,a
@@ -1064,7 +1062,7 @@ dtx_ln:
 
 ; ---------------------------------------------------------------------------
 ; dtx_div -- y1 = a1/x0 for 0 <= a1 < x0 (a0 clean), 24 quotient bits (the
-; SD-1's TONE division, SUPER OD's form).
+; SD-1's TONE division).
 ; ---------------------------------------------------------------------------
 dtx_div:
         andi    #$fe,ccr

@@ -4,8 +4,8 @@ and the Pro Co RAT (1978), with the Turbo RAT's LEDs as a third MODE.
 MODE 0, OFF (v8, the default), runs nothing: the frames pass untouched, so
 DISTORX can go on a track live and a pedal be faded in.
 
-MODE 1, SD-1, is SUPER OD's circuit and constants (the author's earlier SD-1
-module, not in this tree; the 1981 service notes), at the sample rate since v8 (SUPER OD runs it at 2x).
+MODE 1, SD-1, is the BOSS circuit from the 1981 service notes' part values, at
+the sample rate since v8 (2x until then).
 
 MODE 2, RAT, and MODE 3, TURBO, are the RAT circuit as ElectroSmash's
 analysis gives it (parts list and schematic), modelled from its part values:
@@ -26,7 +26,7 @@ analysis gives it (parts list and schematic), modelled from its part values:
 RAT and TURBO differ only in the diodes: 1N914 (the SD-1's 1N4148 model) or
 red LEDs (the LTspice LedRed model).
 
-Page 1: LEVL TONE DRIV IN MIX, where SUPER OD has them, and MODE on the
+Page 1: LEVL TONE DRIV IN MIX, and MODE on the
 sixth knob. TONE is FILTER on the RAT, turned round so that right is bright
 in every mode.
 """
@@ -46,7 +46,7 @@ def _q(v):
 
 
 # =============================================================================
-# MODE 1: the SD-1 -- SUPER OD's constants (the author's earlier module; v8: run at 1x)
+# MODE 1: the SD-1 -- the service notes' part values (v8: run at 1x)
 # =============================================================================
 # ---- parts (the service notes) --------------------------------------------
 R1, C1, R2 = 10e3, 47e-9, 470e3
@@ -301,8 +301,7 @@ RCONST = {
     "RRG": R6P * G8X / 2, "RSC8": R6P / RC8, "RSC9": R6P / R89,
 }
 
-# The SD-1's TONE polynomials as a table the decode loops over (SUPER OD has
-# them as immediates): B0 B1 B2 A1 A2 A0, each (P2, P1, P0), /8.
+# The SD-1's TONE polynomials as a table the decode loops over: B0 B1 B2 A1 A2 A0, each (P2, P1, P0), /8.
 TP = tuple(_q(CONST[f"T{_n}P{_k}"]) for _n in ("B0", "B1", "B2", "A1", "A2", "A0")
            for _k in (2, 1, 0))
 
@@ -333,7 +332,8 @@ MODULE = Module(
                "v7 (ACIDV68..ACIDV70) had junk blocks on T1 under load; v9 is lighter (289 vs 381 cycles/sample)",
     doc="SD-1 + RAT + Turbo RAT in one insert: MODE picks the pedal (OFF first), a 3 ms fade between them.",
     menu=MenuEntry(
-        fx2_id=0x0a,                  # requested: the one non-stock id free on 20 Oct 2026 (SHATTER, #816, asks for it too)
+        fx2_id=0x05,                  # SPATIALIZER's (README "FX id"): every non-stock id is a module's
+        replaces="SPATIALIZER",
         donor_desc=0x400d58b8,        # DARK REV: 12 active slots
         abbr=b"DTX",
         fullname=b"DISTORX",
@@ -367,5 +367,6 @@ MODULE = Module(
     ),
     harness=Harness(layout_char=None, is_server=False),
     gates=(Gate("tools/verify/verify_distorx.py", remix_arg=False),),
+    conflicts=(("SHATTER", "both are per-track dirt inserts (drive, clip): one in a remix"),),
     dear={"LEVL": 127, "TONE": 127, "DRIV": 127, "IN": 127, "MIX": 127, "MODE": 2},
 )

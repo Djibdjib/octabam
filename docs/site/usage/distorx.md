@@ -7,7 +7,7 @@ for a TB-303 line, fine on anything.
 ## Access
 
 An effect on a track: select the track, press FX1 or FX2, and pick DISTORX
-from the chooser.
+from the chooser. It takes SPATIALIZER's place on both menus.
 
 ## Operation
 
