@@ -252,6 +252,24 @@ def capture_octa303(p,r):
     shot(p,'octa303','setup','SRC SETUP with OCTA-303: WAVE, GATE, FINE, SLID, DRIV, ACCV.',r)
 
 
+def capture_cxosc(p,r):
+    # Same choreography as blackpyramids: pick the sixth row, then reopen
+    # SRC SETUP so the list highlights the assigned machine (visible 6 keeps
+    # STATIC..CX OSC on screen). Right-hand knobs stay stock FLEX.
+    press(p,'t1')
+    p.chord('func','pg_playback')
+    press(p,'down',5)
+    press(p,'yes')
+    close(p)
+    press(p,'pg_playback')
+    enc(p,3,40)   # FOLD
+    enc(p,4,24)   # SYMM
+    enc(p,5,16)   # FDBK
+    shot(p,'cxosc','source','CX OSC PLAYBACK: PTCH RATO INDX FOLD SYMM FDBK.',r)
+    p.chord('func','pg_playback')
+    shot(p,'cxosc','setup','SRC SETUP: CX OSC selected in the machine list.',r)
+
+
 def capture_synth(p,r):
     press(p,'t1');press(p,'pg_playback')
     shot(p,'synth','source','FM synth source page on a FLEX track assigned FMSYNTH.WAV.',r)
@@ -327,6 +345,13 @@ def prepare(remix,project,assignments):
     if fixture.exists():
         shutil.rmtree(fixture)
     shutil.copytree(project,fixture)
+    # Hybrid/card dumps often land read-only; .strd copies and ot_project writes need u+w.
+    for root, dirs, files in __import__('os').walk(fixture):
+        __import__('os').chmod(root, 0o755)
+        for name in files:
+            fp=__import__('os').path.join(root, name)
+            try: __import__('os').chmod(fp, 0o644)
+            except OSError: pass
     # A SET folder nests the project one level (!DEF_N1 etc.); set_fx and
     # stage_card need the directory that actually holds bank*.work.
     if not any(fixture.glob('bank*.work')):
@@ -398,12 +423,12 @@ def main():
         elif group=='usb':jobs=[('octabam-bus',capture_usb,[])]
         elif group=='octa303':jobs=[('octa303',capture_octa303,[])]
         elif group=='distorx':jobs=[('distorx',capture_fx,[(2,'fx2','DISTORX')])]
-        elif group=='machines':jobs=[('analog-bassdrum',capture_analog,[]),('octatrick',capture_synth,[]),('blackpyramids-303',capture_blackpyramids,[]),('octa303',capture_octa303,[])]
+        elif group=='machines':jobs=[('analog-bassdrum',capture_analog,[]),('octatrick',capture_synth,[]),('blackpyramids-303',capture_blackpyramids,[]),('octa303',capture_octa303,[]),('cxosc',capture_cxosc,[])]
         elif group=='probes':jobs=[('cfmeter',capture_fx,[(8,'fx2','CF METER')])]
         elif group=='utilities':jobs=[('buffer-saver',capture_buffer_saver,[])]
         elif group=='varispeed':jobs=[('varispeed',capture_varispeed,[])]
         else:
-            jobs=[(r,capture_fx,[(2,'fx1' if r in ('character-txtr','testgen','resonator') else 'fx2',k)]) for r,k in [('character-txtr','CHARACTER TXTR'),('testgen','TESTGEN'),('resonator','RESONATOR'),('sidechain-compressor','SIDECHAIN_COMPRESSOR'),('miniverb','MINIVERB'),('bbd','BBD'),('tapeecho','TAPE ECHO'),('vocoder','VOCODER'),('wave','WAVE'),('void','VOID'),('distorx','DISTORX')]]
+            jobs=[(r,capture_fx,[(2,'fx1' if r in ('character-txtr','testgen','resonator') else 'fx2',k)]) for r,k in [('character-txtr','CHARACTER TXTR'),('testgen','TESTGEN'),('resonator','RESONATOR'),('sidechain-compressor','SIDECHAIN_COMPRESSOR'),('miniverb','MINIVERB'),('bbd','BBD'),('tapeecho','TAPE ECHO'),('vocoder','VOCODER'),('wave','WAVE'),('shatter','SHATTER'),('void','VOID'),('stuttr','STUTTR'),('distorx','DISTORX')]]
         for remix,fn,assignments in jobs:
             # Paths use a separate stable label even when registry selects a scratch file.
             label='manual-features' if remix.startswith('../') else remix

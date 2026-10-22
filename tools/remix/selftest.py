@@ -917,7 +917,8 @@ def main():
              **{_k: () for _k in ("direct-jump-kyoti", "batch-bugfixes", "reload-from-project",
                                   "quantize-live-rec-toggle", "erase-empty-trigless-locks",
                                   "mute-modes", "kyoti-mute-jump", "kyoti-fixes", "rec-trig-mute",
-                                  "euclid-fill", "varispeed", "copy-project")},
+                                  "euclid-fill", "varispeed", "copy-project",
+                                  "cxosc", "cxosc-core")},  # CX OSC (+ CORE handoff); ColdFire, no DSP words
              # the twelve io remixes: the IN module's RX inject is placed in SPATIALIZER's words
              **{f"usb-io-{o}-{i}": ("SPATIALIZER",) for o in ("tracks", "tracks-main-cue", "main-cue", "main") for i in ("ab", "cd", "abcd")},
              "octatrick": ("SPATIALIZER",),   # USB's ABCD input inject, as in the io remixes
@@ -930,7 +931,9 @@ def main():
              "void": ("PLATE REV",),        # VOID SCRAPE runs in its words; the other 13 stay
              "lofi2": ("PLATE REV", "SPRING REV"),   # LOFI2's 1,372 words with its table; PLATE alone is 594
              "bbd": ("PLATE REV", "SPRING REV"),   # BBD's 1,112 words from PLATE's start, clear of the SPRING words DARK calls
-             "distorx": ("CHORUS", "PLATE REV", "SPRING REV"),   # DISTORX's 1,586 words in one run; DARK REV stays
+X
+             "shatter": ("PLATE REV",),   # SHATTER runs in its words; the other 13 stay
+             "stuttr": ("PLATE REV",),   # STUTTR runs in its words; the other 13 stay
              "testgen": ("PLATE REV",),     # TESTGEN runs in its words; the other 13 stay
              "resonator": ("PLATE REV",),   # RESONATOR runs in its words; the other 13 stay
              "vocoder": ("PLATE REV", "DJ EQ"),   # VOCODER runs in PLATE's words; DJ EQ out so the tables sit in X
