@@ -39,6 +39,15 @@ never sent to the OT's own port. A Midihub reverts to its stored preset on
 a power or USB blip, so its session pipes are saved (FROM A →
 drop-realtime-only → OCTATRACK).
 
+**The one-cable rig.** The unit on USB and nothing else: program change
+selects a layout, MIDI START and a host clock play it, the unit's USB audio
+is the capture and LOAD METER (`tools/hw/load_meter.py`) the load readout.
+`tools/hw/usb_transport_probe.py` shows START and STOP take effect;
+`tools/hw/ot_matrix.py` stamps up to 32 layouts of a remix per project and
+runs them (`docs/contributing/TOOLING.md`). `verify_usb_midi_clock` checks
+under the port that START and STOP over USB drive the sequencer's transport
+word as DIN's do. None of the three has run on a unit.
+
 **The verdict vocabulary.** A gate prints `[ok]`/`[PASS]` per check and
 exits non-zero on any `[FAIL]`. `[SKIP]` means an instrument, a project
 or a toolchain is missing: `make check` still exits 0, `make accept`
