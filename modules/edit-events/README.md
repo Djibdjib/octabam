@@ -32,44 +32,24 @@ the native ABI and before/after semantics, with behavior tests at installed hook
 
 PLOCKS P2's pre client preserves FX page-two locks and claims held audio FX SETUP edits. The dispatcher has no knowledge of its data format.
 
-
 ## Verification and cost
 
-`tools/verify/verify_edit_events.py` assembles this source with zero, one and
-three unrelated synthetic clients. It checks first-owner precedence (including
-overlapping claims), native fallthrough, original arguments, registers and stack,
-condition codes, callback order, and exactly one native copy. Synthetic clients
-clobber all permitted registers and condition codes; the native copy and client
-bodies are substituted at their entry points. This is dispatcher evidence, not
-an emulation of the complete editor.
+`verify_edit_events.py` tests the assembled dispatcher with zero, one and
+three synthetic clients: precedence, fallthrough, arguments, register/stack
+and condition-code preservation, callback order and exactly one native copy.
+Client and native bodies are substituted at their boundaries.
 
-The same test counts executed dispatcher instructions, excluding client bodies
-and the native copy body. For zero/one/three clients registered for every event,
-copy dispatch takes 29/37/53 instructions; held fallthrough takes 16/28/52,
-including its two displaced native instructions but excluding the entry jump.
-These are instruction counts, not cycle counts or physical latency measurements.
+For zero/one/three clients, copy dispatch executes 29/37/53 instructions and
+held fallthrough 16/28/52. Counts exclude client/native-copy bodies and the
+entry jump; held counts include the two displaced native instructions.
+These are instruction counts, not physical timing measurements.
 
-Only `held` and `copy_pre` are exposed: both have PLOCKS as a client. Future
-editing boundaries belong with the first module that consumes them, together
-with a native ABI audit and installed-image behavior tests. The dispatcher does
-not run on sequencer notes.
+Only `held` and `copy_pre` ship, both consumed by PLOCKS. There is no sequencer
+note dispatch. `verify_edit_event_clients.py` checks 21 installed hooks and
+three executable callbacks; `verify_plocks_p2.py` covers real-client panel,
+copy, playback and persistence behavior under the port. The claims ledger
+rejects competing hook owners; dispatch selects one handler or native fallback.
 
-`tools/verify/verify_edit_event_clients.py` checks the built image's 21 installed
-hooks and three executable PLOCKS callbacks. `tools/verify/verify_plocks_p2.py`
-then exercises the real editor, copying, playback, panel display and persistence
-on a disposable project under the port. The selection/claims ledger refuses
-other modules that independently patch the same sites. Predicates must pass
-outside their exact context; one selected handler or one native fallthrough is
-the guard against processing an edit twice.
-
-On 22 October 2026, radiohagen reported hardware checks of this dispatcher
-on an Octatrack using Core PLK858 (build 98). FX1/FX2 held editing, multiple
-held steps, native page-one/MIDI fallback, track copy/paste and clear/undo,
-and pattern copy and repeated clear/undo passed. Trig copy, continuous-hold
-lock-clear undo and removal/reinsertion also preserved the expected page-one
-and page-two behavior. The exact image identity and observed cases are in
-[PLOCKS contribution notes](../plocks-p2/DEVELOPMENT.md#edit-events-hardware-results-22-october-2026).
-
-These are operator-reported panel results for PLOCKS as the registered client;
-they do not measure physical latency or qualify every future subscriber or
-remix. Earlier PLOCKS reports retain their separate image/date attribution.
+Hardware: radiohagen, Octatrack, Core PLK858/build 98, 22 October 2026:
+FX1/FX2 held edits, multiple steps, native page-one/MIDI fallback and
+trig/track/pattern operations passed. [Observed cases and image identity](../plocks-p2/DEVELOPMENT.md#edit-events-hardware-results-22-october-2026).

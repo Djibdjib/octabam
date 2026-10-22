@@ -37,12 +37,9 @@ remixes add effects to this set: [`octabam-inserts`](../octabam-inserts/README.m
 Cursory testing on an MKII (owner report, 16 Oct 2026). Port gates:
 `make check REMIX=octabam-core` and the reach round.
 
-On 22 October 2026, radiohagen tested EDIT EVENTS with PLOCKS P2 on an
-Octatrack using Core PLK858 (build 98). Held FX1/FX2 edits, multiple held
-steps, native page-one/MIDI fallback, trig and track operations, and pattern
-copy and repeated clear/undo passed. These are scoped operator-reported
-panel results; [PLOCKS contribution notes](../../modules/plocks-p2/DEVELOPMENT.md#edit-events-hardware-results-22-october-2026)
-record the exact image and observations.
+EDIT EVENTS/PLOCKS: radiohagen, Octatrack, PLK858/build 98, 22 October 2026:
+held-edit and trig/track/pattern checks passed
+([results](../../modules/plocks-p2/DEVELOPMENT.md#edit-events-hardware-results-22-october-2026)).
 
 ## How to flash
 

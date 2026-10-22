@@ -33,6 +33,3 @@ them. SAVE PROJECT writes them and a power cycle loads them back.
 
 EDIT EVENTS coordinates held-step editing and clipboard/undo copying for
 registered extensions. PLOCKS P2 is its first client. This adds no controls.
-Core PLK858 received operator-reported hardware checks on 22 October 2026:
-FX1/FX2 held edits, multiple held steps, native page-one/MIDI editing,
-track copy/paste and clear/undo, and pattern copy and repeated clear/undo.

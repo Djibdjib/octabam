@@ -131,27 +131,16 @@ or verification thresholds are changed by this contribution.
 
 ## EDIT EVENTS hardware results, 22 October 2026
 
-radiohagen reported the following panel results on an Octatrack using
-`octabam-core`, build 98, running image `PLK858`. The image was built from
-`c788fda0472a93961149e2d0199ec5c3f09640dd` and rebuilt byte-identically after
-the upstream rebase at `0c9b81f90b5ef5436297c3c741383c90b6570b3d`.
-MAIN OS / RMX SHA-256:
+radiohagen, Octatrack, `octabam-core`, build 98, `PLK858`.
+Source `0c9b81f90b5ef5436297c3c741383c90b6570b3d`; tested MAIN OS / RMX SHA-256:
 `4aa41530d96ecb04b224253f00000ab1f02fd5307bd320cdaa0bd9748347431b`.
 
-| Observed case | Result |
-| --- | --- |
-| FX1 COMPRESSOR RMS and FX2 PLATE REV GVOL held edit/release/rehold | PASS: lock 50, released Part 20, reheld lock 50 |
-| Native page-one and MIDI editing | PASS: ATK lock 40 coexists with RMS/GVOL locks; MIDI VEL lock 80 survives rehold; original audio locks remain intact |
-| Multiple held steps | PASS: the same +1 edit changes independent starting values 50/20 to 51/21; releasing one held step keeps the remaining lock visible; full release returns to Part 20 |
-| Selective removal | PASS: FUNC-turn removes one step's page-two lock without changing the other step's lock |
-| Quick editing and short taps | PASS: ten quick hold/edit/release sequences restore Part 20 without a delayed lock redraw; a short bare tap produces no delayed highlight; native ATK lock remains intact |
-| Trig copy and clear/undo | PASS: ATK 40, RMS 50 and GVOL 50 copy together; two PLAY presses while continuously holding the trig clear and restore all three locks |
-| Trig removal/reinsertion | PASS: a trig seeded with the copied locks returns to unlocked page-one and page-two Part values after removal/reinsertion |
-| Track copy/paste and undo | PASS: T1 to T2 paste, immediate paste undo and repaste preserve the expected trigs and all three locks |
-| Track clear/undo | PASS: T2 trigs and locks return; T1 remains unchanged |
-| Pattern copy and clear/undo | PASS: copied T1/T2 locks retain ATK 40, RMS 50 and GVOL 50; pattern clear/undo and ten repeated clear/undo pairs restore the trigs and checked locks |
+Operator-reported passes:
 
-These are operator observations of the Core editor/copy paths. Numeric physical
-latency was not measured. Playback and project/power-up persistence results
-elsewhere in this document retain their separate software or hardware attribution.
-Private firmware, project files and test records remain local.
+- FX1 RMS / FX2 GVOL: held 50, released Part 20, reheld 50; native ATK 40 and MIDI VEL 80 remain intact.
+- Multiple steps: +1 changes 50/20 to 51/21; selective removal, partial release, ten quick edits and short taps preserve the expected lock/Part display.
+- Trigs: copy carries ATK/RMS/GVOL; continuous-hold clear/undo restores them; removal/reinsertion clears copied locks.
+- Tracks: T1-to-T2 paste, immediate undo, repaste and clear/undo preserve expected trigs/locks without changing T1.
+- Patterns: copy carries both tracks' locks; clear/undo and ten repeated clear/undo pairs restore checked trigs/locks.
+
+These cover Core editor/copy paths; physical latency was not measured.
