@@ -111,7 +111,7 @@ def process_block(
     bal: int = 0,
     rate: int = 80,
     shape: int = 0,
-    depth: int = 100,
+    depth: int = 127,
     drive: int = 0,
     fdbk: int = 0,
     color: int = 64,

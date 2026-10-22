@@ -48,6 +48,6 @@ stamp defaults after flashing.
 | 1 | DRV | 0..127 | 0 | soft-clip on noise only |
 | 1 | FDBK | 0..127 | 0 | one-sample feedback on noise only |
 | 2 | SHPE | SIN / SQR / SAW | SIN | LFO shape; idle when SRC=NBR |
-| 2 | DPTH | 0..127 | 100 | AM depth on noise only |
+| 2 | DPTH | 0..127 | 127 | AM depth on noise only (default max) |
 | 2 | WID | 0..127 | 0 | mono → stereo grit |
 | 2 | SRC | LFO / NBR | LFO | AM source |
