@@ -132,6 +132,14 @@ def capture_plocks(p,r):
     shot(p,'plocks-p2','released','Trig released: GVOL shows the Part value 20; the step keeps its lock.',r)
 
 
+def capture_morph(p,r):
+    p.key('t1',True);p.run(60);p.press('up',settle=120)
+    shot(p,'morph','window','T1 + UP: the MORPH window, T1 armed; STEPS, x and MODE on A, B and C.',r)
+    enc(p,0,-8);enc(p,1,-6);p.run(120)
+    shot(p,'morph','settings','STEPS 8 and x 2: a cycle of 16 steps.',r)
+    p.key('t1',False);p.run(300)
+
+
 def capture_features(p,r):
     p.chord('t1','page')
     shot(p,'euclid-fill','fill','Euclidean trig fill: STEPS, PULSE, ROT, RAND VEL, RAND PTCH.',r)
@@ -401,7 +409,7 @@ def prepare(remix,project,assignments):
 
 def main():
     ap=argparse.ArgumentParser(description=__doc__)
-    ap.add_argument('groups',nargs='+',choices=['core','plocks','features','inserts','bus','extras','machines','probes','midi-scales','midi-loopback','utilities','varispeed','usb','octa303','distorx'])
+    ap.add_argument('groups',nargs='+',choices=['core','plocks','features','inserts','bus','extras','machines','probes','midi-scales','midi-loopback','utilities','varispeed','usb','octa303','distorx','morph'])
     cfg=Path.home()/'.octabam_project'
     ap.add_argument('--project',default=os.environ.get('OT_PROJECT') or (cfg.read_text().strip() if cfg.is_file() else ''))
     a=ap.parse_args();OUT.mkdir(parents=True,exist_ok=True)
@@ -423,6 +431,7 @@ def main():
         elif group=='usb':jobs=[('octabam-bus',capture_usb,[])]
         elif group=='octa303':jobs=[('octa303',capture_octa303,[])]
         elif group=='distorx':jobs=[('distorx',capture_fx,[(2,'fx2','DISTORX')])]
+        elif group=='morph':jobs=[('morph',capture_morph,[])]
         elif group=='machines':jobs=[('analog-bassdrum',capture_analog,[]),('octatrick',capture_synth,[]),('blackpyramids-303',capture_blackpyramids,[]),('octa303',capture_octa303,[]),('cxosc',capture_cxosc,[])]
         elif group=='probes':jobs=[('cfmeter',capture_fx,[(8,'fx2','CF METER')])]
         elif group=='utilities':jobs=[('buffer-saver',capture_buffer_saver,[])]
