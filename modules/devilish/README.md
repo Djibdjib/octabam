@@ -63,6 +63,11 @@ With dEVILish on the track, its SLID replaces the OCTA-303 SETUP page's SLID.
   DisTorX; no fault seen. Those images had it on FX id `0x1f`, then `0x1e`; on `0x10` (PHASER's,
   since 21 Oct 2026, when `0x1e` became RESONATOR's) see "On the unit, this tree" when flashed.
 
+- ✅ On the unit, this tree (on `0x10`): image DEVPR2 (BUILD 93, remix `devilish`, the owner's MKI,
+  22 Oct 2026), by ear: an LFO on a dEVILish knob (FM, OVDR, TRCK) moves the 303, as it did not
+  before the voice-record read; a scene with another FM through the crossfader and a lock on a
+  step still act as before.
+
 ## Inferred
 
 - 🟡 ColdFire cost on the OCTA303 voice: ~1,500 instructions more per 16-sample frame with FM and
