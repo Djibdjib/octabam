@@ -94,7 +94,9 @@ start/resume/stop passed with one EUCLID instance, instances on several tracks
 and both FX slots on one track; ordinary and arpeggiated MIDI played and stopped
 normally.
 
-These checks precede the empty-client optimization; its hardware retest is pending.
+Ordinary and arpeggiated MIDI start/resume/stop also passed on optimized
+`EUCL EVENTS 99` the same day. Empty transport paths without EUCLID remain
+software-tested only.
 
 The module retains `Proof.CHECK`: multi-client behavior and precise
 callback payloads have software coverage only. EUCLID's unchanged interrupt-mask
