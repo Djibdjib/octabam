@@ -67,6 +67,12 @@ With dEVILish on the track, its SLID replaces the OCTA-303 SETUP page's SLID.
   22 Oct 2026), by ear: an LFO on a dEVILish knob (FM, OVDR, TRCK) moves the 303, as it did not
   before the voice-record read; a scene with another FM through the crossfader and a lock on a
   step still act as before.
+  The same image, every knob: OCTA-303 on T1 with accents and slides; dEVILish on FX1 at its
+  defaults sounds as FX1 = NONE; page 1 OVDR, FM, TRCK, VDEC (0, 64, 127 = endless notes), SLID,
+  ADEC and page 2 SATK, SWP (ACID, WHST, SELF), SPD (FAST, NORM, SLOW), MUFF (OFF, SOFT, HARD),
+  CUTX and ENVX each act; on FX2 the same; on a track that is not a 303 the sound passes; an LFO
+  on a knob, no hang; two OCTA-303 tracks with dEVILish for five minutes; save, power-cycle,
+  reload keep dEVILish and its knobs.
 
 ## Inferred
 
