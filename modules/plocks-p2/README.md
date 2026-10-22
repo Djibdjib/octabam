@@ -42,9 +42,12 @@ Image A0 (`bottleservice`, `CHANGELOG.md`) carries PLOCKS P2; `p2lk01.work` was 
 radiohagen tested the Core P4 build on an MKII on 17 October, including
 hold/edit/release/rehold and perceived page-one hold timing; see
 [contribution notes](DEVELOPMENT.md). Those reports predate EDIT EVENTS.
-The shared-dispatch migration has software coverage only; its hardware
-acceptance is pending. Refused-file prompts and `.bak` copies are not
-covered by those scoped panel reports.
+On 22 October, radiohagen tested the EDIT EVENTS held-edit and copy paths
+on an Octatrack using Core image PLK858 (build 98): FX1/FX2 held edits,
+multiple held steps, native page-one/MIDI fallback, trig and track operations,
+and pattern copy and repeated clear/undo. See the attributed results in
+[contribution notes](DEVELOPMENT.md#edit-events-hardware-results-22-october-2026).
+Refused-file prompts and `.bak` copies are not covered by these panel reports.
 
 ## Open
 
@@ -59,7 +62,7 @@ covered by those scoped panel reports.
 - Page 2 has no slide: a slide trig moves page 1 only.
 - A held step with no trig takes a page-2 lock that never plays (stock
   makes a lock trig from a page-1 lock; not mirrored).
-- The new EDIT EVENTS dispatch on the unit.
+- EDIT EVENTS configurations beyond the Core held-edit/copy paths reported above.
 
 ## CS1 writer ordering
 

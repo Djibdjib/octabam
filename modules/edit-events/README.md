@@ -62,9 +62,14 @@ other modules that independently patch the same sites. Predicates must pass
 outside their exact context; one selected handler or one native fallthrough is
 the guard against processing an edit twice.
 
-Hardware acceptance of this migration remains open. Software checks cannot
-establish physical panel timing, interrupt interleaving or live audio behavior.
-Relevant hardware configurations are FX1 and FX2 edits, multiple held steps,
-multiple audio tracks, native MIDI/page-one fallthrough, copy/paste/clear/undo,
-and editing during playback. Earlier PLOCKS hardware reports predate this
-shared dispatcher and do not qualify it.
+On 22 October 2026, radiohagen reported hardware checks of this dispatcher
+on an Octatrack using Core PLK858 (build 98). FX1/FX2 held editing, multiple
+held steps, native page-one/MIDI fallback, track copy/paste and clear/undo,
+and pattern copy and repeated clear/undo passed. Trig copy, continuous-hold
+lock-clear undo and removal/reinsertion also preserved the expected page-one
+and page-two behavior. The exact image identity and observed cases are in
+[PLOCKS contribution notes](../plocks-p2/DEVELOPMENT.md#edit-events-hardware-results-22-october-2026).
+
+These are operator-reported panel results for PLOCKS as the registered client;
+they do not measure physical latency or qualify every future subscriber or
+remix. Earlier PLOCKS reports retain their separate image/date attribution.
