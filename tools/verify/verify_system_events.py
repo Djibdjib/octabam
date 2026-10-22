@@ -37,12 +37,12 @@ BASE, STACK, DONE = 0x48000000, 0x47008000, 0x4700fff0
 
 
 class Fixture:
-    def __init__(self, slug, count, work):
+    def __init__(self, slug, count, work, handled=None):
         declaration = runpy.run_path(str(ROOT / 'modules' / slug / 'manifest.py'))
         fn = declaration['event_inc' if slug == 'sequencer-events' else 'edit_inc']
         keys = tuple(f'CLIENT {i}' for i in range(count))
         events = declaration['EVENTS']
-        fn.__globals__['CLIENTS'] = tuple((k, f'test{i}', events) for i, k in enumerate(keys))
+        fn.__globals__['CLIENTS'] = tuple((k, f'test{i}', events if handled is None else handled) for i, k in enumerate(keys))
         include = fn(keys)
         assert not any(f'test{i}_' in fn(()) for i in range(count)), 'absent clients must be omitted'
         self.callbacks = {}
@@ -202,7 +202,7 @@ def native_midi_cases(work, count):
     return cases
 
 
-def empty_midi_cost(work):
+def empty_midi_cost(work, transport_clients):
     """Count executed instructions from the installed detour to its continuation.
 
     Include the entry JMP and displaced work; exclude the continuation itself.
@@ -212,7 +212,8 @@ def empty_midi_cost(work):
     declaration=runpy.run_path(str(ROOT/'modules/sequencer-events/manifest.py'))
     for detour in declaration['MODULE'].detours:
         if detour.symbol not in ('seq_sent_a','seq_sent_b'):continue
-        patched=Fixture('sequencer-events',0,work)
+        # Match EUCLID's registration: transport clients must not enable MIDI work.
+        patched=Fixture('sequencer-events',transport_clients,work,handled=('start','resume'))
         stock=Fixture('sequencer-events',0,work)
         patched.uc.mem_write(detour.site,b'\x4e\xf9'+patched.sym[detour.symbol].to_bytes(4,'big'))
         stock.uc.mem_write(detour.site,detour.expect)
@@ -229,8 +230,9 @@ def empty_midi_cost(work):
                     changed=1 if detour.symbol=='seq_sent_a' else 0
                     f.preserved({changed:0xffffff90})
                 counts.add((patched.instructions,stock.instructions))
-        assert counts=={(35,1)}, (detour.symbol,counts)
-        print(f'[ok] empty MIDI dispatcher at {detour.site:#x}: 35 instructions including entry JMP and displaced work; stock 1; added 34 (8 tracks x 2 pool kinds; not cycles)')
+                assert read_sr(patched.uc,DONE-16)==read_sr(stock.uc,DONE-16), 'native condition codes'
+        assert counts=={(4,1)}, (detour.symbol,counts)
+        print(f'[ok] empty MIDI dispatcher at {detour.site:#x}: 4 instructions including entry JMP and displaced work; stock 1; added 3 ({transport_clients} transport clients, 8 tracks x 2 pool kinds; not cycles)')
 
 
 def main():
@@ -281,7 +283,8 @@ def main():
     native_cases=0
     if (ROOT/'modules/sequencer-events/manifest.py').exists():
         with tempfile.TemporaryDirectory(prefix='octabam-native-events-') as td:
-            empty_midi_cost(Path(td))
+            for transport_clients in (0,1):
+                empty_midi_cost(Path(td),transport_clients)
             for count in (0,1,3):
                 native_cases+=native_midi_cases(Path(td),count)
         print(f'[ok] {native_cases} native MIDI cases: packet payloads, free/replacement ownership, rejected notes, zero velocity and native continuation')

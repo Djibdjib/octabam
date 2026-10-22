@@ -6,6 +6,8 @@
  * Output acceptance is not evidence that an external device received MIDI.
  */
     .text
+    .balign 4
+    .include "remix.inc"
     .global seq_start,seq_resume,seq_sent_a,seq_sent_b
     .macro SAVE
     lea -64(%sp),%sp
@@ -34,12 +36,17 @@ seq_resume:
     REST
     jmp 0x4009c4da
 seq_sent_a:
+    /* Keep the native boundary, but omit callback work without MIDI clients. */
+    .if seq_ev_midi_note_accepted_count
     bsr.w seq_sent
+    .endif
     move.b 0x400d807c,%d1
     extb.l %d1
     jmp 0x4009fbb8
 seq_sent_b:
+    .if seq_ev_midi_note_accepted_count
     bsr.w seq_sent
+    .endif
     move.b 0x400d807c,%d0
     extb.l %d0
     jmp 0x4009fd00
@@ -78,5 +85,3 @@ seq_fire_next:
 seq_fire_done:
     lea 20(%sp),%sp
     rts
-    .balign 4
-    .include "remix.inc"

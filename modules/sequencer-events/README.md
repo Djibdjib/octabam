@@ -72,9 +72,11 @@ control engine, DSP and playback integration.
 `verify_system_events.py` executes each detour from its installed entry jump to
 the native continuation, with no MIDI clients, for all eight tracks and both
 pool kinds. Both `0x4009fbb2` (free-note acceptance) and `0x4009fcfa` (ownership
-replacement) execute **35 instructions**, including the entry jump and displaced
-work, versus **one stock instruction**: **34 added instructions per accepted
-note**. The dispatcher body alone is 34 instructions, excluding the entry jump.
+replacement) execute **4 instructions**, including the entry jump and displaced
+work, versus **one stock instruction**: **3 added instructions per accepted
+note**. Build-time client counts omit the dispatch call when no MIDI handlers
+are selected; both hooks remain installed. A selected MIDI client enables the
+full dispatcher. Tests cover empty and transport-only registrations.
 The stock instruction and patched path are measured in separate emulator
 instances. This counts instructions, not ColdFire cycles, elapsed time or MIDI
 latency; memory accesses and multi-register instructions are not cycle-weighted.
@@ -85,6 +87,8 @@ On radiohagen's MKII (`EUCL EVENTS 98`, owner report, 22 Oct 2026),
 start/resume/stop passed with one EUCLID instance, instances on several tracks
 and both FX slots on one track; ordinary and arpeggiated MIDI played and stopped
 normally.
+
+These checks precede the empty-client optimization; its hardware retest is pending.
 
 The module retains `Proof.CHECK`: multi-client behavior and precise
 callback payloads have software coverage only. EUCLID's unchanged interrupt-mask

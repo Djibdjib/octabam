@@ -66,6 +66,7 @@ On radiohagen's MKII (`EUCL EVENTS 98`, owner report, 22 Oct 2026),
 start/resume/stop passed with one EUCLID instance, instances on several tracks
 and both FX slots on one track; ordinary and arpeggiated MIDI played and stopped
 normally.
+These checks precede the empty-client MIDI optimization; its hardware retest is pending.
 EUCLID subscribes only to start/resume. Sample-accurate reset timing and multiple
 registered clients were not measured on the unit.
 
