@@ -53,10 +53,9 @@ SEQUENCER EVENTS coordinates PLAY/resume notifications with other selected modul
 
 ## Hardware evidence
 
-Sam's MKII has a cursory owner report from 16 October 2026. On 21 October,
-radiohagen reported normal start/resume recovery on an MKII with one instance,
-instances on several tracks, and both FX slots on one track. MIDI playback
-checks preceded a correction to the shared MIDI callback. On 22 October the
-owner repeated ordinary and arpeggiated MIDI start/resume/stop checks on corrected
-`EUCL EVENTS 98`, with normal playback and clean stopping. EUCLID uses only
-the transport callbacks.
+Cursory testing on Sam's MKII (owner report, 16 Oct 2026).
+
+On radiohagen's MKII (`EUCL EVENTS 98`, owner report, 22 Oct 2026),
+start/resume/stop passed with one EUCLID instance, instances on several tracks
+and both FX slots on one track; ordinary and arpeggiated MIDI played and stopped
+normally. EUCLID uses only the transport callbacks.

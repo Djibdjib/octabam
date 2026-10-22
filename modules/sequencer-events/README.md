@@ -81,17 +81,10 @@ latency; memory accesses and multi-register instructions are not cycle-weighted.
 
 ### Hardware scope
 
-Owner checks on radiohagen's MKII (21 Oct 2026) covered fresh start and
-pause/resume recovery with one EUCLID instance, instances on several tracks,
-and both FX slots on one track, plus ordinary and arpeggiated MIDI playback
-and clean stop. These checks preceded the callback pitch correction.
-
-On 22 Oct 2026 the owner repeated ordinary and arpeggiated MIDI checks on the
-corrected `EUCL EVENTS 98` image (source `152edb0b`, loaded as `EUCEVT98.RMX`).
-Using A01, MIDI track 1 and note trigs 1/5/9/13, both ARP OFF and ARP ON played
-normally through three STOP/PLAY cycles, three pause/resume cycles and final
-stop, without reported missing, doubled or stuck notes. This is an owner report,
-not an instrumented MIDI capture. No playback fault was reported.
+On radiohagen's MKII (`EUCL EVENTS 98`, owner report, 22 Oct 2026),
+start/resume/stop passed with one EUCLID instance, instances on several tracks
+and both FX slots on one track; ordinary and arpeggiated MIDI played and stopped
+normally.
 
 The module retains `Proof.CHECK`: multi-client behavior and precise
 callback payloads have software coverage only. EUCLID's unchanged interrupt-mask
