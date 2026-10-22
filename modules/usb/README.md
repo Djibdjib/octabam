@@ -257,6 +257,10 @@ The `usb-midi` remix (this module on the stock effects) has not been flashed.
   other rates, under `--interactive` with each byte handed over at a known
   sample; `0x80001818` within 1% of the tick spacing's BPM × 24 after each
   run. Both USB checks fail without the timestamp.
+  Then, with TRANSPORT RECEIVE set (`0x80000029`), a START, 48 clocks and a
+  STOP over DIN and over USB: the transport word (`0x800065b8`) reads 1 after
+  the START and 2 after the STOP on both. No project is loaded.
+  `tools/hw/usb_transport_probe.py` is the same on a unit, one cable.
 
 ### What it is
 
