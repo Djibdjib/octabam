@@ -8,5 +8,5 @@ stays (`modules/distorx/README.md` "Where it goes").
 
 `make check REMIX=distorx`.
 
-**Hardware:** the owner's MKI, image DTXPR1 (BUILD 91, DISTORX then on `0x0a`), 21 Oct
-2026 (module README "On the unit (DTXPR1)").
+**Hardware:** the owner's MKI, image DTXPR3 (BUILD 96, on `0x05`), 22 Oct 2026, and before
+it DTXPR1 (BUILD 91, on `0x0a`), 21 Oct 2026 (module README "On the unit").

@@ -327,10 +327,10 @@ MODULE = Module(
     kind=Kind.DSP_EFFECT,
     category=Category.TRACK, author="MaMarko", author_url="https://github.com/braikomarko-hub",
     proof=Proof.HARDWARE,
-    proof_note="the owner's MKI, image DTXPR1 (BUILD 91, remix distorx, DISTORX then on id 0x0a), 21 Oct 2026: every "
-               "knob in every MODE, MODE changed while playing, FX1 and FX2, four at once on both cores, an LFO, a "
-               "scene through the crossfader, save and reload. The 0x05 (SPATIALIZER) form, image DTXPR2, not yet "
-               "flashed",
+    proof_note="the owner's MKI, image DTXPR3 (BUILD 96, remix distorx, on 0x05), 22 Oct 2026: DISTORX on T1 for more "
+               "than four minutes with four DISTORX at once on both cores (T1 and T2 kicks with DISTORX, T3 hats and T4 claps dry, T5 COMB FILTER + DISTORX, T6 COMB FILTER + DARK REV, T7 COMB FILTER + DISTORX, T8 MASTER), MODE changed while playing, OFF on "
+               "re-selection, no clicks, by ear. Before, on 0x0a, image DTXPR1 (21 Oct): every knob in every MODE, "
+               "FX1 and FX2, an LFO, a scene, save and reload",
     doc="SD-1 + RAT + Turbo RAT in one insert: MODE picks the pedal (OFF first), a 3 ms fade between them.",
     menu=MenuEntry(
         fx2_id=0x05,                  # SPATIALIZER's (README "FX id"): every non-stock id is a module's

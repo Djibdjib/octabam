@@ -303,6 +303,12 @@ both cores) for five minutes: no clicks, no noise, no slow-down; an LFO on DRIV 
 sound, no hang; a scene with another MODE through the crossfader, no click; save, power-cycle,
 reload: DISTORX and its knobs are kept. By ear, no recording.
 
+**On the unit (DTXPR3, on `0x05`, the final tree, BUILD 96, the owner's MKI, 22 Oct 2026):** the
+T1 run asked for in review: DISTORX on T1 (a kick) for more than four minutes, with the load
+T1 and T2 kicks with DISTORX, T3 hats and T4 claps dry, T5 COMB FILTER + DISTORX, T6 COMB FILTER + DARK REV, T7 COMB FILTER + DISTORX, T8 MASTER: four DISTORX at once over both cores. No clicks, no junk blocks, by ear (no USB module in this
+remix, so no recording). MODE changed through SD-1, RAT and TURB all along; taken off and chosen
+again, it starts at OFF.
+
 ## Open
 
 - The `-pword` (dirty LFO word) renders of `verify_distorx`: skipped on the owner's tree, whose
