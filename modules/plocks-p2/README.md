@@ -1,7 +1,7 @@
 # `plocks-p2` — PLOCKS P2
 
 Parameter locks on page 2 of FX1 and FX2. `Kind.CF_PATCH`: one DRAM
-unit, 52 detours, nothing on the DSP. Requires SCENES P2.
+unit with module-specific hooks, nothing on the DSP. Requires SCENES P2, STORE and EDIT EVENTS; shared editor/copy hooks belong to EDIT EVENTS.
 
 ## Use
 
@@ -38,7 +38,13 @@ stations, SCENES P2 KITS), project OCTABAM89_setgate:
 
 ## On the unit
 
-Image A0 (`bottleservice`, `CHANGELOG.md`) carries PLOCKS P2; `p2lk01.work` was written by image 99 on Sam's MKII, 4 Oct 2026 (`docs/contributing/FAILURE_MODES.md`). The STORE-based build (refused-file prompt, `.bak` copy) has not run on a unit.
+Image A0 (`bottleservice`, `CHANGELOG.md`) carries PLOCKS P2; `p2lk01.work` was written by image 99 on Sam's MKII, 4 Oct 2026 (`docs/contributing/FAILURE_MODES.md`). Sam also reported cursory testing on his MKII on 16 October 2026.
+radiohagen tested the Core P4 build on an MKII on 17 October, including
+hold/edit/release/rehold and perceived page-one hold timing; see
+[contribution notes](DEVELOPMENT.md). Those reports predate EDIT EVENTS.
+The shared-dispatch migration has software coverage only; its hardware
+acceptance is pending. Refused-file prompts and `.bak` copies are not
+covered by those scoped panel reports.
 
 ## Open
 
@@ -48,12 +54,12 @@ Image A0 (`bottleservice`, `CHANGELOG.md`) carries PLOCKS P2; `p2lk01.work` was 
   stock's use of it (the power-up check and restore), not measured here.
 - Bank reload and project reload (the `.strd` → `.work` copies) are
   hooked and not exercised by the gate.
-- The dial draw with trigs held (SCENES P2's dial hooks call `plk_dial`;
-  the port's LCD was not decoded).
+- Physical panel latency is not measured numerically; decoded LCD checks
+  and perceived hold timing are described in [contribution notes](DEVELOPMENT.md).
 - Page 2 has no slide: a slide trig moves page 1 only.
 - A held step with no trig takes a page-2 lock that never plays (stock
   makes a lock trig from a page-1 lock; not mirrored).
-- On the unit.
+- The new EDIT EVENTS dispatch on the unit.
 
 ## CS1 writer ordering
 
@@ -149,3 +155,5 @@ file routines' own entries (`0x40090504`, `0x400905d4`, `0x400909d8`,
 `0x400917c8`, `0x4008ee74`, `0x4008f180`) where this module hooks their
 call sites, so the two share no site. Its CS1 ranges (`0x100f85a0..e8`,
 `0x100ffe00..ff00`) and MIDI SCENES' (`0x100fbdf0..0x100ffe00`) sit on either side of this module's.
+
+PLOCKS P2 requires EDIT EVENTS for held-step dispatch and pattern/track copy notifications. Other selected editors register independently; no pair-specific bridge is needed.

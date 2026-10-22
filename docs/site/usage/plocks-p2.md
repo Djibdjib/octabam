@@ -30,3 +30,7 @@ them. SAVE PROJECT writes them and a power cycle loads them back.
 - The power-off copy of the current bank holds 4,768 locks. A bank with
   more has no power-cut copy: a power cut loses its unsaved page-2 locks
   back to the last save.
+
+EDIT EVENTS coordinates held-step editing and clipboard/undo copying for
+registered extensions. PLOCKS P2 is its first client. This adds no controls;
+the shared-dispatch migration still needs hardware acceptance.
