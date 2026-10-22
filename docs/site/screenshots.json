@@ -826,6 +826,22 @@
       "firmware_sha256": "3f208b1219b80976754360f3df0ddce569130aad207b4530da43ba17e21c7029"
     }
   },
+  "distorx": {
+    "setup": {
+      "image": "distorx/setup.png",
+      "caption": "DISTORX: effect selection and setup parameters.",
+      "remix": "distorx",
+      "source": "emulator panel UART",
+      "firmware_sha256": "35c12958d83d93f97b0f5d5e2b0ac0dd7ca828224eb0c3aebac5415e714c0c3e"
+    },
+    "main": {
+      "image": "distorx/main.png",
+      "caption": "DISTORX: main parameter page.",
+      "remix": "distorx",
+      "source": "emulator panel UART",
+      "firmware_sha256": "35c12958d83d93f97b0f5d5e2b0ac0dd7ca828224eb0c3aebac5415e714c0c3e"
+    }
+  },
   "octa303": {
     "source": {
       "image": "octa303/source.png",

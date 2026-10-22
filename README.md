@@ -22,6 +22,14 @@ form (`.github/ISSUE_TEMPLATE/`) asking for the remix, image build,
 hardware model and steps to reproduce.
 The licence is MIT.
 
+## Unofficial firmware
+
+This is unofficial firmware, not made, endorsed or supported by Elektron.
+Flashing it is generally safe and can be reverted by flashing the stock OS
+again ([BUILDING.md](docs/guide/BUILDING.md) section 7). Elektron is not
+responsible for any damage to your Octatrack. See
+[Before you flash anything](#before-you-flash-anything).
+
 ## Start here
 
 | you want to | read |
@@ -65,6 +73,7 @@ from the card (section 5).
 | [**BBD**](modules/bbd/README.md) | [JamCones](https://github.com/JamCones) | Clocked BBD delay: compander, clock/3 filters, bucket noise, freeze, governor; FX2. | on hardware: JamCones' MKII, BBDOB4 (remixes/test/bbd, BUILD 4), 17 Oct 2026 |
 | [**CHARACTER**](modules/character/README.md) | [sambanks](https://github.com/sambanks) | FX1 station: fold, saturation, tilt, compressor, width. | on hardware: Sam's MKII |
 | [**CHARACTER TXTR**](modules/character-txtr/README.md) | [sambanks](https://github.com/sambanks) | Character plus TXTR (Airwindows Pockey2): fold, texture, saturation, tilt, compressor, width. | on hardware: cursory testing on Sam's MKII (owner report, 16 Oct 2026) |
+| [**DISTORX**](modules/distorx/README.md) | [MaMarko](https://github.com/braikomarko-hub) | SD-1 + RAT + Turbo RAT in one insert: MODE picks the pedal (OFF first), a 3 ms fade between them. | on hardware: the owner's MKI, image DTXPR3 (BUILD 96, remix distorx, on 0x05), 22 Oct 2026: DISTORX on T1 for more than four minutes with four DISTORX at once on both cores (T1 and T2 kicks with DISTORX, T3 hats and T4 claps dry, T5 COMB FILTER + DISTORX, T6 COMB FILTER + DARK REV, T7 COMB FILTER + DISTORX, T8 MASTER), MODE changed while playing, OFF on re-selection, no clicks, by ear. Before, on 0x0a, image DTXPR1 (21 Oct): every knob in every MODE, FX1 and FX2, an LFO, a scene, save and reload |
 | [**EUCLID**](modules/euclid/README.md) | [repeat98](https://github.com/repeat98) | Euclidean LP/BP/HP/notch/amp sequencer: swing, envelope, gate, random and loop. | on hardware: Cursory testing on Sam's MKII (owner report, 16 Oct 2026); radiohagen's MKII: start/resume recovery with one instance, several tracks and both FX slots (owner report, 21 Oct 2026; [PR #851](https://github.com/sambanks/octabam/pull/851)). |
 | [**GATE VERB**](modules/gateverb/README.md) | [Emilie Gillet (Mutable Instruments), ported here](https://github.com/pichenettes/eurorack) | A gated plate reverb (Griesinger topology, after the reverb stage of Mutable Instruments Clouds): amount, input gain, time, diffusion, tone, gate. One FX2 slot per instance. | on hardware: cursory testing on Sam's MKII (owner report, 16 Oct 2026); `verify_gateverb` (dsp_host, against a float model of Clouds' reverb) |
 | [**LOFI2**](modules/lofi2/README.md) | [Bryan T](https://github.com/bryantysinger) | Ring mod or frequency shifter, then sample-rate and bit reduction. | on hardware: Bryan T's MKII, images 96-99 (Oct 2026, this tree): tracks 1 and 5, five instances at once; `_bt_oct` build 11 (12 Oct 2026, the 414-cycle loop): eight in SHIFT at once, four per core, UP/DOWN switched while playing |
