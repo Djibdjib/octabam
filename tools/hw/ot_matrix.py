@@ -8,6 +8,7 @@ is the load readout where the image carries it.
 
     python3 tools/hw/ot_matrix.py plan REMIX [--pairs]
     python3 tools/hw/ot_matrix.py proj SRC DEST_PREFIX REMIX [--pairs] [--pattern A2]
+                                  [--stimuli hits,pink,...] [--stim-tracks 1-8]
     python3 tools/hw/ot_matrix.py run PROJECT_DIR LABEL [--midi Octatrack] [--audio Octatrack]
                                   [--pc-channel 1] [--bpm 121] [--play 12] [--tail 3] [--only 0,4-9]
     python3 tools/hw/ot_matrix.py selftest      # the detectors on synthetic audio; no unit
@@ -29,6 +30,16 @@ project), each with OCTABAM_MATRIX.json beside the project files.
   octabam-bus: the bus rig as the ladder's RIG rung has it on FX2 (BusDelay
     on T1, BusVerb on T5, SEND elsewhere), then each FX1 station on all
     eight tracks in the same variants, and the stock DELAY on T8's FX2.
+
+MATERIAL. By default every pattern plays SRC's pattern A2 (--pattern). With
+--stimuli the project plays synthetic material instead (tools/hw/ot_stimuli.py):
+the WAVs are written beside the project files, FLEX slots 1..N name them
+(PATH is the bare file name) with their trim records in markers.work, the
+--stim-tracks tracks (default all eight) take them round-robin as looping FLEX
+machines, and each pattern is one trig on step 1 of 64 steps at 1X, so at 120
+BPM (recorded in OCTABAM_MATRIX.json as `bpm`, which `run` uses) a stimulus
+restarts exactly when its 2, 4 or 8 s ends. The stimuli's expected levels and
+events are in OCTABAM_STIMULI.json. The project has no .ot attribute files.
 
 THE RUN. For each layout: STOP, program change, the page-1 CCs of the
 layout's modules asserted over MIDI (the ladder's rule), START with a
@@ -172,8 +183,104 @@ def _program(i):
     return bank + 1, k + 1, bank * 16 + k
 
 
-def make_project(src, dest, remix_name, chunk, pattern="A2"):
-    """Copy SRC to DEST and write `chunk` (a list of layouts, at most 32; the rest BASE)."""
+# ---------------------------------------------------------------------------
+# stimuli: samples, sample slots and trigs written into the project
+# ---------------------------------------------------------------------------
+STIM_BPM = 120            # 64 sixteenth steps = 8 s, a whole number of every stimulus' length
+STIM_LEN, STIM_SCALE = 64, 2                       # LEN 64, SCALE 1X (ot_project.SCALE_NAMES)
+SLOT_REC = 784                                     # a markers.work record; FLEX slot n is record n - 1 from 0x16
+
+
+def stim_assign(names, tracks):
+    """[(track 0..7, slot 1..N)]: the stimuli round-robin over `tracks` (1-based)."""
+    return [(t - 1, 1 + i % len(names)) for i, t in enumerate(tracks)]
+
+
+def _stim_text(dest, names, frames):
+    """FLEX slots 1..N in project.work / .strd name the stimuli (PATH beside the project files)."""
+    import re
+    blocks = b""
+    for i, n in enumerate(names):
+        bars = frames[n] * 100 * STIM_BPM // (FS_STIM * 60 * 4)
+        blocks += (f"[SAMPLE]\r\nTYPE=FLEX\r\nSLOT={i + 1:03d}\r\nPATH={n}.wav\r\nTRIM_BARSx100={bars}"
+                   f"\r\nLOOP_BARSx100={bars}\r\nBPMx24={STIM_BPM * 24}\r\nTSMODE=0\r\nLOOPMODE=1\r\nGAIN=48"
+                   f"\r\nTRIGQUANTIZATION=-1\r\n[/SAMPLE]\r\n\r\n").encode()
+    used = {f"{i + 1:03d}".encode() for i in range(len(names))}
+    for path in (dest / "project.work", dest / "project.strd"):
+        if not path.exists():
+            continue
+        raw = path.read_bytes()
+        raw = re.sub(rb"\[SAMPLE\]\r?\nTYPE=FLEX\r?\nSLOT=(\d+)\r?\n.*?\[/SAMPLE\]\r?\n\r?\n",
+                     lambda m: b"" if m.group(1) in used else m.group(0), raw, flags=re.S)
+        at = raw.find(b"[SAMPLE]")
+        if at < 0:
+            sys.exit(f"{path}: no [SAMPLE] section to put the stimuli before")
+        path.write_bytes(raw[:at] + blocks + raw[at:])
+
+
+def _stim_markers(dest, names, frames):
+    import struct
+    for path in (dest / "markers.work", dest / "markers.strd"):
+        if not path.exists():
+            continue
+        data = bytearray(path.read_bytes())
+        for i, n in enumerate(names):
+            off = 0x16 + i * SLOT_REC
+            data[off:off + SLOT_REC] = struct.pack(">III", 0, frames[n], 0) + bytes(SLOT_REC - 12)
+        data[-2:] = (sum(data[0x10:-2]) & 0xFFFF).to_bytes(2, "big")
+        path.write_bytes(data)
+
+
+FS_STIM = 44100
+
+
+def write_stimuli(dest, names):
+    """The WAVs beside the project files, their FLEX slots and trim records; -> {name: frames}."""
+    import ot_stimuli as S
+    frames = {}
+    for n in names:
+        if n not in S.STIMULI:
+            sys.exit(f"no stimulus {n!r}; have {', '.join(S.STIMULI)}")
+        q, extra = S.render(n)
+        S.write_wav(dest / f"{n}.wav", q)
+        frames[n] = len(q)
+    _stim_text(dest, names, frames)
+    _stim_markers(dest, names, frames)
+    (dest / "OCTABAM_STIMULI.json").write_text(json.dumps(
+        {n: S.describe(n, *S.render(n)) for n in names}, indent=1))
+    return frames
+
+
+def stim_part(data, off, assign):
+    """One part record: the assigned tracks are FLEX machines on their slot, looping, no stretch, neutral pitch."""
+    for t, slot in assign:
+        data[off + 0x02b + t] = 1                       # machine type FLEX (ot_project.MTYPE_OFF)
+        data[off + 0x2d3 + t * 5 + 1] = slot - 1        # the track's flex slot
+        data[off + 0x01b + t * 2] = 55                  # mix headroom, as stress_project.py
+        setup, vals = off + 0x1e3 + t * 30 + 6, off + 0x033 + t * 30 + 6
+        data[setup] = 1                                 # LOOP
+        data[setup + 4] = 0                             # TSTR off
+        data[vals] = 64                                 # PTCH neutral
+        data[vals + 3] = 127                            # RATE forward
+
+
+def stim_pattern(data, pat, assign):
+    """Pattern `pat` (0-based): no trigs or locks, then step 1 on the assigned tracks, LEN 64 at 1X."""
+    import ot_project as P
+    for t in range(8):
+        off = P.trac_off(pat, t)
+        data[off:off + 64] = bytes(64)
+        data[off + 0x59:off + 0x59 + 64 * 32] = bytes([0xff]) * (64 * 32)
+    for t, _slot in assign:
+        data[P.trac_off(pat, t) + 7] |= 1               # mask 0, step 1
+    tail = P.PTRN0 + pat * P.PTRN_FSTRIDE + P.PTRN_FSTRIDE - 11
+    data[tail + 2], data[tail + 3] = STIM_LEN, STIM_SCALE
+
+
+def make_project(src, dest, remix_name, chunk, pattern="A2", stimuli=None, stim_tracks=range(1, 9)):
+    """Copy SRC to DEST and write `chunk` (a list of layouts, at most 32; the rest BASE).
+    With `stimuli` (names from ot_stimuli) the tracks in `stim_tracks` play them on FLEX slots 1..N, one trig
+    on step 1 of a 64-step pattern, instead of SRC's own pattern content."""
     import ot_ladder as L
     import ot_project as P
     from remix import registry
@@ -203,6 +310,10 @@ def make_project(src, dest, remix_name, chunk, pattern="A2"):
                       for t, (f1, f2) in lo.items()])
 
     shutil.copytree(src, dest)
+    assign = []
+    if stimuli:
+        write_stimuli(dest, stimuli)
+        assign = stim_assign(stimuli, list(stim_tracks))
     for b in range(8):
         num = b + 1
         bank_plans = plans[b * 4:b * 4 + 4]
@@ -212,10 +323,14 @@ def make_project(src, dest, remix_name, chunk, pattern="A2"):
                 d0 = P.PTRN0 + j * P.PTRN_FSTRIDE
                 data[d0:d0 + P.PTRN_FSTRIDE] = ptrn
                 data[d0 + P.PTRN_FSTRIDE - 5] = j
+                if assign:
+                    stim_pattern(data, j, assign)
             for p in range(P.NPARTS_ALL):
                 off = P.PART_BASE + p * P.PART_STRIDE
                 data[off:off + P.PART_STRIDE] = part_cur if p < 4 else part_sav
                 data[off + L.PART_INDEX_OFF] = p % 4      # a record's own index (FAILURE_MODES "PARSE ERROR")
+                if assign:
+                    stim_part(data, off, assign)
                 for t, (id1, v1), (id2, v2) in bank_plans[p % 4]:
                     i = t - 1
                     data[off + P.FX1_OFF + i] = id1
@@ -255,18 +370,23 @@ def make_project(src, dest, remix_name, chunk, pattern="A2"):
         bank, pat, prog = _program(i)
         entries.append({"slot": i, "bank": BANKS[bank - 1], "pattern": pat, "program": prog, "name": name,
                         "kind": kind, "layout": {str(t): [_spec_text(f1), _spec_text(f2)] for t, (f1, f2) in lo.items()}})
-    (dest / "OCTABAM_MATRIX.json").write_text(json.dumps({"remix": remix_name, "layouts": entries}, indent=1))
+    (dest / "OCTABAM_MATRIX.json").write_text(json.dumps(
+        {"remix": remix_name, "layouts": entries, "bpm": STIM_BPM if stimuli else None,
+         "stimuli": {n: [t + 1 for t, sl in assign if sl == i + 1] for i, n in enumerate(stimuli)} if stimuli else None},
+        indent=1))
     return len(entries)
 
 
 def cmd_proj(a):
     lay = layouts(a.remix, a.pairs)
     base, rest = lay[0], lay[1:]
+    stimuli = [x for x in a.stimuli.split(",") if x] if a.stimuli else None
+    tracks = _span(a.stim_tracks)
     per = PER_PROJECT - 1                     # BASE takes slot 0 of every project
     n = 0
     for k in range(0, len(rest), per):
         dest = f"{a.dest}_{k // per + 1:02d}"
-        n += make_project(a.src, dest, a.remix, [base] + rest[k:k + per], a.pattern) - 1
+        n += make_project(a.src, dest, a.remix, [base] + rest[k:k + per], a.pattern, stimuli, tracks) - 1
         print(f"{dest}: {len(rest[k:k + per]) + 1} layouts (slot 0 BASE)")
     print(f"{n} layouts in {-(-len(rest) // per)} project(s); material {a.src} {a.pattern}")
 
@@ -416,6 +536,17 @@ def cmd_selftest(_a):
 # ---------------------------------------------------------------------------
 # run
 # ---------------------------------------------------------------------------
+def _span(text):
+    """'1-4,7' -> [1, 2, 3, 4, 7]."""
+    out = []
+    for part in text.split(","):
+        m = re.fullmatch(r"(\d+)(?:-(\d+))?", part.strip())
+        if not m:
+            sys.exit(f"{part!r} is not N or N-M")
+        out += range(int(m.group(1)), int(m.group(2) or m.group(1)) + 1)
+    return out
+
+
 def parse_only(s, n):
     if not s:
         return list(range(n))
@@ -455,7 +586,8 @@ def cmd_run(a):
         with lock:
             if seg["chunks"] is not None:
                 seg["chunks"].append(indata.copy())
-    clock = L.Clock(a.bpm, a.midi)
+    bpm = a.bpm or plan.get("bpm") or 121.0
+    clock = L.Clock(bpm, a.midi)
     results, base_m = [], None
     sd_stream = sd.InputStream(device=dev, channels=nch, samplerate=fs, dtype="float32", callback=cb)
     try:
@@ -524,9 +656,12 @@ def main():
     p.add_argument("--play", type=float, default=12.0); p.add_argument("--tail", type=float, default=3.0)
     p = sub.add_parser("proj"); p.add_argument("src"); p.add_argument("dest"); p.add_argument("remix")
     p.add_argument("--pairs", action="store_true"); p.add_argument("--pattern", default="A2")
+    p.add_argument("--stimuli", default="", help="ot_stimuli names, comma-separated: played on FLEX slots 1..N instead of SRC's pattern")
+    p.add_argument("--stim-tracks", default="1-8", help="tracks that play them, round-robin (default 1-8)")
     p = sub.add_parser("run"); p.add_argument("project"); p.add_argument("label")
     p.add_argument("--midi", default="Octatrack"); p.add_argument("--audio", default="Octatrack")
-    p.add_argument("--pc-channel", type=int, default=1); p.add_argument("--bpm", type=float, default=121.0)
+    p.add_argument("--pc-channel", type=int, default=1)
+    p.add_argument("--bpm", type=float, default=None, help="default: the project's (120 for a stimuli project), else 121")
     p.add_argument("--play", type=float, default=12.0); p.add_argument("--tail", type=float, default=3.0)
     p.add_argument("--only", default="")
     sub.add_parser("selftest")

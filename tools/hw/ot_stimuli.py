@@ -5,7 +5,8 @@
     python3 tools/hw/ot_stimuli.py gen OUT_DIR [NAME ...]    # WAVs + stimuli.json
     python3 tools/hw/ot_stimuli.py verify OUT_DIR            # regenerate, compare with what is on disk
 
-Every stimulus is stereo, 44.1 kHz, 24-bit PCM, and loops without a seam:
+Every stimulus is stereo, 44.1 kHz, 24-bit PCM, 2, 4 or 8 seconds long (so
+it fills 64 sixteenth steps at 120 BPM a whole number of times), and loops without a seam:
 a tone has a whole number of cycles in its length (frequency = k * 44100 /
 frames), a noise or a hit train repeats its first sample after its last.
 Noise comes from a counter-based integer generator (splitmix64 over the
@@ -109,8 +110,8 @@ def _pair(l, r=None):
 
 
 def _tone_ladder():
-    """1 kHz at -40, -30, -20, -10, -3 dBFS peak, one second each."""
-    seg = FS
+    """1 kHz at -40, -30, -20, -10, -3 dBFS peak, 1.6 s each (8 s: a whole pattern at 120 BPM, 64 steps)."""
+    seg = 8 * FS // 5
     out = np.concatenate([tone(seg, 1000, d) for d in (-40, -30, -20, -10, -3)])
     return _pair(out), {"steps_db": [-40, -30, -20, -10, -3], "step_frames": seg}
 
@@ -161,7 +162,7 @@ def _dc():
 
 STIMULI = {
     "two_tones": (_two_tones, "L 997 Hz, R 1499 Hz, -20 dBFS peak, whole cycles in 4 s"),
-    "ladder": (_tone_ladder, "1 kHz at -40, -30, -20, -10, -3 dBFS peak, 1 s each"),
+    "ladder": (_tone_ladder, "1 kHz at -40, -30, -20, -10, -3 dBFS peak, 1.6 s each"),
     "impulses": (_impulses, "a one-sample impulse of -1 dBFS every 0.5 s, 4 s"),
     "hits": (_hits, "a 220 Hz hit at -6 dBFS peak decaying over ~0.15 s, every 0.5 s, 4 s"),
     "sweep": (_sweep, "log sweep 20 Hz - 20 kHz, -20 dBFS peak, 8 s"),

@@ -67,3 +67,47 @@ class MatrixDetectors(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipIf(np is None, "numpy is not installed")
+class MatrixStimuliProject(unittest.TestCase):
+    """The pieces of `ot_matrix.py proj --stimuli` that need no source project."""
+
+    @classmethod
+    def setUpClass(cls):
+        import ot_matrix
+        cls.m = ot_matrix
+
+    def test_round_robin_assignment(self):
+        self.assertEqual(self.m.stim_assign(["a", "b", "c"], [1, 2, 3, 4, 5]),
+                         [(0, 1), (1, 2), (2, 3), (3, 1), (4, 2)])
+
+    def test_sample_blocks_replace_only_the_named_slots(self):
+        import tempfile
+        import pathlib
+        with tempfile.TemporaryDirectory() as d:
+            d = pathlib.Path(d)
+            old = (b"[SAMPLE]\r\nTYPE=FLEX\r\nSLOT=001\r\nPATH=old.wav\r\n[/SAMPLE]\r\n\r\n"
+                   b"[SAMPLE]\r\nTYPE=FLEX\r\nSLOT=129\r\nPATH=\r\n[/SAMPLE]\r\n\r\n")
+            for f in ("project.work", "project.strd"):
+                (d / f).write_bytes(b"HEAD\r\n" + old)
+            self.m._stim_text(d, ["hits", "pink"], {"hits": 176400, "pink": 352800})
+            t = (d / "project.work").read_bytes().decode()
+            self.assertNotIn("old.wav", t)
+            self.assertIn("SLOT=129", t)
+            self.assertIn("SLOT=001\r\nPATH=hits.wav\r\nTRIM_BARSx100=200", t)
+            self.assertIn("SLOT=002\r\nPATH=pink.wav\r\nTRIM_BARSx100=400", t)
+            self.assertEqual((d / "project.work").read_bytes(), (d / "project.strd").read_bytes())
+
+    def test_markers_hold_the_trim_end_and_a_valid_sum(self):
+        import struct
+        import tempfile
+        import pathlib
+        with tempfile.TemporaryDirectory() as d:
+            d = pathlib.Path(d)
+            (d / "markers.work").write_bytes(bytes(0x16 + 784 * 4 + 2))
+            self.m._stim_markers(d, ["hits", "pink"], {"hits": 176400, "pink": 352800})
+            b = (d / "markers.work").read_bytes()
+            self.assertEqual(struct.unpack(">III", b[0x16:0x16 + 12]), (0, 176400, 0))
+            self.assertEqual(struct.unpack(">III", b[0x16 + 784:0x16 + 784 + 12]), (0, 352800, 0))
+            self.assertEqual(int.from_bytes(b[-2:], "big"), sum(b[0x10:-2]) & 0xFFFF)

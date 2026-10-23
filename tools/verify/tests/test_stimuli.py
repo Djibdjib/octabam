@@ -33,7 +33,8 @@ class Stimuli(unittest.TestCase):
 
     def test_ladder_steps(self):
         x = self.x("ladder")[:, 0]
-        got = [self.s.db(np.abs(x[i * self.s.FS:(i + 1) * self.s.FS]).max()) for i in range(5)]
+        seg = 8 * self.s.FS // 5
+        got = [self.s.db(np.abs(x[i * seg:(i + 1) * seg]).max()) for i in range(5)]
         for g, want in zip(got, (-40, -30, -20, -10, -3)):
             self.assertAlmostEqual(g, want, places=2)
 
@@ -74,6 +75,10 @@ class Stimuli(unittest.TestCase):
     def test_silence_and_dc(self):
         self.assertEqual(int(np.abs(self.r["silence"][0]).max()), 0)
         self.assertAlmostEqual(float(self.x("dc").mean()), -0.1, places=6)
+
+    def test_durations_fill_a_pattern(self):
+        for n, (q, _) in self.r.items():
+            self.assertIn(len(q) / self.s.FS, (2.0, 4.0, 8.0), n)
 
     def test_render_is_deterministic(self):
         for n in self.s.STIMULI:
