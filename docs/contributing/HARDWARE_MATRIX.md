@@ -76,8 +76,10 @@ python3 tools/hw/ot_matrix.py proj <fresh> <dest-prefix> octabam-inserts --clean
 the ones at or above `--threshold` (0.85) plus `--validate` (6) spread over the
 rest, to check on the unit that the sum holds. It does not predict the
 ColdFire's share (EUCLID's hook adds about 7 points), audio faults that need
-the combination, or what the unit does past 100 % busy. Layouts predicted over
-100 % are the ones to watch: no single-slot run has gone past about 99 %.
+the combination, or what the unit does past 100 % busy. A layout predicted
+over 100 % overloaded the unit (24 Oct 2026: SPECTRUM FX1 + LOFI2 FX2 `dear`, predicted 105 %; the frame
+interrupt fell to half rate and stayed there), so `predict` leaves those out unless `--include-overload`.
+No single-slot run has gone past 98.8 %.
 
 ## Flags
 
@@ -95,6 +97,7 @@ the top of `ot_matrix.py`, first guesses not validated on a unit. A flag means
 | LEVEL | rms 3 dB or more from BASE's |
 | CLIP | samples at full scale |
 | DC / RINGS | the last half second of the tail is above -70 dBFS and BASE's is not; DC when the level is a held constant |
+| OVERLOAD | the frame interrupt ran under 80 % of 2,756 a second: the DSP missed its frames; the unit stays degraded and the run stops (power-cycle) |
 | LOAD | frame-interrupt share or a DSP core's busy/period at 90 % or more, from 2 s into play |
 
 ## Limits

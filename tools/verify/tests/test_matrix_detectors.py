@@ -75,6 +75,13 @@ class MatrixDetectors(unittest.TestCase):
         self.assertIn("DC", f)
         self.assertNotIn("RINGS", f)
 
+    def test_a_halved_frame_rate_is_an_overload(self):
+        m = self.m.measure(self.stereo(self.sig), self.FS, 12)
+        full = {"windows": 5, "irq_per_s_median": 2756.0, "cf_share_max": 0.3, "dsp_core0_max": 0.5, "dsp_core1_max": 0.4}
+        half = dict(full, irq_per_s_median=1378.0)
+        self.assertNotIn("OVERLOAD", self.m.judge(m, self.base, full)[0])
+        self.assertIn("OVERLOAD", self.m.judge(m, self.base, half)[0])
+
     def test_level(self):
         self.assertIn("LEVEL", self.flags(self.sig * 0.2)[0])
 

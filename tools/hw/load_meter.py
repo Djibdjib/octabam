@@ -147,6 +147,7 @@ def summarise(readings):
     out["slots"] = {slot_name(i): {"mean_counts": (b[i]["sum"] - a[i]["sum"]) / (b[i]["count"] - a[i]["count"]),
                                    "max_counts": b[i]["max"], "samples": b[i]["count"] - a[i]["count"]}
                     for i in range(16) if b[i]["count"] > a[i]["count"]}
+    out["irq_per_s_median"] = sorted(r["cf"]["irq_per_s"] for r in fresh if r["cf"]["irq_per_s"])[len(fresh) // 2]
     out["bad_records"] = readings[-1]["dsp"]["bad"] - readings[0]["dsp"]["bad"]
     return out
 

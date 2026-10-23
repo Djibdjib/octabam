@@ -89,6 +89,8 @@ and not validated on a unit (constants at the top of this file):
   CLIP      samples at full scale.
   RINGS     the last half second of the tail is above SETTLE_DBFS and BASE's is not: the layout is still
             sounding 2.5-3 s after STOP.
+  OVERLOAD  the frame interrupt ran under 80 % of 2,756 a second in the play window: the DSP missed its frames
+            (the load was past its budget) and the unit stays degraded; the run stops. Power-cycle.
   LOAD      LOAD METER's frame-interrupt share or a DSP core's busy/period above LOAD_FRAC, from
             LOAD_SKIP_S into the play phase (the first seconds carry the previous layout's load).
 
@@ -117,6 +119,7 @@ CRASH_S = 2.0
 CLICK_EXTRA, CLICK_RATIO = 10, 3.0
 ROUGH_BLOCKS = 0.10       # events in more than this share of 512-sample blocks: a rough signal, not isolated clicks
 CLICK_SKIP_S = 0.2        # the segment's first samples are a cut, not a click (all 255 'clicks' of layout 2, 24 Oct 2026, were in the first 12 ms)
+NOMINAL_IRQ_PER_S, OVERLOAD_IRQ_FRAC = 2756.0, 0.8   # the frame interrupt runs 2,756 a second; far fewer means frames are being skipped
 LOAD_SKIP_S = 2.0         # the first seconds after START still carry the previous layout's load (BASE read 26% mean and 77% max, 24 Oct 2026)
 SETTLE_DBFS, SETTLE_MAX_S = -70.0, 15.0   # wait for the previous layout's tail to fade before the next segment
 STATIC_DB, LEVEL_DB = 6.0, 3.0
@@ -693,6 +696,8 @@ def judge(m, base, load=None):
     if m.get("tail_end_db") is not None and m["tail_end_db"] > SETTLE_DBFS and (base.get("tail_end_db") or -240.0) <= SETTLE_DBFS:
         # still sounding in the last half second of the tail, BASE is not; a held constant is a DC offset
         flags.append("DC" if (m.get("tail_dc_frac") or 0.0) > 0.9 else "RINGS")
+    if load and load.get("irq_per_s_median") and load["irq_per_s_median"] < OVERLOAD_IRQ_FRAC * NOMINAL_IRQ_PER_S:
+        flags.append("OVERLOAD")
     if load and load.get("windows"):
         top = max(load["cf_share_max"], load["dsp_core0_max"], load["dsp_core1_max"])
         if top >= LOAD_FRAC:
@@ -844,7 +849,7 @@ def cmd_run(a):
     bpm = a.bpm or plan.get("bpm") or 121.0
     pc_ch = a.pc_channel or plan.get("pc_channel") or 1
     clock = L.Clock(bpm, a.midi)
-    results, base_m = [], None
+    results, base_m, no_audio = [], None, 0
     sd_stream = sd.InputStream(device=dev, channels=nch, samplerate=fs, dtype="float32", callback=cb)
     try:
         with sd_stream:
@@ -902,6 +907,15 @@ def cmd_run(a):
                     w.close()
                 if "CRASH" in flags:
                     print("CRASH: the sequencer is stuck; power-cycle the unit. Stopping.")
+                    break
+                if "OVERLOAD" in flags:
+                    print(f"OVERLOAD: the frame interrupt ran {load['irq_per_s_median']:.0f} a second (nominal {NOMINAL_IRQ_PER_S:.0f}) "
+                          f"under {e['name']}: frames are being skipped and the unit has not recovered by itself "
+                          f"(24 Oct 2026). Power-cycle it. Stopping.")
+                    break
+                no_audio = no_audio + 1 if "NO AUDIO CAPTURED" in flags else 0
+                if no_audio >= 2:
+                    print("NO AUDIO CAPTURED twice running: the unit or its USB stream is not delivering. Stopping.")
                     break
                 if "FREEZE" in flags:
                     clock.stop(); time.sleep(0.5)
@@ -986,18 +1000,22 @@ def cmd_predict(a):
         c0, c1, miss = predict_layout(lo, table, mods)
         rows.append((max(c0, c1), name, kind, c0, c1, miss))
     rows.sort(key=lambda r: -r[0])
-    risky = [r for r in rows if not r[5] and r[0] >= a.threshold]
+    over = [r for r in rows if not r[5] and r[0] >= 1.0]            # past the frame budget: skipped frames (24 Oct 2026)
+    risky = [r for r in rows if not r[5] and a.threshold <= r[0] < 1.0]
     ok = [r for r in rows if not r[5] and r[0] < a.threshold]
     # a spread across the predicted range checks the sum on the unit, whatever the load
     step = max(len(ok) // a.validate, 1) if a.validate else 0
     validate = ok[::step][:a.validate] if a.validate else []
     chosen = {r[1]: ("RUN" if r in risky else "CHECK") for r in risky + validate}
+    if a.include_overload:
+        chosen.update({r[1]: "OVERLOAD" for r in over})
     print(f"{a.remix}: {len(rows)} combination layouts; {len(risky)} predicted at or above {100 * a.threshold:.0f} % "
-          f"on a core, {len(validate)} chosen across the rest to check the sum, {sum(1 for r in rows if r[5])} unpredictable "
-          f"(no single-effect run)")
+          f"on a core (and under 100 %), {len(validate)} chosen across the rest to check the sum, {len(over)} predicted at 100 % or "
+          f"more ({'included' if a.include_overload else 'left out: --include-overload'}), "
+          f"{sum(1 for r in rows if r[5])} unpredictable (no single-effect run)")
     print(f"{'predicted core0/core1 %':>24}  {'':5} layout")
     for mx, name, kind, c0, c1, miss in rows[:a.top]:
-        tag = "UNKNOWN" if miss else chosen.get(name, "skip")
+        tag = "UNKNOWN" if miss else chosen.get(name, "OVER" if mx >= 1.0 else "skip")
         print(f"{100 * c0:11.1f} / {100 * c1:5.1f}  {tag:7s} {kind:5s} {name}")
     if a.select:
         pathlib.Path(a.select).write_text(json.dumps({"remix": a.remix, "threshold": a.threshold,
@@ -1055,6 +1073,9 @@ def main():
     p.add_argument("--threshold", type=float, default=0.85, help="predicted core busy fraction above which a layout is run (0.85)")
     p.add_argument("--validate", type=int, default=6, help="layouts picked across the rest to check the sum on the unit (6)")
     p.add_argument("--top", type=int, default=25); p.add_argument("--select", help="write the chosen layouts here")
+    p.add_argument("--include-overload", action="store_true",
+                   help="also pick layouts predicted at 100 %% or more: the first one the unit ran (105 %%) left it with the frame "
+                        "interrupt at half rate until a power-cycle")
     p = sub.add_parser("report"); p.add_argument("reports", nargs="+", help="report.json files from `run`")
     sub.add_parser("selftest")
     a = ap.parse_args()
