@@ -140,6 +140,27 @@ instructions, so the mean resolves below the step, and the gate compares
 means. It reports each rise's error against N/2. The port counts
 instructions, the chip cycles; the chip's ratio is a hardware-round item.
 
+## On a unit
+
+First readings over USB (`tools/hw/load_meter.py`, vendor request `0xc0/0x57`),
+24 Oct 2026, image A1 (`octabam-bus`, `BUILD=A1`), project `OCTAMX01` (BASE
+layout: FX1 NONE, FX2 SEND at 0 on T1-T7; four stimuli on eight FLEX tracks,
+one trig on step 1 of 64 steps), 10 s each, 21 published windows:
+
+| | ColdFire share mean / max | longest frame-interrupt run | DSP 0 busy/period | DSP 1 busy/period |
+|---|---|---|---|---|
+| stopped | 24.2 % / 24.2 % | 106.7 µs (29 % of a frame) | 25.4 % | 18.5 % |
+| playing (host START, 120 BPM) | 48.8 % / 49.4 % | 336.5 µs (93 % of a frame) | 25.4 % | 18.5 % |
+
+Per effect slot the cost is 46-60 counts for an FX1 NONE and 432-497 counts
+(1.2-1.4 % of a frame) for a SEND, 113 for slot A4 FX2; the DSP figures did not
+move with the transport. The 93 % is the longest single run in the window: all
+eight voices start on the same step. The meter reads timer counts; no
+independent measurement of them has been made. Before the A1 image the
+request returned a stale `lm_stats` (the window stuck for minutes, then jumping
+100 windows) and an alternate request failed with 0 bytes
+(`docs/contributing/TRAPS.md#trap-ep0-dma`).
+
 ## Hardware round
 
 Every % and µs here is from the port, whose cycle table and timer are not
