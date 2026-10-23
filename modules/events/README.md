@@ -118,7 +118,10 @@ bodies, which the probe substitutes at their entry points.
 synthetic clients, independent transport subscriptions, and native MIDI packet
 construction/arbitration. `verify_edit_events.py` checks first-owner precedence,
 native fallback, register/stack/condition-code preservation, callback ordering,
-copy results and counts. Synthetic callbacks deliberately clobber registers.
+copy results and counts. A second pass executes native memcpy for 11 lengths
+and four alignments, comparing zero/one/three clients' copy bytes, entry frame,
+return registers, stack and condition codes. Synthetic callbacks deliberately
+clobber registers.
 `verify_events_selection.py` checks all 32 event subsets, absent code/hooks,
 invalid registrations and the registry's bound real-client selections. A
 16-subscriber MIDI case also checks branch reach and constant stack depth.

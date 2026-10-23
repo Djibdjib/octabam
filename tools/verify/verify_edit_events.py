@@ -7,7 +7,50 @@ and image gates verify real clients and native data behavior.
 """
 from pathlib import Path
 import tempfile
-from verify_system_events import Fixture, read_sr, DONE, STACK, UC_M68K_REG_SR
+import verify_system_events as fixture
+from verify_system_events import Fixture, read_sr, DONE, STACK
+
+
+def native_copy_cases(work):
+    """Compare the tail call against stock memcpy, including its clobbers.
+
+    Load native code from the operator's own image. Only the clients are
+    substituted; all native copy instructions execute in this pass.
+    """
+    class RealCopy(Fixture):
+        def hook(self, u, pc, size, data):
+            if pc == 0x40020898:
+                self.native_count += 1
+                assert [u.reg_read(r) for r in fixture.REGS] == self.before
+                assert u.reg_read(fixture.UC_M68K_REG_A7) == STACK
+                return
+            super().hook(u, pc, size, data)
+
+    raw = (fixture.ROOT / 'out/raw/section_3_MAIN_OS.bin').read_bytes()
+    fixtures = []
+    for count in (0, 1, 3):
+        f = RealCopy('edit', count, work)
+        f.uc.mem_write(0x40020898, raw[0x40020898 - 0x40000400:0x40022000 - 0x40000400])
+        fixtures.append(f)
+    cases = 0
+    for size in (0, 1, 2, 3, 4, 7, 15, 16, 31, 64, 512):
+        for offset in range(4):
+            states = []
+            for f in fixtures:
+                u = f.uc
+                payload = bytes(i % 256 for i in range(512))
+                dst, src = 0x47005000 + offset, 0x47006000 + offset
+                u.mem_write(0x47005000, b'old!' + bytes(1020))
+                u.mem_write(src, payload)
+                f.call('ed_copy', args=(dst, src, size))
+                assert bytes(u.mem_read(dst, size)) == payload[:size]
+                assert f.native_count == 1
+                states.append(([u.reg_read(r) for r in fixture.REGS],
+                               u.reg_read(fixture.UC_M68K_REG_A7), read_sr(u, DONE - 16),
+                               bytes(u.mem_read(0x47005000, 1024))))
+            assert states[0] == states[1] == states[2], (size, offset)
+            cases += 1
+    print(f'[ok] {cases} native memcpy comparisons: 0/1/3 clients, 11 lengths x 4 alignments; entry frame, copy bytes, return registers, stack and CCR match stock')
 
 def main():
     cases=0;costs={}
@@ -44,5 +87,7 @@ def main():
     }, costs
     print('Dispatcher instruction counts (excluding native bodies and synthetic callbacks):', costs)
     print(f'[ok] {cases} assembled cases for EVENTS editing: 0/1/3 unrelated clients, register preservation, ordering and native boundaries')
+    with tempfile.TemporaryDirectory(prefix='octabam-events-native-copy-') as td:
+        native_copy_cases(Path(td))
 
 if __name__=='__main__':main()
