@@ -1466,6 +1466,25 @@ def main():
             preboot_slots=1 if _tail else 0, **kw)
 
     _FIT = ("does not fit its arena reserve", "past the reserve's ceiling", "above DRAM region")
+
+    def _relink(*args, **kw):
+        """The runtime linked again at the sized reserve, now with the descriptor
+        clones' bytes (or the pre-boot payloads) in it. The reserve was sized with
+        zeros where the clones go; their real bytes pack larger, and when that
+        crosses the ceiling (21 Oct 2026: 74 B over, OCTA303 + DEVILISH) this build
+        runs again with a page more. The arena pokes are already in `img`, so a
+        page cannot be added in place. A remix that fits never takes this path,
+        and its image is unchanged."""
+        try:
+            return platform_build.build(*args, **kw)
+        except SystemExit as _e:
+            _extra = int(os.environ.get("OCTABAM_RESERVE_EXTRA", "0")) + 1
+            if not any(_f in str(_e) for _f in _FIT) or _extra > 4:
+                raise
+            print(f"\nMEMORY: {_e}\n  the clones' bytes packed past the sized reserve: "
+                  f"building again with {_extra} page(s) more", flush=True)
+            os.execve(sys.executable, [sys.executable] + sys.argv,
+                      {**os.environ, "OCTABAM_RESERVE_EXTRA": str(_extra)})
     _reservations = []
     _reserve = None
     _pbase = arena.BASE
@@ -1473,6 +1492,9 @@ def main():
         _platform((arena.BASE, arena.MAX_RESERVE), arena.BASE + arena.MAX_RESERVE)
         _ptop = json.loads(pathlib.Path("out/platform", platform_build.LAYOUT).read_text())["top"]
         _ppages = platform_build.pages_needed(arena.BASE, _ptop, _regions, _fixed)
+        # pages a run of this build asked for when the clones' bytes packed past the
+        # ceiling (_relink below); 0 for every build that fits the first time
+        _ppages += int(os.environ.get("OCTABAM_RESERVE_EXTRA", "0"))
         for _try in range(4):
             _reserve = (arena.BASE, _ppages * arena.PAGE)
             _pbase = arena.BASE + _ppages * arena.PAGE
@@ -3670,7 +3692,7 @@ hostquit:
             if not _nref:
                 sys.exit(f"{_n}: no reference to its clone was repointed")
             print(f"  {_n:14s} P=0x{_dmap[_ci]:08x}  {_nref} reference(s) repointed")
-        _pappend, _psyms2, _pgsyms2, _punits2, _ploader2, _boot, _pnames = platform_build.build(
+        _pappend, _psyms2, _pgsyms2, _punits2, _ploader2, _boot, _pnames = _relink(
             [(_m.key, _u) for _m, _u in _dram], [], pathlib.Path("out/platform"),
             reserve=_reserve, defsyms=_pdefs, unit_defs=_unit_defs,
             includes={_u.label: _u.include(_sel, REMIX) for _m, _u in _dram + _early if _u.include is not None},
@@ -3779,7 +3801,7 @@ hostquit:
         # pre-boot payloads (ANALOG BD's grown uploads, the DSP tail's copy)
         # ride the platform loader
         from remix import platform_build
-        _pappend, _psyms2, _pgsyms2, _punits2, _ploader2, _boot, _pnames = platform_build.build(
+        _pappend, _psyms2, _pgsyms2, _punits2, _ploader2, _boot, _pnames = _relink(
             [(_m.key, _u) for _m, _u in _dram], [], pathlib.Path("out/platform"),
             reserve=_reserve, defsyms=_pdefs, preboot=_pres, unit_defs=_unit_defs,
             includes={_u.label: _u.include(_sel, REMIX) for _m, _u in _dram + _early if _u.include is not None},
