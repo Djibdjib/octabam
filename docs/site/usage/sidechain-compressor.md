@@ -16,9 +16,9 @@ It uses SPRING REV's words, so SPRING REV is off the chooser in those images.
 It does not coexist with BusDelay or BusVerb: their core-private and
 cross-core memory overlaps, and the build refuses the pair.
 
-![FX2 SETUP with COMPRESSOR selected, showing RMS, MON, KEY, KGN, KBAS and KWID.](../../img/sidechain-compressor/chooser.png)
+![FX2 SETUP with COMPRESSOR selected, showing RMS, MON, KEY (here T2), KGN, KBAS and KWID.](../../img/sidechain-compressor/chooser.png)
 
-*FX2 SETUP with COMPRESSOR selected, showing RMS, MON, KEY, KGN, KBAS and KWID.*
+*FX2 SETUP with COMPRESSOR selected, showing RMS, MON, KEY (here T2), KGN, KBAS and KWID.*
 
 ## Changed on 22 Oct 2026
 
@@ -33,11 +33,13 @@ affected.
 ## Operation
 
 - KEY chooses what drives the detector: OFF (the track's own signal, as
-  stock) or T1-T8. Choosing the compressor's own track keys it from its own
+  stock) or T1-T8. It is drawn as a nine-position switch, OFF pointing
+  left and T8 right. Choosing the compressor's own track keys it from its own
   signal through the filter.
 - KBAS is the filter's base: a high-pass at OFF or 20 Hz to 19.6 kHz. Its
   readout is in Hz (`1.2k` is 1.2 kHz).
-- KWID is the filter's width: a low-pass this many octaves above KBAS, 0.5 to
+- KWID is the filter's width (the bracket between KBAS and KWID shows the
+  pair): a low-pass this many octaves above KBAS, 0.5 to
   9.9, or OFF. Its readout is in octaves. With KBAS at OFF it counts up from
   20 Hz, so it works as a plain low-pass.
 - The two cannot cross: raising KBAS moves the whole band up.
@@ -66,4 +68,6 @@ affected.
 Tested on the author's MKI on 22 Oct 2026 in the author's standalone image:
 page 2 and its readouts, a kick's fundamental keyed at short attack and
 release, MON and KEY declick. The author's KYOTI V1.6 image, which carries it,
-ran on the unit the same day. This octabam form has not been flashed.
+ran on the unit the same day. KEY's switch and the KBAS-KWID bracket ran
+there in the standalone image on 23 Oct 2026. This octabam form has not been
+flashed.
