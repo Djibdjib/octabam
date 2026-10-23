@@ -13,8 +13,8 @@ STOCK14 = ("FILTER", "EQUALIZER", "DJ EQ", "PHASER", "FLANGER", "CHORUS", "SPATI
 
 REMIX = Remix(
     name="usb-io-stock14",
-    family="mods", proof=Proof.PORT,
-    proof_note="`make check` (verify_usb, verify_usb_in) under the port, 22 Oct 2026; not on hardware",
+    family="mods", proof=Proof.HARDWARE,
+    proof_note="Bryan T's MKII, OCTABAM4, 22 Oct 2026, macOS: tools/hw/usb_in_tones.py, each input at unity on its own side, the rest within +-1.5 LSB, the same as the 29- and 39-word injects in their donor regions; `make check` (verify_usb, verify_usb_in) under the port",
     doc="stock (all 14) + USB (MAIN CUE out, ABCD in), the inject at payload A's tail.",
     modules=("USB",) + STOCK14,
     fallback="NONE",

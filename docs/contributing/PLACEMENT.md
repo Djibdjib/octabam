@@ -68,6 +68,11 @@ A), and pokes the pointer at it: the route ANALOG BD's builder
 payload B stay where they are. A remix with a donor region places the
 section there instead, so no remix that built before moves a byte. USB's
 RX inject (29 words) is the one user; `remixes/test/usb-io-stock14`.
+✅ On an MKII, 22 Oct 2026 (Bryan T, OCTABAM4): the inject at
+`P:$1fdf..$1ffb` delivered the host's four channels as the donor-region
+inject does (`tools/hw/usb_in_tones.py`), so the chip runs code at the top
+of internal P and the DSP boots from the poked pointer's copy. Refhash: all
+24 configurations bit-identical with the change.
 Not covered: the reprogram path above uploads from its immediates, so if
 it ever ran it would load payload A without the tail record (ANALOG BD's
 uploads have the same exposure); and tools that read a payload from the
