@@ -29,7 +29,9 @@ r7 `$40..$4f` stays reserved for a longer FEED delay later.
 
 **SRC=NBR:** noise opens from the previous track’s SC keybus level and stops
 when that goes quiet (no LFO free-run). Default **SRC=LFO** keeps RATE/SHPE
-on any track. AM and DRV/FDBK hit **noise only**:
+on any track. On **track 1**, abs track and FX2 position are both 0, so NBR
+reads `Y:$800` — T1’s own keybus lane (it follows itself). Tracks 2–8 read
+the previous track. AM and DRV/FDBK hit **noise only**:
 `wet = (1−BAL)·dry + BAL·noise''`. BAL=0 is always exact dry; BAL=127 =
 AM’d noise. SETUP **WID**: 0 = mono; >0 = second white → same HPF/COLR/DRV
 (no FDBK) → same AM; `L/R = mid ± (w/2)·side` (mono sum keeps mid/LFO).
@@ -51,14 +53,14 @@ If the same page bytes are loaded under DARK REV, they read as DARK's knobs:
 |---|---|---|
 | 0 | BAL | TIME |
 | 1 | RATE | SHVG |
-| 2 | SHPE (0–2) | SHVF |
-| 3 | DPTH | HP |
+| 2 | COLR | SHVF |
+| 3 | HPF | HP |
 | 4 | DRV | LP |
 | 5 | FDBK | MIX |
-| 6 | COLR | PRE |
-| 7 | HPF | BAL |
+| 6 | SHPE (0–2) | PRE |
+| 7 | DPTH | BAL |
 | 8 | WID | MONO |
-| 9 | (blank) | (blank) |
+| 9 | SRC (0–1) | (blank) |
 | 10 | (blank) | (blank) |
 | 11 | (blank) | MIXF |
 
@@ -70,14 +72,11 @@ and save, before going back to stock.
 
 - `verify_void.py`: passthrough; AM / FDBK vs `void_ref.py`; WID mono/stereo
   + 0→1 continuity + L/R anti-corr at full; COLR closed vs open; FDBK+DRV
-  not DC-silent; max-knob true 3 s rail budget; two FX2 instances; live
-  neighbour auto-drives AM (RATE ignored); BAL0 ignores DRV/FDBK/DPTH/WID.
-- Hardware **VOID V9** (21 Oct 2026, tip `dd89e2e2`+): BRAIN `VOID V9.RMX` —
-  COLR 30 Hz..16 kHz / HPF 20 Hz..8 kHz tables. See test-remix README.
-- Hardware **V215 N7** (22 Oct 2026, Ilia's MKII): neighbour AM + Y-direct
-  keybus (no X:$500); matrix then env-gated BAL crossfade.
-- Hardware **LATEST NN** (22 Oct 2026, Ilia's MKII): noise-only AM/DRV/FDBK
-  (no DIV); white noise + COLR/HPF; WID = second filtered/driven side,
-  `L=(1−w)·mid+w·side`, `R=(1−w)·mid−w·side`. Prior handoffs on the way:
-  **V215 NA** (pre-DIV scrape), **LATEST NL** (WID raw-side), **LATEST NM**
-  (filtered side, L=mid / R-open — left pull). See test-remix README.
+  not DC-silent; max-knob true 3 s rail budget; two FX2 instances; SRC=LFO
+  RATE moves / SRC=NBR RATE idle; quiet NBR ≈ silence; BAL0 ignores
+  DRV/FDBK/DPTH/WID.
+- Hardware **LATEST NP** / **VRCS VJ** (22 Oct 2026, Ilia's MKII): current
+  layout — SRC LFO|NBR; COLR/HPF main; SHPE/DPTH SETUP; mid±(w/2) WID;
+  DPTH default 127. See test-remix README.
+- Earlier: **VOID V9** (COLR/HPF tables); **V215 N7** (Y-direct nbr, pre-SRC);
+  **LATEST NN** (noise-only path, pre-SRC WID). Superseded by NP/VJ.
