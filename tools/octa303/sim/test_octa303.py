@@ -686,13 +686,14 @@ def slide(steps, kind=8, trigs=(), trigless=(), tlocks=(), locks=None, other_tra
     for s in tlocks: setb(16, s)
     for s, v in (locks or {}).items(): m.w(LK(pat, t, s), 'b', v)
     back = []
-    def _in(cpu): back.append(('in', cpu.a[7], cpu.mem.r(cpu.a[7], 'l'))); cpu.a[7] += 40
+    def _in(cpu): back.append(('in', cpu.a[7], cpu.mem.r(cpu.a[7], 'l'))); cpu.a[7] += 12
     def _out(cpu): back.append(('out', cpu.a[7])); cpu.a[7] -= 44
-    c.hooks[0x4005fb4c] = _in; c.hooks[0x40060b48] = _out
+    c.hooks[0x40060b60] = _in; c.hooks[0x40060b48] = _out
     for r_ in range(2, 8): c.d[r_] = 0x7700 + r_
     for r_ in range(2, 6): c.a[r_] = 0x6600 + r_
-    c.a[7] = STACK; c.call('o3_trig_in')
-    ok_in = back == [('in', STACK - 44, 0x7702)]
+    m.w(STACK - 8, 'l', 1); m.w(STACK - 4, 'l', 1)             # (key, event 1: a press)
+    c.a[7] = STACK - 8; c.call('o3_trig_in')
+    ok_in = back == [('in', STACK - 12 - 12, 0x7702)]
     c.a[7] = STACK                                            # the handler's frame is gone again
     for s in steps: setb(kind, s)
     if other_track: m.w(0x100b14cc, 'b', t + 1)

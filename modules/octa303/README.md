@@ -150,11 +150,11 @@ instruction differently from the chip.
   takes the keys on an OCTA-303 track. The TUNE lock is written as the stock knob-lock writer
   (`0x40050e60`) writes it: the bank blob and its battery-backed copy (`0x1001614e + …`), then
   `bank + 0x9b332` and `0x100f8598`, `0x40027e00`, `0x4009da20(track)`.
-- ✅ The trig-key handler `0x4005fb44` places, removes and converts every trig kind; its entry
-  (`0x4005fb44`) and its tail before `jmp 0x40027de4` (`0x40060b3e`) are detoured: the track's
-  trigless masks (+8 trigless trigs, +16 trigless locks) at the entry are compared with the masks at
-  the tail, and a step that became trigless gets its note. 🟡 Which of the handler's branches FUNC +
-  TRIG and TRIG + NO take is not read; the compare does not depend on it.
+- ✅ The trig keys go through a dispatcher `0x40060b58(key, event)`: a press to `0x40050f20`
+  (FUNC + TRIG sets the trigless lock there: under the port, no write in `0x4005fb44` and the bit
+  already set at its entry), a release to `0x4005fb44`. The dispatcher's entry keeps the track's
+  trigless masks (+8 trigless trigs, +16 trigless locks) at a press; `0x4005fb44`'s tail before
+  `jmp 0x40027de4` (`0x40060b3e`) compares them, and a step that became trigless gets its note.
 - ✅ `test_octa303`: the three routines from their source text (octave up and down, the edges, the
   toast's note, the battery-backed copy, the stock path on FLEX and MIDI tracks; the slide's note
   from a trig, a slide, the Part, around the end of the pattern, a step already locked, no new step,

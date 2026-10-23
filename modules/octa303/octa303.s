@@ -1829,21 +1829,26 @@ o3_octave:
         movem.l %d2-%d7/%a2,(%sp)
         jmp     0x400434e0
 
-| o3_trig_in / o3_trig_out -- the trig-key handler 0x4005fb44 (it places, removes and converts trigs:
-| FUNC + TRIG a trigless lock, TRIG + NO a trigless trig; read 23 Oct 2026).  On an OCTA-303 track a
-| trigless trig or a trigless lock is a slide (o3_slide), so the step gets the note it slides from,
-| as the TB-303's slide ties into the next step: the TUNE lock is written at once.  Entry (Detour
-| 0x4005fb44, `lea -40(sp),sp; movem.l d2-d7/a2-a5,(sp)`): the track's trigless masks (+8 trigless
-| trigs, +16 trigless locks) are kept.  Exit (Detour 0x40060b3e, `movem.l 4(sp),d2-d7/a2-a5;
+| o3_trig_in / o3_trig_out -- the trig keys (read 23 Oct 2026, and under the port with a PC watch):
+| the dispatcher 0x40060b58(key, event) sends a press (event 1) to 0x40050f20, which places or
+| removes the trig (FUNC + TRIG sets the trigless lock there), and a release (event 0) to the
+| handler 0x4005fb44.  On an OCTA-303 track a trigless trig or a trigless lock is a slide
+| (o3_slide), so the step gets the note it slides from, as the TB-303's slide ties into the next
+| step: the TUNE lock is written at once.  Press (Detour 0x40060b58, `lea -12(sp),sp;
+| movem.l d2-d4,(sp)`): the track's trigless masks (+8 trigless trigs, +16 trigless locks) are
+| kept, once until the next release.  Release (Detour 0x40060b3e, `movem.l 4(sp),d2-d7/a2-a5;
 | lea 44(sp),sp`, the handler's tail before its jmp 0x40027de4): every step whose trigless bit is
-| new gets, when it has no TUNE lock, the note of the previous step that has a trig, a trigless trig
-| or a trigless lock (its TUNE lock, or the Part's TUNE).  The masks are compared rather than the
-| handler's branches followed, so whichever key chord placed the trigless step, the rule is the same.
+| new gets, when it has no TUNE lock, the note of the previous step that has a trig, a trigless
+| trig or a trigless lock (its TUNE lock, or the Part's TUNE).  Comparing the masks, rather than
+| following the branches, makes the rule the same for every key chord that makes a slide.
 o3_trig_in:
-        lea     -40(%sp),%sp            | displaced
-        movem.l %d2-%d7/%a2-%a5,(%sp)
-        moveq   #-1,%d0
-        move.l  %d0,o3_snapt
+        lea     -12(%sp),%sp            | displaced
+        movem.l %d2-%d4,(%sp)
+        moveq   #1,%d0
+        cmp.l   20(%sp),%d0             | a press?
+        bne     .Lti_out
+        tst.l   o3_snapt
+        bpl     .Lti_out                | one kept already, until a release
         bsr     o3_cur303               | (d0, d1, a0, a1)
         bmi     .Lti_out
         move.l  %d0,o3_snapt
@@ -1855,7 +1860,7 @@ o3_trig_in:
         move.l  16(%a0),(%a1)+
         move.l  20(%a0),(%a1)
 .Lti_out:
-        jmp     0x4005fb4c
+        jmp     0x40060b60
 
 o3_trig_out:
         move.l  o3_snapt,%d4

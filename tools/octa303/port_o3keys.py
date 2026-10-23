@@ -78,19 +78,7 @@ def main():
         check('[TRIG 1] + [UP]: TUNE an octave up', before == 0xff and lock(0, 0) == 76,
               'lock %s -> %s' % (before, lock(0, 0)))
         # 2. FUNC + TRIG 2: a trigless lock that ties into step 1's note
-        #    (diagnostic: who writes the trigless masks, and do the trig handler's entry and tail run)
-        r0 = rec(0)
-        p.proc.command('watch 0x4005fb44,0x40060b3e,0x40060b4e,0x400604e2,0x400606bc,0x40060892,0x40060a34,0x4005fef2,0x40060062,0x40060ca0', 'ok')
-        p.proc.command('hits', 'hits')
-        logf = work / 'port_o3keys.log'; n0 = len(logf.read_text(errors='replace')) if logf.exists() else 0
         p.chord('func', 'trig2'); p.run(200)
-        hits = p.proc.command('hits', 'hits')
-        p.proc.command('watch off', 'ok')
-        pcs = [h.split(':')[1] for h in hits.split()[2:]] if hits else []
-        tail = logf.read_text(errors='replace')[n0:] if logf.exists() else ''
-        wl = [l for l in tail.splitlines() if 'watch' in l.lower() or 'write' in l.lower()][:20]
-        seen = ['pcs', pcs, 'masks +8/+16 after', p.peek(r0 + 8, 16).hex()]
-        print('  diag FUNC+TRIG 2:', seen[:40], flush=True)
         tl = (bits(0, 8, 1), bits(0, 16, 1), bits(0, 0, 1))
         check('[FUNC] + [TRIG 2]: a trigless step', tl[0] or tl[1], 'trigless trig/lock/trig bits %s' % (tl,))
         check('the trigless step gets the previous note', lock(0, 1) == 76, 'lock %s' % lock(0, 1))

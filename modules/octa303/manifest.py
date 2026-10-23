@@ -99,8 +99,9 @@ MODULE = Module(
         Detour(0x400434D8, H("4fefffe448d704fc"), "octa303", "o3_octave",
                "held trig + UP / DOWN: on an OCTA-303 track the held steps' TUNE an octave up / down "
                "(stock: the sample-lock list, which a track without samples has no use for)"),
-        Detour(0x4005FB44, H("4fefffd848d73cfc"), "octa303", "o3_trig_in",
-               "trig-key handler entry: an OCTA-303 track's trigless masks kept for o3_trig_out"),
+        Detour(0x40060B58, H("4feffff448d7001c"), "octa303", "o3_trig_in",
+               "trig-key dispatcher (key, event): at a press, an OCTA-303 track's trigless masks kept for "
+               "o3_trig_out"),
         Detour(0x40060B3E, H("4cef3cfc00044fef002c"), "octa303", "o3_trig_out",
                "trig-key handler tail: a new trigless trig or lock on an OCTA-303 track gets the TUNE "
                "lock of the note it slides from"),
