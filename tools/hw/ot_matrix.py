@@ -831,7 +831,7 @@ def main():
     p.add_argument("--setting", action="append", default=[], metavar="KEY=INT",
                    help="another [SETTINGS] key to stamp, e.g. MAIN_LEVEL=64 (repeatable); the keys are in project.work")
     p = sub.add_parser("run"); p.add_argument("project"); p.add_argument("label")
-    p.add_argument("--midi", default="Octatrack"); p.add_argument("--audio", default="Octatrack")
+    p.add_argument("--midi", default="Elektron Octatrack DPS-1"); p.add_argument("--audio", default="Octatrack")
     p.add_argument("--pc-channel", type=int, default=None, help="default: the project's (see proj), else 1")
     p.add_argument("--bpm", type=float, default=None, help="default: the project's (120 for a stimuli project), else 121")
     p.add_argument("--play", type=float, default=12.0); p.add_argument("--tail", type=float, default=3.0)

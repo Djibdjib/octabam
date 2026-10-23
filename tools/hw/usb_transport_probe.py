@@ -20,7 +20,8 @@ channel kept:
 Per channel it prints RMS and peak dBFS in each phase. A channel PLAYED when
 its play RMS is 20 dB or more above its idle RMS (and above -80 dBFS). The
 verdict line is START WORKS when any channel played and STOP WORKS when the
-play phase's last second is 20 dB or more above the tail's first second.
+play phase's last second is 20 dB or more above the level 0.5 to 1.5 s after STOP (the first half
+second is skipped: the host's clock thread and the capture are not aligned to better than that).
 It does not know which channel is which: the USB module's routing is in
 modules/usb/README.md.
 
@@ -56,7 +57,7 @@ FS = 44100
 
 
 def db(x):
-    return 20.0 * np.log10(max(float(x), 1e-12))
+    return 20.0 * np.log10(np.maximum(x, 1e-12))
 
 
 def find_input(name_substr):
@@ -72,11 +73,22 @@ def find_input(name_substr):
 
 
 def counters():
+    """The audio-out counters (vendor 0xc0/0x55). pyusb in this process, else tools/hw/usb_counters.py under
+    /usr/local/bin/python3 (the Intel Homebrew libusb is not loadable from an arm64 python)."""
     try:
         import usb_probe
         return usb_probe.read_counters(usb_probe.find_device(), ep3out=False)
-    except (SystemExit, Exception) as e:  # noqa: BLE001
-        return {"unavailable": str(e) or type(e).__name__}
+    except (SystemExit, Exception):  # noqa: BLE001
+        pass
+    import os
+    import subprocess
+    if not os.path.exists("/usr/local/bin/python3"):
+        return {"unavailable": "no pyusb backend here and no /usr/local/bin/python3"}
+    r = subprocess.run(["/usr/local/bin/python3", str(HERE / "usb_counters.py")], capture_output=True, text=True)
+    try:
+        return {k: int(v) for k, v in (kv.split("=") for kv in r.stdout.split())}
+    except ValueError:
+        return {"unavailable": (r.stdout + r.stderr).strip()[:120] or "usb_counters.py printed nothing"}
 
 
 def band(x, t0, t1):
@@ -86,7 +98,7 @@ def band(x, t0, t1):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--midi", default="Octatrack", help="CoreMIDI destination name of the unit's USB port")
+    ap.add_argument("--midi", default="Elektron Octatrack DPS-1", help="CoreMIDI destination name of the unit's USB port (exact)")
     ap.add_argument("--audio", default="Octatrack", help="CoreAudio input device name substring")
     ap.add_argument("--bpm", type=float, default=120.0)
     ap.add_argument("--play", type=float, default=8.0)
@@ -126,15 +138,22 @@ def main():
             played.append(c + 1)
         print(f"{c + 1:2d}  " + "   ".join(row) + ("   PLAYED" if c + 1 in played else ""))
 
+    # the level around STOP, 0.25 s windows from 1 s before it, so the drop (or its absence) is visible
+    t_stop = a.idle + a.play
+    for c in range(nch):
+        if c + 1 not in played:
+            continue
+        env = [band(x[:, c:c + 1], t, t + 0.25)[0][0] for t in np.arange(t_stop - 1.0, total - 0.25, 0.25)]
+        print(f"ch {c + 1} dBFS rms per 0.25 s, from 1 s before STOP: " + " ".join(f"{v:.0f}" for v in env))
     end_play = band(x, a.idle + a.play - 1.0, a.idle + a.play)[0]
-    start_tail = band(x, a.idle + a.play, a.idle + a.play + 1.0)[0]
+    start_tail = band(x, a.idle + a.play + 0.5, a.idle + a.play + 1.5)[0]
     stopped = [c + 1 for c in range(nch) if end_play[c] > FLOOR_DBFS and end_play[c] - start_tail[c] >= RISE_DB]
     print("START WORKS: channels " + ",".join(map(str, played)) if played else "START NOT SEEN: no channel rose "
           f"{RISE_DB:.0f} dB over its idle floor")
     if played:
         print("STOP WORKS: channels " + ",".join(map(str, stopped)) if stopped else
               "STOP NOT SEEN: the play phase's last second is not "
-              f"{RISE_DB:.0f} dB over the tail's first (a long tail also reads this)")
+              f"{RISE_DB:.0f} dB over 0.5-1.5 s after STOP (a long tail also reads this)")
     if "unavailable" in c0 or "unavailable" in c1:
         print("counters: unavailable (" + (c0.get("unavailable") or c1.get("unavailable")) + ")")
     else:
