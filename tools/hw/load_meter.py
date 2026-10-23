@@ -116,6 +116,15 @@ def read(dev):
     return decode(read_block(ctrl, 0, STATS_BYTES), read_block(ctrl, 1, DSP_BYTES), read_block(ctrl, 2, OT_BYTES))
 
 
+def read_fast(dev):
+    """lm_stats and lm_dsp only (two requests, no per-slot costs): for polling several times a second."""
+    def ctrl(w, off, n):
+        return bytes(dev.ctrl_transfer(0xc0, 0x57, w, off, n, timeout=1000))
+    d = decode(read_block(ctrl, 0, STATS_BYTES), read_block(ctrl, 1, DSP_BYTES), bytes(OT_BYTES))
+    d.pop("slots")
+    return d
+
+
 def line(r):
     cf, dsp = r["cf"], r["dsp"]
     c0, c1 = ratio(dsp["core0"]), ratio(dsp["core1"])

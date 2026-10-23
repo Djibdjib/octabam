@@ -13,6 +13,8 @@ is the load readout where the image carries it.
                                   [--pc-channel 1] [--bpm 121] [--play 12] [--tail 3] [--only 0,4-9]
     python3 tools/hw/ot_matrix.py audit PROJECT_DIR      # trigs, locks, odd part records, LFOs, sample paths: none in a fresh project
     python3 tools/hw/ot_matrix.py report out/hw/matrix/<label>/report.json ...   # a Markdown table per run
+    python3 tools/hw/ot_matrix.py switch PROJECT LABEL (--pairs A:B,... | --report REPORT.json)
+                                                 # program change DURING play; load spikes and gaps at the switch
     python3 tools/hw/ot_matrix.py predict REMIX --reports R1 R2 ... [--threshold 0.85] [--select pick.json]
                                                  # per-core busy of pair/split layouts from the single-effect runs
     python3 tools/hw/ot_matrix.py selftest      # the detectors on synthetic audio; no unit
@@ -1034,6 +1036,171 @@ def cmd_predict(a):
     return 0
 
 
+# ---------------------------------------------------------------------------
+# switch: a program change while the transport plays
+# ---------------------------------------------------------------------------
+SW_PC_AT_S, SW_RUN_S = 2.0, 14.0     # PC two seconds into play; the pattern ends at 8 s (64 steps, 120 BPM)
+SW_GAP_MS, SW_GAP_DBFS = 40, -80.0   # a silence this long inside the switch window is a GAP
+SW_CF_FACTOR, SW_CF_MIN_US = 1.25, 150.0
+SW_DSP_POINTS = 0.03
+
+
+def switch_metrics(rows, x, fs, t0):
+    """rows: [{t, cf: {longest_us, ...}, dsp: {core0: {busy, period}, core1: {...}, bad}}] polled during the run,
+    x: the audio (samples, channels) from t0 on. -> the switch's time, A's and B's steady levels, and what
+    the window around the switch held (ColdFire longest run, DSP busy, bad records, the longest silence)."""
+    import numpy as np
+    import load_meter as lm
+    t = np.array([r["t"] - t0 for r in rows])
+    c0 = np.array([lm.ratio(r["dsp"]["core0"]) or 0.0 for r in rows])
+    c1 = np.array([lm.ratio(r["dsp"]["core1"]) or 0.0 for r in rows])
+    lon = np.array([r["cf"]["longest_us"] for r in rows])
+    bad = np.array([r["dsp"]["bad"] for r in rows])
+    a = (t >= SW_PC_AT_S - 1.0) & (t < SW_PC_AT_S)
+    b = t >= t.max() - 2.0
+    la, lb = float(np.median(c0[a])), float(np.median(c0[b]))
+    nominal = 8.0                                    # START to the end of the 64-step pattern
+    if abs(la - lb) >= 0.05:
+        mid = (la + lb) / 2.0
+        crossed = np.flatnonzero((t > SW_PC_AT_S) & ((c0 - mid) * np.sign(lb - la) > 0))
+        t_sw = float(t[crossed[0]]) if len(crossed) else nominal
+    else:
+        t_sw = nominal
+    w = (t >= t_sw - 0.3) & (t <= t_sw + 1.2)
+    steady = ((t >= SW_PC_AT_S - 1.0) & (t < t_sw - 0.5)) | (t >= t_sw + 1.5)
+    out = {"t_switch_s": round(t_sw, 2), "level_a": la, "level_b": lb, "readings": int(len(rows)), "window_readings": int(w.sum()),
+           "longest_us_window": float(lon[w].max()) if w.any() else None,
+           "longest_us_steady": float(lon[steady].max()) if steady.any() else None,
+           "dsp_window_max": float(max(c0[w].max(), c1[w].max())) if w.any() else None,
+           "dsp_steady_max": float(max(c0[steady].max(), c1[steady].max())) if steady.any() else None,
+           "bad_in_window": int(bad[w].max() - bad[w].min()) if w.any() else None}
+    if x is not None and len(x):
+        step = int(0.020 * fs)
+        i0, i1 = max(int((t_sw - 0.3) * fs), 0), min(int((t_sw + 1.2) * fs), len(x))
+        seg = x[i0:i1, :2]
+        n = len(seg) // step
+        if n:
+            lv = 20 * np.log10(np.maximum(np.sqrt((seg[:n * step].reshape(n, step, -1) ** 2).mean(axis=1)).max(axis=1), 1e-12))
+            dead = lv < SW_GAP_DBFS
+            run = best = 0
+            for d in dead:
+                run = run + 1 if d else 0
+                best = max(best, run)
+            out["longest_silence_ms"] = int(best * 20)
+    return out
+
+
+def switch_flags(m):
+    f = []
+    if m.get("longest_us_window") and m.get("longest_us_steady") and m["longest_us_window"] > max(SW_CF_FACTOR * m["longest_us_steady"], SW_CF_MIN_US):
+        f.append("SPIKE_CF")
+    if m.get("dsp_window_max") is not None and m.get("dsp_steady_max") is not None and m["dsp_window_max"] > m["dsp_steady_max"] + SW_DSP_POINTS:
+        f.append("SPIKE_DSP")
+    if (m.get("bad_in_window") or 0) > DROPS_BAD:
+        f.append("DROPS")
+    if (m.get("longest_silence_ms") or 0) >= SW_GAP_MS and m["level_a"] > 0 and m["level_b"] > 0:
+        f.append("GAP")
+    return f
+
+
+def _switch_pairs(a, entries):
+    """[(slot A, slot B)]: --pairs 'A:B,...', else from --report the lightest, heaviest and second heaviest layouts
+    that did not drop frames: light to heavy, heavy to light, heavy to second heaviest and back."""
+    if a.pairs:
+        return [tuple(int(v) for v in p.split(":")) for p in a.pairs.split(",")]
+    if not a.report:
+        sys.exit("switch needs --pairs A:B,... or --report <report.json of a run of this project>")
+    res = json.loads(pathlib.Path(a.report).read_text())["results"]
+    good = [r for r in res if r.get("load") and not ({"OVERLOAD", "DROPS", "NO AUDIO CAPTURED", "CRASH"} & set(r["flags"]))]
+    good.sort(key=lambda r: r["load"]["dsp_core0_mean"])
+    base, heavy, heavy2 = good[0]["slot"], good[-1]["slot"], good[-2]["slot"]
+    mid = good[len(good) // 2]["slot"]
+    return [(base, heavy), (heavy, base), (heavy, heavy2), (heavy2, heavy), (mid, heavy), (heavy, mid)]
+
+
+def cmd_switch(a):
+    import numpy as np
+    import ot_ladder as L
+    import sounddevice as sd
+    import load_meter
+    import usb_transport_probe as U
+    plan = json.loads((pathlib.Path(a.project) / "OCTABAM_MATRIX.json").read_text())
+    entries = plan["layouts"]
+    pairs = _switch_pairs(a, entries)
+    out_dir = pathlib.Path("out/hw/matrix") / a.label
+    out_dir.mkdir(parents=True, exist_ok=True)
+    dev, nch = U.find_input(a.audio)
+    usb = load_meter.libusb_device()
+    fs = 44100
+    bpm = a.bpm or plan.get("bpm") or 120.0
+    pc_ch = a.pc_channel or plan.get("pc_channel") or 1
+    clock = L.Clock(bpm, a.midi)
+    seg, lock, rows, stop_poll = {"chunks": None}, threading.Lock(), [], threading.Event()
+
+    def cb(indata, frames, t, status):
+        with lock:
+            if seg["chunks"] is not None:
+                seg["chunks"].append(indata.copy())
+
+    def poll():
+        while not stop_poll.is_set():
+            try:
+                r = load_meter.read_fast(usb)
+                r["t"] = time.time()
+                rows.append(r)
+            except Exception:  # noqa: BLE001
+                time.sleep(0.05)
+
+    th = threading.Thread(target=poll, daemon=True)
+    th.start()
+    results = []
+    print(f"{len(pairs)} transitions: {pairs}")
+    try:
+        with sd.InputStream(device=dev, channels=nch, samplerate=fs, dtype="float32", callback=cb):
+            for sa, sb in pairs:
+                ea, eb = entries[sa], entries[sb]
+                clock.stop(); time.sleep(0.5)
+                clock.pc(pc_ch, ea["program"]); time.sleep(1.0)
+                n0 = len(rows)
+                with lock:
+                    seg["chunks"] = []
+                t0 = time.time()
+                clock.start()
+                time.sleep(SW_PC_AT_S)
+                clock.pc(pc_ch, eb["program"])
+                time.sleep(SW_RUN_S - SW_PC_AT_S)
+                clock.stop()
+                with lock:
+                    chunks, seg["chunks"] = seg["chunks"], None
+                x = np.concatenate(chunks).astype(np.float64) if chunks else None
+                rr = [r for r in rows[n0:] if t0 <= r["t"] <= t0 + SW_RUN_S]
+                row = {"from": ea["name"], "to": eb["name"], "slot_from": sa, "slot_to": sb}
+                if len(rr) > 20:
+                    m = switch_metrics(rr, x, fs, t0)
+                    row.update(m)
+                    row["flags"] = switch_flags(m)
+                    row["rate_hz"] = round(len(rr) / SW_RUN_S, 1)
+                else:
+                    row["flags"] = ["NO READINGS"]
+                results.append(row)
+                print(f"{ea['name'][:34]:34s} -> {eb['name'][:34]:34s} switch at {row.get('t_switch_s', '-')} s  "
+                      f"cf longest {row.get('longest_us_window', 0) or 0:5.0f}/{row.get('longest_us_steady', 0) or 0:5.0f} us (window/steady)  "
+                      f"dsp max {100 * (row.get('dsp_window_max') or 0):4.1f}/{100 * (row.get('dsp_steady_max') or 0):4.1f} %  "
+                      f"bad {row.get('bad_in_window')}  silence {row.get('longest_silence_ms')} ms  "
+                      + (" ".join(row["flags"]) or "ok"), flush=True)
+                if not rr or "DROPS" in row["flags"] and (row.get("bad_in_window") or 0) > 1000:
+                    print("The unit looks overloaded or not answering; stopping. Power-cycle it.")
+                    break
+    finally:
+        stop_poll.set()
+        clock.stop()
+        clock.close()
+        (out_dir / "report.json").write_text(json.dumps({"remix": plan["remix"], "project": a.project, "mode": "switch",
+                                                        "args": vars(a), "results": results}, indent=1))
+    print(f"{len(results)} transitions; report {out_dir / 'report.json'}")
+    return 1 if any(r["flags"] for r in results) else 0
+
+
 def cmd_report(a):
     """A Markdown table from one or more report.json files: a row per layout, BASE-relative flags and load."""
     for path in a.reports:
@@ -1086,10 +1253,15 @@ def main():
     p.add_argument("--include-overload", action="store_true",
                    help="also pick layouts predicted at 100 %% or more: the first one the unit ran (105 %%) left it with the frame "
                         "interrupt at half rate until a power-cycle")
+    p = sub.add_parser("switch"); p.add_argument("project"); p.add_argument("label")
+    p.add_argument("--pairs", help="transitions as slotA:slotB,... (layout numbers in the project)")
+    p.add_argument("--report", help="a report.json of a run of this project: pick light, heavy and second-heaviest from it")
+    p.add_argument("--midi", default="Elektron Octatrack DPS-1"); p.add_argument("--audio", default="Octatrack")
+    p.add_argument("--pc-channel", type=int, default=None); p.add_argument("--bpm", type=float, default=None)
     p = sub.add_parser("report"); p.add_argument("reports", nargs="+", help="report.json files from `run`")
     sub.add_parser("selftest")
     a = ap.parse_args()
-    return {"plan": cmd_plan, "proj": cmd_proj, "run": cmd_run, "selftest": cmd_selftest, "audit": cmd_audit, "report": cmd_report, "predict": cmd_predict}[a.cmd](a)
+    return {"plan": cmd_plan, "proj": cmd_proj, "run": cmd_run, "selftest": cmd_selftest, "audit": cmd_audit, "report": cmd_report, "predict": cmd_predict, "switch": cmd_switch}[a.cmd](a)
 
 
 if __name__ == "__main__":

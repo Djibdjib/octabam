@@ -233,3 +233,55 @@ class MatrixPredictor(unittest.TestCase):
         lo = {t: (("SPECTRUM", dict(self.mods["SPECTRUM"].dear)), None) for t in range(1, 9)}
         _c0, _c1, miss = self.m.predict_layout(lo, table, self.mods)
         self.assertEqual(len(miss), 8)
+
+
+@unittest.skipIf(np is None, "numpy is not installed")
+class MatrixSwitch(unittest.TestCase):
+    """switch: the metrics around a program change during play, on synthetic readings and audio."""
+
+    FS = 44100
+
+    @classmethod
+    def setUpClass(cls):
+        import ot_matrix
+        cls.m = ot_matrix
+
+    def rows(self, spike_us=None, dsp_spike=None, bad_jump=0):
+        out = []
+        for i in range(int(14 * 50)):
+            t = i / 50.0
+            busy = 0.25 if t < 8.0 else 0.85
+            if dsp_spike and 8.0 <= t < 8.06:
+                busy = dsp_spike
+            lon = spike_us if spike_us and 8.0 <= t < 8.06 else 105.0
+            bad = 2 + (bad_jump if t >= 8.0 else 0)
+            out.append({"t": 1000.0 + t, "cf": {"longest_us": lon},
+                        "dsp": {"core0": {"busy": int(busy * 36256), "period": 36256},
+                                "core1": {"busy": int(busy * 0.8 * 36256), "period": 36256}, "bad": bad}})
+        return out
+
+    def audio(self, gap_ms=0):
+        rng = np.random.default_rng(3)
+        x = (0.05 * rng.standard_normal((14 * self.FS, 2))).astype(np.float64)
+        if gap_ms:
+            i = int(8.05 * self.FS)
+            x[i:i + int(gap_ms / 1000 * self.FS)] = 0
+        return x
+
+    def test_a_clean_switch(self):
+        mt = self.m.switch_metrics(self.rows(), self.audio(), self.FS, 1000.0)
+        self.assertAlmostEqual(mt["t_switch_s"], 8.0, delta=0.1)
+        self.assertEqual(self.m.switch_flags(mt), [])
+
+    def test_a_cf_spike_a_dsp_spike_drops_and_a_gap_each_raise_their_flag(self):
+        mt = self.m.switch_metrics(self.rows(spike_us=300.0, dsp_spike=0.95, bad_jump=500), self.audio(gap_ms=80), self.FS, 1000.0)
+        f = self.m.switch_flags(mt)
+        for want in ("SPIKE_CF", "SPIKE_DSP", "DROPS", "GAP"):
+            self.assertIn(want, f)
+
+    def test_equal_levels_fall_back_to_the_nominal_pattern_end(self):
+        rows = self.rows()
+        for r in rows:
+            r["dsp"]["core0"]["busy"] = 9000
+        mt = self.m.switch_metrics(rows, self.audio(), self.FS, 1000.0)
+        self.assertEqual(mt["t_switch_s"], 8.0)
