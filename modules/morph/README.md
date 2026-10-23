@@ -62,7 +62,7 @@ goes back to 16.
 
 ## Saving
 
-✅ (source simulator) The settings of the eight tracks and which tracks morph go to `morph.work` in
+✅ (on the unit, MRPPR1, and in the source simulator) The settings of the eight tracks and which tracks morph go to `morph.work` in
 the project directory, beside the bank files, when the Octatrack writes its banks and when the
 project is saved; SAVE PROJECT copies it to `morph.strd` and RELOAD brings that copy back, as MIDI
 SCENES keeps `scenes.work`. MORPH is a client of STORE (`modules/store`), which holds those sites.
@@ -139,6 +139,7 @@ SCENES keeps `scenes.work`. MORPH is a client of STORE (`modules/store`), which 
 
 ## Measured
 
+- ✅ On the owner's MKI, image MRPPR1 (BUILD 98, remix `morph`, from `374d4515`), the owner's MKI, 23 Oct 2026: the window armed while T1 is held and CYCLE following A and B; YES does nothing; the start on the release; the window over a running morph (changes at once, the morph goes on); 41.625 and CYCLE 666 STEPS; T1 and T5 with different settings, SAVE PROJECT, power off and on, PLAY: both start from A with their settings; a change without saving undone by PROJECT > RELOAD; another project with no morph.work on the fader with the defaults, and back to the first: T1 and T5 armed again; TRACK + DOWN ends the cycle on A. By ear and eye.
 - ✅ On the owner's MKI, image ACIDV74MP (aCiDtRacK + MORPH), 22 Oct 2026, by ear and eye: the
   window ([TRACK] + [UP], STEPS / x / MODE on A, B, C), the morph at the tempo over STEPS × x
   steps, SMOOTH and TRIG HOLD, several tracks at once (T5 with OCTA303 and T6 on a NEIGHBOR
@@ -163,7 +164,6 @@ SCENES keeps `scenes.work`. MORPH is a client of STORE (`modules/store`), which 
   parked or on the fader), RELOAD from `.strd`, a bad CRC refused and never written over, the
   BACKUP answer, a project without the file. Not covered: the hook under the real firmware, MACSR
   (the simulator has none), STORE's real file calls.
-- Not yet: the release start, x to 16 and saving under the port and on the unit.
 
 ## Credits
 

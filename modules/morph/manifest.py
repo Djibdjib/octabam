@@ -41,10 +41,10 @@ MODULE = Module(
          "Track + DOWN finishes the cycle on A and parks the track there until the crossfader reaches "
          "A. Settings saved with the project. Inspired by the Korg Electribe's Motion Sequence."),
     proof=Proof.HARDWARE,
-    proof_note=("v1 on the owner's MKI, image ACIDV74MP (aCiDtRacK + MORPH), 22 Oct 2026: the window, "
-                "the step clock, STEPS x x, SMOOTH and TRIG HOLD, several tracks at once, stop and parking "
-                "on A (v0: ACIDV73MP, 21 Oct). The release start, x to 16 and saving: "
-                "tools/morph/test_morph.py and tools/morph/port_morph.py; the unit pending"),
+    proof_note=("the owner's MKI, image MRPPR1 (BUILD 98, remix morph), 23 Oct 2026: the window, the "
+                "start on the release, x to 16 and 41.625, saving (SAVE PROJECT, power cycle, RELOAD, "
+                "another project and back), stop and parking on A; before, inside aCiDtRacK (ACIDV74MP, "
+                "22 Oct): several tracks at once, SMOOTH and TRIG HOLD"),
     linked=(
         Linked("morph", os.path.join(_HERE, "morph.s"), dram=True),
     ),
