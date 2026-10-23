@@ -11,6 +11,7 @@ is the load readout where the image carries it.
                                   [--stimuli hits,pink,...] [--stim-tracks 1-8]
     python3 tools/hw/ot_matrix.py run PROJECT_DIR LABEL [--midi Octatrack] [--audio Octatrack]
                                   [--pc-channel 1] [--bpm 121] [--play 12] [--tail 3] [--only 0,4-9]
+    python3 tools/hw/ot_matrix.py audit PROJECT_DIR      # trigs, locks, odd part records, LFOs, sample paths: none in a fresh project
     python3 tools/hw/ot_matrix.py selftest      # the detectors on synthetic audio; no unit
 
 LAYOUTS. Effect selection cannot be driven over MIDI, but every effect id
@@ -40,6 +41,28 @@ machines, and each pattern is one trig on step 1 of 64 steps at 1X, so at 120
 BPM (recorded in OCTABAM_MATRIX.json as `bpm`, which `run` uses) a stimulus
 restarts exactly when its 2, 4 or 8 s ends. The stimuli's expected levels and
 events are in OCTABAM_STIMULI.json. The project has no .ot attribute files.
+
+SETTINGS. Every project gets the [SETTINGS] and [STATES] keys a run depends on
+stamped as text (STORAGE.md section 5): CLOCK and TRANSPORT RECEIVE on, SEND off,
+PROGRAM CHANGE RECEIVE on at --pc-channel (default 1) and SEND off, MIDI_TRIG_CH1-8
+= channels 1-8, auto channel and soft thru off, per-pattern tempo off, metronome off,
+TEMPOx24 = 120 BPM with --stimuli; the project opens on A01 with no mute, solo or cue
+mask. --setting KEY=INT stamps any other key (MAIN_LEVEL, MASTER_TRACK, GAIN_AB, ...);
+the keys that changed, with their old and new values, are in OCTABAM_MATRIX.json as
+`settings_changed`. Audio-level keys not named here keep the template's values.
+
+CLEAN. With --clean, SRC is a project the unit created and nobody edited, and
+nothing of the template's content survives except its first pattern and first part
+as the container: all 16 banks are rebuilt, every pattern empty but the stamped ones
+(trigs and locks cleared, LEN 64 at 1X), every part record the template's with
+only the stamped layouts on top, banks I-P and the unused patterns left empty.
+`audit PROJECT` lists what is not default (trigs, parameter locks, part records
+that differ from bank A's first, LFO depths, sample paths); --clean refuses a
+template it finds edited unless --allow-dirty-template. Every project on this
+machine's ~/octa fails the audit (they descend from one working project), so
+a fresh one has to be created on the unit (PROJECT > NEW) and copied off.
+BASE keeps the bus remix's SEND on FX2 at level 0 rather than id 0 (an FX2 stored as 0
+gets no page from the firmware, ot_project.make_clean_project).
 
 THE RUN. For each layout: STOP, program change, the page-1 CCs of the
 layout's modules asserted over MIDI (the ladder's rule), START with a
@@ -127,9 +150,11 @@ def layouts(remix_name, pairs=False):
     import ot_ladder as L
     from remix import registry, stock
     remix, mods = registry.remix(remix_name), registry.modules()
-    none = {t: (None, None) for t in range(1, 9)}
-    out = [("BASE", "base", none)]
     is_bus = "REVERB SERVER" in remix.modules
+    # an FX2 stored as 0 gets no page from the firmware and SEND reads a stale word (ot_project.make_clean_project)
+    none = {t: (None, L._sends({}).get(t)) for t in range(1, 9)} if "SEND" in remix.modules else \
+        {t: (None, None) for t in range(1, 9)}
+    out = [("BASE", "base", none)]
 
     fx1_keys = remix.fx1 or tuple(k for k in stock.p_spans("A") if mods[k].menu.fx2_id in stock.fx1_ids())
     if is_bus:
@@ -277,10 +302,124 @@ def stim_pattern(data, pat, assign):
     data[tail + 2], data[tail + 3] = STIM_LEN, STIM_SCALE
 
 
-def make_project(src, dest, remix_name, chunk, pattern="A2", stimuli=None, stim_tracks=range(1, 9)):
+# ---------------------------------------------------------------------------
+# project settings: the MIDI setup and the start state, written as text
+# ---------------------------------------------------------------------------
+def test_settings(pc_channel=1):
+    """[SETTINGS] keys a run depends on (docs/firmware/STORAGE.md section 5). Channel keys are 0-based."""
+    s = {"MIDI_CLOCK_RECEIVE": 1, "MIDI_TRANSPORT_RECEIVE": 1,
+         "MIDI_CLOCK_SEND": 0, "MIDI_TRANSPORT_SEND": 0,
+         "MIDI_PROGRAM_CHANGE_RECEIVE": 1, "MIDI_PROGRAM_CHANGE_RECEIVE_CH": pc_channel - 1,
+         "MIDI_PROGRAM_CHANGE_SEND": 0,
+         "MIDI_AUTO_CHANNEL": -1, "MIDI_SOFT_THRU": 0,
+         "PATTERN_TEMPO_ENABLED": 0, "METRONOME_ENABLED": 0}
+    s.update({f"MIDI_TRIG_CH{t}": t - 1 for t in range(1, 9)})
+    return s
+
+
+# [STATES]: the project opens on A01 with nothing muted, soloed or cued.
+TEST_STATES = {"BANK": 0, "PATTERN": 0, "PART": 0, "TRACK": 0, "ARRANGEMENT": 0, "ARRANGEMENT_MODE": 0,
+               "TRACK_MUTE_MASK": 0, "TRACK_SOLO_MASK": 0, "TRACK_CUE_MASK": 0}
+
+
+def stamp_text(dest, settings, states):
+    """Set keys inside [SETTINGS] and [STATES] of project.work and project.strd.
+    -> {key: [old, new]} for the keys that changed. A key the file does not have is an error."""
+    import re
+    changed = {}
+    for name in ("project.work", "project.strd"):
+        path = dest / name
+        if not path.exists():
+            continue
+        raw = path.read_bytes().decode("latin1")
+        for block, kv in (("SETTINGS", settings), ("STATES", states)):
+            m = re.search(rf"\[{block}\]\r?\n(.*?)\[/{block}\]", raw, re.S)
+            if not m:
+                sys.exit(f"{path}: no [{block}] block")
+            body = m.group(1)
+            for key, val in kv.items():
+                hit = re.search(rf"^{re.escape(key)}=(-?\d+)(\r?)$", body, re.M)
+                if not hit:
+                    sys.exit(f"{path}: no {key}= line in [{block}]")
+                if hit.group(1) != str(val):
+                    changed.setdefault(key, [int(hit.group(1)), int(val)])
+                body = body[:hit.start()] + f"{key}={val}{hit.group(2)}" + body[hit.end():]
+            raw = raw[:m.start(1)] + body + raw[m.end(1):]
+        path.write_bytes(raw.encode("latin1"))
+    return changed
+
+
+# ---------------------------------------------------------------------------
+# audit: what in a project is not a fresh unit-created one
+# ---------------------------------------------------------------------------
+def audit(src):
+    """-> dict of findings for the project at `src`: trigs and locks anywhere, part records that differ from
+    bank A part 1, LFO depths, project-local sample paths. A project the unit created and nobody edited has none."""
+    import ot_project as P
+    import ot_bank as B
+    import ot_ladder as L
+    src = pathlib.Path(src)
+    out = {"trigs": [], "locks": [], "parts": [], "lfo": [], "samples": 0, "banks": 0}
+    ref = None
+    for n in range(1, 17):
+        f = src / f"bank{n:02d}.work"
+        if not f.is_file():
+            continue
+        d = f.read_bytes()
+        B.check_tags(d)
+        out["banks"] += 1
+        for pt in range(16):
+            for t in range(8):
+                off = P.trac_off(pt, t)
+                if any(d[off:off + 64]):
+                    out["trigs"].append(f"{BANKS[(n - 1) % 8] if n <= 8 else n}{pt + 1:02d} T{t + 1}")
+                if any(x != 0xff for x in d[off + 0x59:off + 0x59 + 64 * 32]):
+                    out["locks"].append(f"{n}:{pt + 1} T{t + 1}")
+        for r in range(P.NPARTS_ALL):
+            off = P.PART_BASE + r * P.PART_STRIDE
+            rec = bytearray(d[off:off + P.PART_STRIDE])
+            rec[L.PART_INDEX_OFF] = 0
+            if ref is None:
+                ref = bytes(rec)
+            elif bytes(rec) != ref:
+                out["parts"].append(f"bank {n} record {r + 1}")
+            for t in range(8):
+                if any(d[off + P.LFO_P1_OFF + t * 24 + 3:off + P.LFO_P1_OFF + t * 24 + 6]):
+                    out["lfo"].append(f"bank {n} record {r + 1} T{t + 1}")
+    import re
+    txt = (src / "project.work").read_bytes().decode("latin1")
+    out["samples"] = len([m for m in re.findall(r"^PATH=(.+?)\r?$", txt, re.M) if m.strip()])
+    return out
+
+
+def fresh_findings(a):
+    f = []
+    for key, what in (("trigs", "tracks with trigs"), ("locks", "tracks with parameter locks"),
+                      ("parts", "part records differing from bank A's first"), ("lfo", "tracks with an LFO depth")):
+        if a[key]:
+            f.append(f"{len(a[key])} {what} (first: {a[key][0]})")
+    if a["samples"]:
+        f.append(f"{a['samples']} sample slots with a file path")
+    return f
+
+
+def cmd_audit(a):
+    r = audit(a.project)
+    f = fresh_findings(r)
+    print(f"{a.project}: {r['banks']} banks")
+    for line in f or ["nothing: every pattern empty, every part record equal, no LFO, no sample path"]:
+        print("  " + line)
+    return 1 if f else 0
+
+
+def make_project(src, dest, remix_name, chunk, pattern="A2", stimuli=None, stim_tracks=range(1, 9),
+                 pc_channel=1, extra_settings=None, clean=False, allow_dirty=False):
     """Copy SRC to DEST and write `chunk` (a list of layouts, at most 32; the rest BASE).
     With `stimuli` (names from ot_stimuli) the tracks in `stim_tracks` play them on FLEX slots 1..N, one trig
-    on step 1 of a 64-step pattern, instead of SRC's own pattern content."""
+    on step 1 of a 64-step pattern, instead of SRC's own pattern content.
+    `clean`: SRC is a project the unit created and nobody edited. All 16 banks are rebuilt from its first
+    pattern and first part: every pattern empty but the ones stamped, every part record the template's with only
+    the stamped layouts on top. Refused unless `audit` finds SRC fresh (`allow_dirty` overrides)."""
     import ot_ladder as L
     import ot_project as P
     from remix import registry
@@ -290,6 +429,14 @@ def make_project(src, dest, remix_name, chunk, pattern="A2", stimuli=None, stim_
     if not (src / "project.work").is_file():
         sys.exit(f"{src} is not an Octatrack project directory")
     remix, mods = registry.remix(remix_name), registry.modules()
+    if clean:
+        if not stimuli:
+            sys.exit("--clean needs --stimuli: a clean project has nothing else to play")
+        found = fresh_findings(audit(src))
+        if found and not allow_dirty:
+            sys.exit(f"{src} is not a fresh project:\n  " + "\n  ".join(found)
+                     + "\nCreate a new project on the unit and use that, or pass --allow-dirty-template.")
+        pattern = "A1"
     sbank, spat = L._pattern_ref(pattern)
     sdata = (src / f"bank{sbank:02d}.work").read_bytes()
     p0 = P.PTRN0 + (spat - 1) * P.PTRN_FSTRIDE
@@ -310,26 +457,34 @@ def make_project(src, dest, remix_name, chunk, pattern="A2", stimuli=None, stim_
                       for t, (f1, f2) in lo.items()])
 
     shutil.copytree(src, dest)
+    settings = test_settings(pc_channel)
+    if stimuli:
+        settings["TEMPOx24"] = STIM_BPM * 24
+    settings.update(extra_settings or {})
+    changed = stamp_text(dest, settings, TEST_STATES)
     assign = []
     if stimuli:
         write_stimuli(dest, stimuli)
         assign = stim_assign(stimuli, list(stim_tracks))
-    for b in range(8):
+    for b in range(16 if clean else 8):
         num = b + 1
-        bank_plans = plans[b * 4:b * 4 + 4]
+        used = b < 8                                  # program change reaches banks A-H
+        bank_plans = plans[b * 4:b * 4 + 4] if used else [[], [], [], []]
 
-        def mut(data, bank_plans=bank_plans):
-            for j in range(4):                       # pattern j+1 plays part j+1
+        def mut(data, bank_plans=bank_plans, used=used):
+            for j in range(16 if clean else 4):      # pattern j+1 plays part j+1 (j < 4)
                 d0 = P.PTRN0 + j * P.PTRN_FSTRIDE
                 data[d0:d0 + P.PTRN_FSTRIDE] = ptrn
-                data[d0 + P.PTRN_FSTRIDE - 5] = j
-                if assign:
+                data[d0 + P.PTRN_FSTRIDE - 5] = j if j < 4 else 0
+                if clean:
+                    stim_pattern(data, j, assign if used and j < 4 else [])
+                elif assign:
                     stim_pattern(data, j, assign)
             for p in range(P.NPARTS_ALL):
                 off = P.PART_BASE + p * P.PART_STRIDE
                 data[off:off + P.PART_STRIDE] = part_cur if p < 4 else part_sav
                 data[off + L.PART_INDEX_OFF] = p % 4      # a record's own index (FAILURE_MODES "PARSE ERROR")
-                if assign:
+                if assign and used:
                     stim_part(data, off, assign)
                 for t, (id1, v1), (id2, v2) in bank_plans[p % 4]:
                     i = t - 1
@@ -339,18 +494,19 @@ def make_project(src, dest, remix_name, chunk, pattern="A2", stimuli=None, stim_
                     bb = off + P.P2_OFF + i * P.P2_STRIDE
                     data[a:a + 6] = v1[:6]; data[a + 6:a + 12] = v2[:6]
                     data[bb:bb + 6] = v1[6:]; data[bb + 6:bb + 12] = v2[6:]
-            for p in range(4):
-                o = len(data) - 2 - 4 * 7 + p * 7
-                field = f"{b * 4 + p:03d}".encode("latin1")
-                data[o:o + 7] = field + b"\x00" * (7 - len(field))
+            if used:
+                for p in range(4):
+                    o = len(data) - 2 - 4 * 7 + p * 7
+                    field = f"{b * 4 + p:03d}".encode("latin1")
+                    data[o:o + 7] = field + b"\x00" * (7 - len(field))
 
         P._bank_write(dest, num, mut, guard=False)
         data = (dest / f"bank{num:02d}.work").read_bytes()
         if int.from_bytes(data[-2:], "big") != (sum(data[0x10:-2]) & 0xFFFF):
             sys.exit(f"bank{num:02d}: checksum did not take -- do NOT use this")
-        for j in range(4):
+        for j in range(16 if clean else 4):
             d0 = P.PTRN0 + j * P.PTRN_FSTRIDE
-            if data[d0:d0 + 4] != b"PTRN" or data[d0 + P.PTRN_FSTRIDE - 5] != j:
+            if data[d0:d0 + 4] != b"PTRN" or data[d0 + P.PTRN_FSTRIDE - 5] != (j if j < 4 else 0):
                 sys.exit(f"bank{num:02d} pattern {j + 1}: read-back disagrees")
         for p in range(P.NPARTS_ALL):
             off = P.PART_BASE + p * P.PART_STRIDE
@@ -372,6 +528,7 @@ def make_project(src, dest, remix_name, chunk, pattern="A2", stimuli=None, stim_
                         "kind": kind, "layout": {str(t): [_spec_text(f1), _spec_text(f2)] for t, (f1, f2) in lo.items()}})
     (dest / "OCTABAM_MATRIX.json").write_text(json.dumps(
         {"remix": remix_name, "layouts": entries, "bpm": STIM_BPM if stimuli else None,
+         "pc_channel": pc_channel, "settings_changed": changed, "clean": clean,
          "stimuli": {n: [t + 1 for t, sl in assign if sl == i + 1] for i, n in enumerate(stimuli)} if stimuli else None},
         indent=1))
     return len(entries)
@@ -382,11 +539,18 @@ def cmd_proj(a):
     base, rest = lay[0], lay[1:]
     stimuli = [x for x in a.stimuli.split(",") if x] if a.stimuli else None
     tracks = _span(a.stim_tracks)
+    extra = {}
+    for kv in a.setting:
+        key, _, val = kv.partition("=")
+        if not re.fullmatch(r"-?\d+", val):
+            sys.exit(f"--setting {kv!r} is KEY=INTEGER")
+        extra[key] = int(val)
     per = PER_PROJECT - 1                     # BASE takes slot 0 of every project
     n = 0
     for k in range(0, len(rest), per):
         dest = f"{a.dest}_{k // per + 1:02d}"
-        n += make_project(a.src, dest, a.remix, [base] + rest[k:k + per], a.pattern, stimuli, tracks) - 1
+        n += make_project(a.src, dest, a.remix, [base] + rest[k:k + per], a.pattern, stimuli, tracks,
+                          a.pc_channel, extra, a.clean, a.allow_dirty_template) - 1
         print(f"{dest}: {len(rest[k:k + per]) + 1} layouts (slot 0 BASE)")
     print(f"{n} layouts in {-(-len(rest) // per)} project(s); material {a.src} {a.pattern}")
 
@@ -587,6 +751,7 @@ def cmd_run(a):
             if seg["chunks"] is not None:
                 seg["chunks"].append(indata.copy())
     bpm = a.bpm or plan.get("bpm") or 121.0
+    pc_ch = a.pc_channel or plan.get("pc_channel") or 1
     clock = L.Clock(bpm, a.midi)
     results, base_m = [], None
     sd_stream = sd.InputStream(device=dev, channels=nch, samplerate=fs, dtype="float32", callback=cb)
@@ -595,7 +760,7 @@ def cmd_run(a):
             for i in parse_only(a.only, len(entries)):
                 e = entries[i]
                 clock.stop(); time.sleep(0.3)
-                clock.pc(a.pc_channel, e["program"]); time.sleep(0.8)
+                clock.pc(pc_ch, e["program"]); time.sleep(0.8)
                 with lock:
                     seg["chunks"] = []
                 clock.start()
@@ -658,15 +823,22 @@ def main():
     p.add_argument("--pairs", action="store_true"); p.add_argument("--pattern", default="A2")
     p.add_argument("--stimuli", default="", help="ot_stimuli names, comma-separated: played on FLEX slots 1..N instead of SRC's pattern")
     p.add_argument("--stim-tracks", default="1-8", help="tracks that play them, round-robin (default 1-8)")
+    p.add_argument("--clean", action="store_true", help="SRC is a fresh unit-created project: rebuild all 16 banks from its first "
+                   "pattern and part (needs --stimuli); refused if `audit` finds SRC edited")
+    p.add_argument("--allow-dirty-template", action="store_true", help="with --clean: use SRC although audit finds it edited")
+    p.add_argument("--pc-channel", type=int, default=1, help="MIDI channel (1-16) the project receives program change on")
+    p.add_argument("--setting", action="append", default=[], metavar="KEY=INT",
+                   help="another [SETTINGS] key to stamp, e.g. MAIN_LEVEL=64 (repeatable); the keys are in project.work")
     p = sub.add_parser("run"); p.add_argument("project"); p.add_argument("label")
     p.add_argument("--midi", default="Octatrack"); p.add_argument("--audio", default="Octatrack")
-    p.add_argument("--pc-channel", type=int, default=1)
+    p.add_argument("--pc-channel", type=int, default=None, help="default: the project's (see proj), else 1")
     p.add_argument("--bpm", type=float, default=None, help="default: the project's (120 for a stimuli project), else 121")
     p.add_argument("--play", type=float, default=12.0); p.add_argument("--tail", type=float, default=3.0)
     p.add_argument("--only", default="")
+    p = sub.add_parser("audit"); p.add_argument("project")
     sub.add_parser("selftest")
     a = ap.parse_args()
-    return {"plan": cmd_plan, "proj": cmd_proj, "run": cmd_run, "selftest": cmd_selftest}[a.cmd](a)
+    return {"plan": cmd_plan, "proj": cmd_proj, "run": cmd_run, "selftest": cmd_selftest, "audit": cmd_audit}[a.cmd](a)
 
 
 if __name__ == "__main__":

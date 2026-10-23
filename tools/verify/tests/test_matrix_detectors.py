@@ -111,3 +111,44 @@ class MatrixStimuliProject(unittest.TestCase):
             self.assertEqual(struct.unpack(">III", b[0x16:0x16 + 12]), (0, 176400, 0))
             self.assertEqual(struct.unpack(">III", b[0x16 + 784:0x16 + 784 + 12]), (0, 352800, 0))
             self.assertEqual(int.from_bytes(b[-2:], "big"), sum(b[0x10:-2]) & 0xFFFF)
+
+
+@unittest.skipIf(np is None, "numpy is not installed")
+class MatrixProjectText(unittest.TestCase):
+    TEXT = (b"[SETTINGS]\r\nTEMPOx24=2908\r\nMIDI_CLOCK_RECEIVE=0\r\nMIDI_TRANSPORT_RECEIVE=1\r\n"
+            b"MIDI_PROGRAM_CHANGE_RECEIVE_CH=-1\r\n[/SETTINGS]\r\n\r\n[STATES]\r\nBANK=2\r\nTRACK_MUTE_MASK=127\r\n[/STATES]\r\n")
+
+    @classmethod
+    def setUpClass(cls):
+        import ot_matrix
+        cls.m = ot_matrix
+
+    def stamp(self, settings, states):
+        import pathlib
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            d = pathlib.Path(d)
+            for f in ("project.work", "project.strd"):
+                (d / f).write_bytes(self.TEXT)
+            changed = self.m.stamp_text(d, settings, states)
+            return changed, (d / "project.work").read_bytes().decode(), (d / "project.strd").read_bytes().decode()
+
+    def test_keys_change_in_both_files_and_nothing_else(self):
+        changed, work, strd = self.stamp({"MIDI_CLOCK_RECEIVE": 1, "MIDI_PROGRAM_CHANGE_RECEIVE_CH": 0, "TEMPOx24": 2880},
+                                         {"BANK": 0, "TRACK_MUTE_MASK": 0})
+        self.assertEqual(work, strd)
+        self.assertIn("MIDI_CLOCK_RECEIVE=1\r\n", work)
+        self.assertIn("MIDI_PROGRAM_CHANGE_RECEIVE_CH=0\r\n", work)
+        self.assertIn("MIDI_TRANSPORT_RECEIVE=1\r\n", work)
+        self.assertIn("BANK=0\r\nTRACK_MUTE_MASK=0\r\n", work)
+        self.assertEqual(changed, {"MIDI_CLOCK_RECEIVE": [0, 1], "MIDI_PROGRAM_CHANGE_RECEIVE_CH": [-1, 0],
+                                   "TEMPOx24": [2908, 2880], "BANK": [2, 0], "TRACK_MUTE_MASK": [127, 0]})
+
+    def test_a_missing_key_is_refused(self):
+        with self.assertRaises(SystemExit):
+            self.stamp({"NO_SUCH_KEY": 1}, {})
+
+    def test_the_test_settings_name_keys_the_unit_writes(self):
+        s = self.m.test_settings(3)
+        self.assertEqual(s["MIDI_PROGRAM_CHANGE_RECEIVE_CH"], 2)
+        self.assertEqual([s[f"MIDI_TRIG_CH{t}"] for t in range(1, 9)], list(range(8)))
