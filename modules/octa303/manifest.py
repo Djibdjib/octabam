@@ -59,7 +59,8 @@ MODULE = Module(
          "TUNE (-24..+24 semitones: four octaves) CUT RES ENV DEC ACC; dEVILish on FX1/FX2 = the Devil Fish mods (Whittle). "
          "Accent = an ACC lock, slide = a trigless PTCH lock. v7.0: OCTA-303 is also its own machine (row 5 "
          "of the machine list, no sample needed) with a SETUP page WAVE GATE FINE SLID DRIV ACCV; "
-         "GATE 303 = the 303's own gate, 3.5 of the step's 6 clocks (Whittle)."),
+         "GATE 303 = the 303's own gate, 3.5 of the step's 6 clocks (Whittle). v7.1: held trig + UP / DOWN = "
+         "an octave, a new slide takes the note it slides from."),
     proof=Proof.HARDWARE,
     proof_note=("v7.1 on the author's MKI, image O3V71 (BUILD A0, remix octa303), 23 Oct 2026: held trig + UP / DOWN an octave (several trigs at once, C5 stays), FUNC + TRIG's slide tied into the previous note, then turned to another note and an octave up, a FLEX track's TRIG + UP stock, LFO SETUP's names, save / power-cycle / reload; v7.0 on the author's MKI, image ACIDV70 (BUILD 87, remix acidtrack), 19 Oct 2026: the OCTA-303 "
                 "machine chosen from the list, its SETUP page, save / power-cycle / reload, the 303 gate; "
