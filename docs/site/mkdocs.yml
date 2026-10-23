@@ -35,6 +35,7 @@ nav:
       - Character: reference/modules/character.md
       - Character TXTR: reference/modules/character-txtr.md
       - Delay Server: reference/modules/busdelay.md
+      - dEVILish: reference/modules/devilish.md
       - DisTorX: reference/modules/distorx.md
       - Euclid: reference/modules/euclid.md
       - Gate Verb: reference/modules/gateverb.md
@@ -82,6 +83,7 @@ nav:
       - Varispeed: reference/modules/varispeed.md
   - Kits and Scenes:
       - Kits: reference/modules/kits.md
+      - Morph: reference/modules/morph.md
       - MIDI Part State: reference/modules/midi-part-state.md
       - MIDI Scenes: reference/modules/midi-scenes.md
       - Page 2 Scene Locks: reference/modules/scenes-p2.md
@@ -96,6 +98,7 @@ nav:
       - Memory: reference/modules/memory.md
       - Persistent Buffers: reference/modules/persistent-buffers.md
       - Store: reference/modules/store.md
+      - Sequencer Events: reference/modules/sequencer-events.md
   - Utilities:
       - Buffer Saver: reference/modules/buffer-saver.md
       - Copy Project: reference/modules/copy-project.md

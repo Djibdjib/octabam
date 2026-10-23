@@ -906,10 +906,12 @@ def main():
     _want = {"midi-loopback": (), "midi-scales": (), "mods": (), "ata-write-guard": (), "octabam-core": (), "usb-out-tracks-main-cue": ("PLATE REV",), "usb-out-tracks": (), "usb-out-master": (),
              "usb-out-tracks-post": (),
              "remix-switch": (), "remix-switch-trace": (),   # REMIX SWITCH's park in dead vectors, no region words
+             "usb-io-stock14": (),   # USB's RX inject at payload A's tail (DspSection.tail), no region words
              "usb-out-main-cue": (), "usb-out-main": (), "usb-midi": (), "stems": (),     # stock effects + ColdFire modules, no DSP words
              "stems-brain": (),   # STEM REC under PROJECT + BRAIN/REMIX SWITCH; no DSP words
              "octa303": (), "rec-threshold": (), "buffer-saver": (), "plocks-p2": (), "scenes-midisc": (), "kits": (),
              "persistent-buffers": (),   # STORE + PERSISTENT BUFFERS on the stock effects, no DSP words
+             "morph": (),   # STORE + MORPH on the stock effects, no DSP words
              "analog-bassdrum": ("SPRING REV",),
               "blackpyramids-303": ("SPRING REV",),   # its DSP voice in SPRING's words, as ANALOG BD's
              "sidechain-compressor": ("SPRING REV",), "kyoti-mute-sidechain": ("SPRING REV",),   # its DSP section in SPRING's words
@@ -934,6 +936,7 @@ def main():
              "distorx": ("SPATIALIZER", "CHORUS", "PLATE REV", "SPRING REV"),   # DISTORX on SPATIALIZER's id; its 1,586 words in one run; DARK REV stays
              "shatter": ("PLATE REV",),   # SHATTER runs in its words; the other 13 stay
              "stuttr": ("PLATE REV",),   # STUTTR runs in its words; the other 13 stay
+             "devilish": ("PHASER",),   # dEVILish is on PHASER's id; its pass-through runs in PHASER's words
              "testgen": ("PLATE REV",),     # TESTGEN runs in its words; the other 13 stay
              "resonator": ("PLATE REV",),   # RESONATOR runs in its words; the other 13 stay
              "vocoder": ("PLATE REV", "DJ EQ"),   # VOCODER runs in PLATE's words; DJ EQ out so the tables sit in X
@@ -979,7 +982,7 @@ def main():
     _probe.write_text(
         "from remix.schema import Remix\n\n"
         "REMIX = Remix(name='_selftest_scattered', doc='scratch',\n"
-        "              modules=('EUCLID', 'MINIVERB', 'PLATE REV'),\n"
+        "              modules=('EUCLID', 'SEQUENCER EVENTS', 'MINIVERB', 'PLATE REV'),\n"
         "              fallback='NONE',\n"
         "              fx1=('FILTER', 'EQUALIZER', 'DJ EQ', 'PHASER',\n"
         "                   'SPATIALIZER', 'COMPRESSOR', 'LO-FI',\n"
