@@ -53,6 +53,32 @@ eject) before leaving DISK MODE on the unit, since a read/write mount with
 pending Mac writes coincided with two freezes (24 Oct 2026,
 `FAILURE_MODES.md`).
 
+## Predicting the combinations
+
+A pair (an FX1 and an FX2 effect on the same track) or a split (one effect on
+tracks 1-4, another on 5-8) is not run by default. LOAD METER reports each of
+the 16 effect slots' cost, and a core's busy time is its base plus the sum of
+its slots' costs: on the first runs (24 Oct 2026, 97 layouts of `octabam-bus`
+and `octabam-inserts`) the sum matched the measured per-core busy to 0.14
+points at the 95th percentile; the worst misses were layouts with one of 16
+slots missing from the window. The same effect costs the same on either core's
+slots (within 1.5 %) and on FX1 or FX2 (within 0.1 point).
+
+```bash
+python3 tools/hw/ot_matrix.py predict octabam-inserts \
+        --reports out/hw/matrix/ins01/report.json out/hw/matrix/ins02/report.json out/hw/matrix/ins03/report.json \
+        --select pick.json
+python3 tools/hw/ot_matrix.py proj <fresh> <dest-prefix> octabam-inserts --clean --stimuli ... \
+        --pairs --split --select pick.json
+```
+
+`predict` ranks every pair and split layout by predicted core busy and writes
+the ones at or above `--threshold` (0.85) plus `--validate` (6) spread over the
+rest, to check on the unit that the sum holds. It does not predict the
+ColdFire's share (EUCLID's hook adds about 7 points), audio faults that need
+the combination, or what the unit does past 100 % busy. Layouts predicted over
+100 % are the ones to watch: no single-slot run has gone past about 99 %.
+
 ## Flags
 
 Every flag is against BASE of the same project; thresholds are the constants at

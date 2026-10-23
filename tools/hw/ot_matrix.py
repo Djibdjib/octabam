@@ -13,6 +13,8 @@ is the load readout where the image carries it.
                                   [--pc-channel 1] [--bpm 121] [--play 12] [--tail 3] [--only 0,4-9]
     python3 tools/hw/ot_matrix.py audit PROJECT_DIR      # trigs, locks, odd part records, LFOs, sample paths: none in a fresh project
     python3 tools/hw/ot_matrix.py report out/hw/matrix/<label>/report.json ...   # a Markdown table per run
+    python3 tools/hw/ot_matrix.py predict REMIX --reports R1 R2 ... [--threshold 0.85] [--select pick.json]
+                                                 # per-core busy of pair/split layouts from the single-effect runs
     python3 tools/hw/ot_matrix.py selftest      # the detectors on synthetic audio; no unit
 
 LAYOUTS. Effect selection cannot be driven over MIDI, but every effect id
@@ -153,7 +155,7 @@ def _unique(m, variants):
     return out
 
 
-def layouts(remix_name, pairs=False):
+def layouts(remix_name, pairs=False, split=False):
     """-> [(name, kind, {track: (fx1 spec, fx2 spec)})]; a spec is (module key, knobs) or None."""
     import ot_ladder as L
     from remix import registry, stock
@@ -191,6 +193,17 @@ def layouts(remix_name, pairs=False):
             for k2 in fx2_keys:
                 d1, d2 = dict(getattr(mods[k1], "dear", None) or {}), dict(getattr(mods[k2], "dear", None) or {})
                 out.append((f"{k1} FX1 + {k2} FX2 dear", "pair", all_tracks(fx1=(k1, d1), fx2=(k2, d2))))
+    if split and not is_bus:
+        # one effect on tracks 1-4 (core 1) and another on 5-8 (core 0), same slot, both at `dear`
+        for slot, keys, col in (("FX1", fx1_keys, 0), ("FX2", fx2_keys, 1)):
+            for k1 in keys:
+                for k2 in keys:
+                    if k1 == k2:
+                        continue
+                    d1, d2 = dict(getattr(mods[k1], "dear", None) or {}), dict(getattr(mods[k2], "dear", None) or {})
+                    lo = {t: ((k1, d1) if t <= 4 else (k2, d2), None) if col == 0 else (None, (k1, d1) if t <= 4 else (k2, d2))
+                          for t in range(1, 9)}
+                    out.append((f"{k1} {slot} T1-4 + {k2} {slot} T5-8 dear", "split", lo))
     return out
 
 
@@ -199,7 +212,7 @@ def _spec_text(spec):
 
 
 def cmd_plan(a):
-    lay = layouts(a.remix, a.pairs)
+    lay = layouts(a.remix, a.pairs, a.split)
     n = len(lay)
     print(f"{a.remix}: {n} layouts, {-(-n // PER_PROJECT)} project(s) of up to {PER_PROJECT}; "
           f"~{n * (a.play + a.tail + 4) / 60:.0f} min at --play {a.play:g} --tail {a.tail:g}")
@@ -543,8 +556,13 @@ def make_project(src, dest, remix_name, chunk, pattern="A2", stimuli=None, stim_
 
 
 def cmd_proj(a):
-    lay = layouts(a.remix, a.pairs)
+    lay = layouts(a.remix, a.pairs, a.split)
     base, rest = lay[0], lay[1:]
+    if a.select:
+        want = set(json.loads(pathlib.Path(a.select).read_text())["run"])
+        rest = [l for l in rest if l[0] in want]
+        if len(rest) != len(want):
+            sys.exit(f"--select names {len(want)} layouts, {len(rest)} exist for this remix and flags")
     stimuli = [x for x in a.stimuli.split(",") if x] if a.stimuli else None
     tracks = _span(a.stim_tracks)
     extra = {}
@@ -898,6 +916,96 @@ def cmd_run(a):
     return 1 if bad else 0
 
 
+# ---------------------------------------------------------------------------
+# predict: per-core DSP busy of a layout nobody ran, from the single-effect runs
+# ---------------------------------------------------------------------------
+FRAME_COUNTS = 36256
+
+
+def _variant_name(key, kind, knobs, mods):
+    """The name `layouts` gave the single-effect run whose stamped bytes equal this spec's, or None."""
+    import ot_project as P
+    m = mods[key]
+    want = P.module_defaults(m, knobs)
+    for label, kn in _unique(m, _variants(m)):
+        if P.module_defaults(m, kn) == want:
+            return f"{key} {kind} {label}"
+    return None
+
+
+def build_costs(report_paths):
+    """-> {"base": {core0, core1 busy fractions}, "base_slots": {slot: counts}, "costs": {name: {slot: counts over
+    the report's own BASE}}}. BASE (layout 0) of the first report is the reference for the busy figures."""
+    out = {"base": None, "base_slots": None, "costs": {}}
+    for path in report_paths:
+        res = json.loads(pathlib.Path(path).read_text())["results"]
+        b = res[0]
+        if b["name"] != "BASE" or not b.get("load"):
+            sys.exit(f"{path}: layout 0 is not a BASE with LOAD METER figures")
+        bs = {k: v["mean_counts"] for k, v in b["load"]["slots"].items()}
+        if out["base"] is None:
+            out["base"] = {"core0": b["load"]["dsp_core0_mean"], "core1": b["load"]["dsp_core1_mean"]}
+            out["base_slots"] = bs
+        for r in res[1:]:
+            if not r.get("load"):
+                continue
+            sl = r["load"]["slots"]
+            out["costs"][r["name"]] = {k: sl[k]["mean_counts"] - bs[k] for k in sl if k in bs}
+    return out
+
+
+def predict_layout(lo, table, mods):
+    """-> (core0, core1 busy fractions, [what had no single-effect run]). Slot A<n> is track 4+n, B<n> track n
+    (BusVerb's host T5 is A1 and BusDelay's T1 is B1 in LOAD METER's slots)."""
+    busy = {"A": table["base"]["core0"], "B": table["base"]["core1"]}
+    missing = []
+    for t in range(1, 9):
+        core, pos = ("A", t - 4) if t >= 5 else ("B", t)
+        for idx, kind in ((0, "FX1"), (1, "FX2")):
+            spec = lo[t][idx]
+            if spec is None:
+                continue
+            name = _variant_name(spec[0], kind, spec[1], mods)
+            c = table["costs"].get(name or "", {}).get(f"{core}{pos}.{kind}")
+            if c is None:
+                missing.append(f"{spec[0]} {kind} T{t}")
+            else:
+                busy[core] += c / FRAME_COUNTS
+    return busy["A"], busy["B"], missing
+
+
+def cmd_predict(a):
+    from remix import registry
+    mods = registry.modules()
+    if "REVERB SERVER" in registry.remix(a.remix).modules:
+        sys.exit("predict: the bus remix's FX2 slots hold its rig; only inserts and core layouts are predicted")
+    table = build_costs(a.reports)
+    lay = [l for l in layouts(a.remix, True, True) if l[1] in ("pair", "split")]
+    rows = []
+    for name, kind, lo in lay:
+        c0, c1, miss = predict_layout(lo, table, mods)
+        rows.append((max(c0, c1), name, kind, c0, c1, miss))
+    rows.sort(key=lambda r: -r[0])
+    risky = [r for r in rows if not r[5] and r[0] >= a.threshold]
+    ok = [r for r in rows if not r[5] and r[0] < a.threshold]
+    # a spread across the predicted range checks the sum on the unit, whatever the load
+    step = max(len(ok) // a.validate, 1) if a.validate else 0
+    validate = ok[::step][:a.validate] if a.validate else []
+    chosen = {r[1]: ("RUN" if r in risky else "CHECK") for r in risky + validate}
+    print(f"{a.remix}: {len(rows)} combination layouts; {len(risky)} predicted at or above {100 * a.threshold:.0f} % "
+          f"on a core, {len(validate)} chosen across the rest to check the sum, {sum(1 for r in rows if r[5])} unpredictable "
+          f"(no single-effect run)")
+    print(f"{'predicted core0/core1 %':>24}  {'':5} layout")
+    for mx, name, kind, c0, c1, miss in rows[:a.top]:
+        tag = "UNKNOWN" if miss else chosen.get(name, "skip")
+        print(f"{100 * c0:11.1f} / {100 * c1:5.1f}  {tag:7s} {kind:5s} {name}")
+    if a.select:
+        pathlib.Path(a.select).write_text(json.dumps({"remix": a.remix, "threshold": a.threshold,
+                                                       "run": list(chosen), "why": chosen}, indent=1))
+        print(f"{len(chosen)} layouts written to {a.select} (proj --select)")
+    return 0
+
+
 def cmd_report(a):
     """A Markdown table from one or more report.json files: a row per layout, BASE-relative flags and load."""
     for path in a.reports:
@@ -921,9 +1029,12 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("plan"); p.add_argument("remix"); p.add_argument("--pairs", action="store_true")
+    p.add_argument("--split", action="store_true", help="also one effect on tracks 1-4 and another on 5-8")
     p.add_argument("--play", type=float, default=12.0); p.add_argument("--tail", type=float, default=3.0)
     p = sub.add_parser("proj"); p.add_argument("src"); p.add_argument("dest"); p.add_argument("remix")
     p.add_argument("--pairs", action="store_true"); p.add_argument("--pattern", default="A2")
+    p.add_argument("--split", action="store_true", help="include the split layouts (needs the same flag as `predict`)")
+    p.add_argument("--select", help="a JSON from `predict --select`: only those layouts (plus BASE)")
     p.add_argument("--stimuli", default="", help="ot_stimuli names, comma-separated: played on FLEX slots 1..N instead of SRC's pattern")
     p.add_argument("--stim-tracks", default="1-8", help="tracks that play them, round-robin (default 1-8)")
     p.add_argument("--clean", action="store_true", help="SRC is a fresh unit-created project: rebuild all 16 banks from its first "
@@ -939,10 +1050,15 @@ def main():
     p.add_argument("--play", type=float, default=12.0); p.add_argument("--tail", type=float, default=3.0)
     p.add_argument("--only", default="")
     p = sub.add_parser("audit"); p.add_argument("project")
+    p = sub.add_parser("predict"); p.add_argument("remix")
+    p.add_argument("--reports", nargs="+", required=True, help="report.json files of the single-effect runs, BASE first")
+    p.add_argument("--threshold", type=float, default=0.85, help="predicted core busy fraction above which a layout is run (0.85)")
+    p.add_argument("--validate", type=int, default=6, help="layouts picked across the rest to check the sum on the unit (6)")
+    p.add_argument("--top", type=int, default=25); p.add_argument("--select", help="write the chosen layouts here")
     p = sub.add_parser("report"); p.add_argument("reports", nargs="+", help="report.json files from `run`")
     sub.add_parser("selftest")
     a = ap.parse_args()
-    return {"plan": cmd_plan, "proj": cmd_proj, "run": cmd_run, "selftest": cmd_selftest, "audit": cmd_audit, "report": cmd_report}[a.cmd](a)
+    return {"plan": cmd_plan, "proj": cmd_proj, "run": cmd_run, "selftest": cmd_selftest, "audit": cmd_audit, "report": cmd_report, "predict": cmd_predict}[a.cmd](a)
 
 
 if __name__ == "__main__":

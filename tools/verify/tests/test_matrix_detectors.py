@@ -172,3 +172,51 @@ class MatrixProjectText(unittest.TestCase):
         s = self.m.test_settings(3)
         self.assertEqual(s["MIDI_PROGRAM_CHANGE_RECEIVE_CH"], 2)
         self.assertEqual([s[f"MIDI_TRIG_CH{t}"] for t in range(1, 9)], list(range(8)))
+
+
+@unittest.skipIf(np is None, "numpy is not installed")
+class MatrixPredictor(unittest.TestCase):
+    """predict: per-core busy of a layout from single-effect runs (no unit, no firmware)."""
+
+    @classmethod
+    def setUpClass(cls):
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
+        import toolpath  # noqa: F401
+        import ot_matrix
+        from remix import registry
+        cls.m, cls.mods = ot_matrix, registry.modules()
+
+    def report(self, d, slots_by_name):
+        """A report.json with BASE and the named single-effect layouts: {name: {slot: mean_counts}}."""
+        import json
+        base_slots = {f"{c}{p}.{k}": {"mean_counts": 100.0} for c in "AB" for p in range(1, 5) for k in ("FX1", "FX2")}
+        res = [{"slot": 0, "name": "BASE", "load": {"dsp_core0_mean": 0.20, "dsp_core1_mean": 0.10, "windows": 5, "slots": base_slots}}]
+        for i, (name, over) in enumerate(slots_by_name.items(), 1):
+            sl = {k: dict(v) for k, v in base_slots.items()}
+            for k, v in over.items():
+                sl[k] = {"mean_counts": v}
+            res.append({"slot": i, "name": name, "load": {"dsp_core0_mean": 0.5, "dsp_core1_mean": 0.5, "windows": 5, "slots": sl}})
+        path = pathlib.Path(d) / "report.json"
+        path.write_text(json.dumps({"remix": "octabam-inserts", "project": "p", "results": res}))
+        return str(path)
+
+    def test_the_sum_over_the_slots_of_each_core(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            spec_cost = {f"{c}{p}.FX1": 100.0 + 3625.6 for c in "AB" for p in range(1, 5)}      # +0.10 of a frame per slot
+            lofi_cost = {f"{c}{p}.FX2": 100.0 + 7251.2 for c in "AB" for p in range(1, 5)}      # +0.20 per slot
+            table = self.m.build_costs([self.report(d, {"SPECTRUM FX1 dear": spec_cost, "LOFI2 FX2 dear": lofi_cost})])
+        dear = lambda k: (k, dict(getattr(self.mods[k], "dear", None) or {}))                  # noqa: E731
+        lo = {t: (dear("SPECTRUM") if t >= 5 else None, dear("LOFI2") if t <= 2 else None) for t in range(1, 9)}
+        c0, c1, miss = self.m.predict_layout(lo, table, self.mods)
+        self.assertEqual(miss, [])
+        self.assertAlmostEqual(c0, 0.20 + 4 * 0.10, places=6)          # four SPECTRUM slots on core 0
+        self.assertAlmostEqual(c1, 0.10 + 2 * 0.20, places=6)          # two LOFI2 slots on core 1
+
+    def test_an_effect_without_a_single_run_is_reported(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            table = self.m.build_costs([self.report(d, {})])
+        lo = {t: (("SPECTRUM", dict(self.mods["SPECTRUM"].dear)), None) for t in range(1, 9)}
+        _c0, _c1, miss = self.m.predict_layout(lo, table, self.mods)
+        self.assertEqual(len(miss), 8)
