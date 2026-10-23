@@ -35,6 +35,7 @@ nav:
       - Character: reference/modules/character.md
       - Character TXTR: reference/modules/character-txtr.md
       - Delay Server: reference/modules/busdelay.md
+      - dEVILish: reference/modules/devilish.md
       - DisTorX: reference/modules/distorx.md
       - Euclid: reference/modules/euclid.md
       - Gate Verb: reference/modules/gateverb.md
@@ -97,6 +98,7 @@ nav:
       - Persistent Buffers: reference/modules/persistent-buffers.md
       - Store: reference/modules/store.md
       - Edit Events: reference/modules/edit-events.md
+      - Sequencer Events: reference/modules/sequencer-events.md
   - Utilities:
       - Buffer Saver: reference/modules/buffer-saver.md
       - Copy Project: reference/modules/copy-project.md
