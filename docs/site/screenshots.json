@@ -826,6 +826,22 @@
       "firmware_sha256": "3f208b1219b80976754360f3df0ddce569130aad207b4530da43ba17e21c7029"
     }
   },
+  "distorx": {
+    "setup": {
+      "image": "distorx/setup.png",
+      "caption": "DISTORX: effect selection and setup parameters.",
+      "remix": "distorx",
+      "source": "emulator panel UART",
+      "firmware_sha256": "35c12958d83d93f97b0f5d5e2b0ac0dd7ca828224eb0c3aebac5415e714c0c3e"
+    },
+    "main": {
+      "image": "distorx/main.png",
+      "caption": "DISTORX: main parameter page.",
+      "remix": "distorx",
+      "source": "emulator panel UART",
+      "firmware_sha256": "35c12958d83d93f97b0f5d5e2b0ac0dd7ca828224eb0c3aebac5415e714c0c3e"
+    }
+  },
   "octa303": {
     "source": {
       "image": "octa303/source.png",
@@ -904,6 +920,22 @@
       "remix": "cxosc",
       "source": "emulator panel UART",
       "firmware_sha256": "47560f6033490386b25b9ff3feac5502b3de03dc70f9faaec7d17a463f249a99"
+    }
+  },
+  "devilish": {
+    "setup": {
+      "image": "devilish/setup.png",
+      "caption": "DEVILISH: effect selection and setup parameters.",
+      "remix": "devilish",
+      "source": "emulator panel UART",
+      "firmware_sha256": "ed50ef7d8f6a5e5fad1e6726ab8c1a816d1a7e4ebb6ea947fa932daf8b00f13a"
+    },
+    "main": {
+      "image": "devilish/main.png",
+      "caption": "DEVILISH: main parameter page.",
+      "remix": "devilish",
+      "source": "emulator panel UART",
+      "firmware_sha256": "ed50ef7d8f6a5e5fad1e6726ab8c1a816d1a7e4ebb6ea947fa932daf8b00f13a"
     }
   }
 }
