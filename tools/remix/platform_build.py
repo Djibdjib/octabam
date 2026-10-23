@@ -277,6 +277,12 @@ def preboot_layout(layout, entries):
                  for sym, (a, n) in layout.get('regions', {}).items()]
     result = []
     for entry in entries:
+        # An entry that names its own DRAM region (`region`: the symbol, as
+        # the DSP tail's copy of a payload does) must lie wholly inside it,
+        # and is exempt from that region's claim and from nothing else.
+        own = entry.get('region')
+        if own is not None and own not in layout.get('regions', {}):
+            raise ValueError(f"pre-boot {entry['name']}: no DRAM region {own}")
         for role, length in (('dst', entry['rawlen']), ('stage', len(entry['blob']))):
             start = entry[role]
             if 0x48000000 <= start < 0x50000000:
@@ -285,7 +291,14 @@ def preboot_layout(layout, entries):
             name = entry['name'] + ' ' + role
             if length <= 0 or not layout['base'] <= start < end <= layout['ceiling']:
                 raise ValueError(f'pre-boot {name} lies outside the platform arena')
+            if own is not None:
+                lo, n = layout['regions'][own]
+                if not lo <= start < end <= lo + n:
+                    raise ValueError(f'pre-boot {name} ({start:#x}..{end:#x}) is not inside '
+                                     f'its DRAM region {own} ({lo:#x}..{lo + n:#x})')
             for other, lo, hi in occupied:
+                if other == f'DRAM region {own}':
+                    continue
                 if start < hi and lo < end:
                     raise ValueError(f'pre-boot {name} overlaps {other}: {start:#x}..{end:#x}')
             occupied.append((name, start, end))
