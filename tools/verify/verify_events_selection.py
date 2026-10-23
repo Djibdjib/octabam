@@ -3,7 +3,9 @@
 from dataclasses import replace
 from itertools import combinations
 from pathlib import Path
+import os
 import runpy
+import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -90,6 +92,12 @@ def main():
             raise AssertionError('selection changed module identity')
     finally:
         registry.modules()['EVENTS'] = old
+    # The boot verifier must use the bound units, even when out/platform still
+    # contains a previous remix's runtime. Empty EVENTS has nothing to load.
+    boot = subprocess.run([sys.executable, str(ROOT / 'tools/verify/verify_dram_boot.py')],
+                          env=dict(os.environ, REMIX='events-empty'),
+                          capture_output=True, text=True, check=True)
+    assert 'carries no DRAM payload' in boot.stdout, boot.stdout
     print(f'[ok] {cases} event subsets: exact hooks and assembled entries, empty/real selections; {len(invalid)} invalid registrations refused')
 
 
