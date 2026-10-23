@@ -911,6 +911,7 @@ def main():
              "stems-brain": (),   # STEM REC under PROJECT + BRAIN/REMIX SWITCH; no DSP words
              "octa303": (), "rec-threshold": (), "buffer-saver": (), "plocks-p2": (), "scenes-midisc": (), "kits": (),
              "persistent-buffers": (),   # STORE + PERSISTENT BUFFERS on the stock effects, no DSP words
+             "morph": (),   # STORE + MORPH on the stock effects, no DSP words
              "analog-bassdrum": ("SPRING REV",),
               "blackpyramids-303": ("SPRING REV",),   # its DSP voice in SPRING's words, as ANALOG BD's
              "sidechain-compressor": ("SPRING REV",), "kyoti-mute-sidechain": ("SPRING REV",),   # its DSP section in SPRING's words
