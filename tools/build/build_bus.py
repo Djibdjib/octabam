@@ -1462,7 +1462,8 @@ def main():
         return platform_build.build(
             [(_m.key, _u) for _m, _u in _dram], [], pathlib.Path("out/platform"),
             reserve=reserve, defsyms=_d, unit_defs=_ud, includes=_incs,
-            regions=_regions, early=[_u for _m, _u in _early], fixed=_fixed, **kw)
+            regions=_regions, early=[_u for _m, _u in _early], fixed=_fixed,
+            preboot_slots=1 if _tail else 0, **kw)
 
     _FIT = ("does not fit its arena reserve", "past the reserve's ceiling", "above DRAM region")
     _reservations = []
