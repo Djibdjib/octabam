@@ -887,6 +887,8 @@ def cmd_run(a):
                           for r in allr]
                 if m is None:
                     flags, at = ["NO AUDIO CAPTURED"], None
+                    if load and load.get("irq_per_s_median") and load["irq_per_s_median"] < OVERLOAD_IRQ_FRAC * NOMINAL_IRQ_PER_S:
+                        flags.append("OVERLOAD")             # judge() is not reached without audio; the frame rate says it
                 elif e["name"] == "BASE":
                     base_m, flags, at = m, [], None
                 else:
