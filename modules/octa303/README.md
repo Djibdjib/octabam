@@ -159,7 +159,7 @@ instruction differently from the chip.
   toast's note, the battery-backed copy, the stock path on FLEX and MIDI tracks; the slide's note
   from a trig, a slide, the Part, around the end of the pattern, a step already locked, no new step,
   another track).
-- Not yet: `tools/octa303/port_o3keys.py` (the panel under the port) and the unit.
+- ✅ Under the port, `tools/octa303/port_o3keys.py` (the panel, a project, 23 Oct 2026): TRIG 1 + UP 64 → 76 and the toast `C4 +OCT`; FUNC + TRIG 2 a trigless lock with TUNE 76 at once; TRIG 3 + DOWN 64 → 52; a FLEX track's TRIG + UP opens the stock LOCK list and writes no lock; LFO SETUP shows `PB TUNE`.
 
 ### Under the port (✅, `ot_emu`, the user's OS 1.40 image, 19 Oct 2026)
 
@@ -182,6 +182,7 @@ instruction differently from the chip.
   power-cycled and reloaded with the machine and its SETUP values intact; GATE 303 by ear. A 7.5-minute recording (two OCTA-303 tracks, one with `devilish` and
   `distorx`, one with `devilish` and a filter, `distorx` on claps): peak −2.2 dBFS, level steady at
   about −17 dBFS RMS, no dropouts.
+- ✅ v7.1 on the author's MKI, image `O3V71` (BUILD A0, remix `octa303`), 23 Oct 2026, by ear and eye: held trig + UP / DOWN moves the note an octave (several held trigs at once; a note at C5 stays, no toast), `C4 +OCT` on the screen; FUNC + TRIG on the next step makes a slide that ties into the previous note, held and turned to another note it slides there, and + UP lifts it an octave; a FLEX track's TRIG + UP opens the sample list as before; LFO SETUP lists TUNE CUT RES ENV DEC ACC; the locks survive save, power-cycle and reload.
 - ✅ ACIDV71 (BUILD 88, same OCTA303), 20 Oct 2026: two OCTA-303 tracks with `devilish`, beside five
   `distorx` (one on T1): no clicks, no slow-downs, by ear.
 - Not measured: the ColdFire load (CF METER). The author has run three OCTA303 tracks for hours.
