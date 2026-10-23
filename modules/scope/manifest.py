@@ -21,8 +21,8 @@ MODULE = Module(
     category=Category.UTILITIES,
     author="ilia-murzinov",
     author_url="https://github.com/ilia-murzinov",
-    proof=Proof.CHECK,
-    proof_note="port: make check REMIX=test/scope; unit tip LSCOPE BH (OSC/XY/ALL 4x2) under test 23 Oct 2026",
+    proof=Proof.HARDWARE,
+    proof_note="MKII: LSCOPE BH 23 Oct 2026 (OSC/XY/ALL 4×2 T1 top, clip !, G/P HUD); also make check REMIX=test/scope",
     doc="DOWN+TEMPO OSC/XY/ALL; UP/DOWN switch; A GAIN B TIME; bridges TUNER.",
     requires=("TUNER",),
     overrides=(

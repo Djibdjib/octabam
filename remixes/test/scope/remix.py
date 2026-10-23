@@ -5,8 +5,8 @@ from remix.schema import Proof, Remix
 REMIX = Remix(
     name="scope",
     family="mods",
-    proof=Proof.CHECK,
-    proof_note="port: make check REMIX=test/scope; unit tip LSCOPE BH under test 23 Oct 2026",
+    proof=Proof.HARDWARE,
+    proof_note="MKII: LSCOPE BH 23 Oct 2026; also make check REMIX=test/scope",
     doc="stock effects with SCOPE + TUNER (shared TEMPO detours).",
     modules=(
         "TUNER",

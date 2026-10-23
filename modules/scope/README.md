@@ -1,7 +1,8 @@
 # `scope` — SCOPE
 
 Full-screen **OSC**, **XY**, or **ALL** (4×2 mini OSC: T1–T4 left column,
-T5–T8 right, centre divider).
+T5–T8 right, centre divider). Use it to see which tracks are actually
+making sound and to catch clipping before it hits the main out.
 
 **DOWN + TEMPO** opens; **UP + TEMPO** = [TUNER](../tuner/README.md).
 **UP** / **DOWN** cycle. **RIGHT** help; **LEFT** back.
@@ -11,8 +12,10 @@ T5–T8 right, centre divider).
 |---|---|---|---|
 | **OSC** / **XY** / **ALL** | GAIN | TIME | — |
 
-XY is a hotter scale than OSC. ALL cells follow the panel track pad layout.
+XY is a hotter scale than OSC. ALL cells follow the panel track pad layout
+(T1 top-left).
 
-**Measured:** `make check REMIX=test/scope` (port). **Inferred:** live
-waveform needs track audio; quiet under the emulator live path (like
-TUNER `--`). Not `Proof.HARDWARE` until a named tip is confirmed on unit.
+**Measured (hardware, author MKII):** `LSCOPE BH` — 23 Oct 2026 — OSC /
+XY / ALL (4×2, T1 top), clip `!`, G/P HUD, DOWN+TEMPO / UP+TEMPO TUNER.
+**Measured (port):** `make check REMIX=test/scope`. **Inferred:** emu
+`live_shots` ring stays quiet without track audio (like TUNER `--`).
