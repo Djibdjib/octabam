@@ -937,5 +937,21 @@
       "source": "emulator panel UART",
       "firmware_sha256": "20a95c603255f608e4b4ff06e8811d4c985d6b95bd22982ae0a426ff5611f508"
     }
+  },
+  "devilish": {
+    "setup": {
+      "image": "devilish/setup.png",
+      "caption": "DEVILISH: effect selection and setup parameters.",
+      "remix": "devilish",
+      "source": "emulator panel UART",
+      "firmware_sha256": "ed50ef7d8f6a5e5fad1e6726ab8c1a816d1a7e4ebb6ea947fa932daf8b00f13a"
+    },
+    "main": {
+      "image": "devilish/main.png",
+      "caption": "DEVILISH: main parameter page.",
+      "remix": "devilish",
+      "source": "emulator panel UART",
+      "firmware_sha256": "ed50ef7d8f6a5e5fad1e6726ab8c1a816d1a7e4ebb6ea947fa932daf8b00f13a"
+    }
   }
 }
