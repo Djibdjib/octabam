@@ -84,6 +84,7 @@ nav:
       - Varispeed: reference/modules/varispeed.md
   - Kits and Scenes:
       - Kits: reference/modules/kits.md
+      - Morph: reference/modules/morph.md
       - MIDI Part State: reference/modules/midi-part-state.md
       - MIDI Scenes: reference/modules/midi-scenes.md
       - Page 2 Scene Locks: reference/modules/scenes-p2.md
