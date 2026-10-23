@@ -23,7 +23,7 @@ MODULE = Module(
     key="PLOCKS P2",
     kind=Kind.CF_PATCH,
     category=Category.MACHINES, author="sambanks", author_url="https://github.com/sambanks",
-    proof=Proof.HARDWARE, proof_note="cursory testing on Sam's MKII (owner report, 16 Oct 2026); Core P4 on radiohagen's MKII (17 Oct); EDIT EVENTS held-edit/copy paths on radiohagen's MKII, Core PLK858 (22 Oct); scoped operator report",
+    proof=Proof.HARDWARE, proof_note="cursory testing on Sam's MKII (owner report, 16 Oct 2026); Core P4 on radiohagen's MKII (17 Oct); EDIT EVENTS held-edit/copy paths on radiohagen's MKII, Core PLK858 (22 Oct); scoped operator report; shared EVENTS migration is software-only, not hardware-tested",
     doc="Parameter locks on FX1/FX2 page 2 (hold trigs, turn a knob on the SETUP page).",
     linked=(Linked("p2locks", "modules/plocks-p2/p2locks.s", dram=True),),
     detours=(
@@ -65,7 +65,7 @@ MODULE = Module(
         Detour(0x4002CB52, H("d1fc1001614f"), "p2locks", "plk_tpaste",
                "trig paste: page 2 from the buffer's mirror", kind="jmp", pad_to=6),
     ),
-    requires=("SCENES P2", "STORE", "EDIT EVENTS"),
+    requires=("SCENES P2", "STORE", "EVENTS"),
     # NV copy of the current bank's page 2 in CS1 (battery SRAM), nv_save in
     # p2locks.s: 0x100f8600..0x100fbdf0, unused by stock beyond its whole-CS1 init.
     claims=Claims(sram=((0x100f8600, 0x100fbdf0 - 0x100f8600, "P2NV bank copy in CS1"),)),

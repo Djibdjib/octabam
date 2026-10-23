@@ -876,7 +876,7 @@ mc_t:   subil   #STORE,%d0
 mc_out: movem.l %sp@,%d2-%d4
         lea     %sp@(12),%sp
 mc_stock:
-        rts                          | EDIT EVENTS owns the native copy
+        rts                          | EVENTS owns the native copy
 
 | p2loc: d0 = an address -> a0 = the page-2 track block that mirrors it
 | (a track's start in a bank's patterns, the clipboard or the undo

@@ -1,7 +1,7 @@
 # `plocks-p2` — PLOCKS P2
 
 Parameter locks on page 2 of FX1 and FX2. `Kind.CF_PATCH`: one DRAM
-unit with module-specific hooks, nothing on the DSP. Requires SCENES P2, STORE and EDIT EVENTS; shared editor/copy hooks belong to EDIT EVENTS.
+unit with module-specific hooks, nothing on the DSP. Requires SCENES P2, STORE and EVENTS; shared editor/copy hooks belong to EVENTS.
 
 ## Use
 
@@ -157,4 +157,7 @@ file routines' own entries (`0x40090504`, `0x400905d4`, `0x400909d8`,
 call sites, so the two share no site. Its CS1 ranges (`0x100f85a0..e8`,
 `0x100ffe00..ff00`) and MIDI SCENES' (`0x100fbdf0..0x100ffe00`) sit on either side of this module's.
 
-PLOCKS P2 requires EDIT EVENTS for held-step dispatch and pattern/track copy notifications. Other selected editors register independently; no pair-specific bridge is needed.
+PLOCKS P2 requires EVENTS for held-step dispatch and pattern/track copy notifications. Other selected editors register independently; no pair-specific bridge is needed.
+
+The shared EVENTS migration has software coverage only. The earlier hardware
+reports above describe the separate EDIT EVENTS image, not this implementation.

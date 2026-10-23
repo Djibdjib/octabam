@@ -1,0 +1,118 @@
+# EVENTS
+
+System owner of shared native event boundaries. Select **EVENTS** once; clients
+declare `requires=('EVENTS',)` and register only the events they consume.
+EUCLID uses transport notifications. PLOCKS P2 uses held-edit ownership and
+copy notifications. The module adds no controls, persistent data or FX slots.
+
+This replaces **SEQUENCER EVENTS** and **EDIT EVENTS**. Existing remix selections
+must replace either old key with `EVENTS` (once if both were selected).
+The independent EDIT EVENTS proposal remains in
+[PR #858](https://github.com/sambanks/octabam/pull/858); this consolidation is
+a separate change. No client storage format or musical policy changes here.
+
+## Register by contract
+
+`manifest.py` groups registrations in `CLIENTS`, with one list per family:
+
+```python
+CLIENTS = {
+    'transport': (('EUCLID', 'eu_seq', ('start', 'resume')),),
+    'midi': (),
+    'edit': (('PLOCKS P2', 'plk_ed', ('held', 'copy_pre')),),
+}
+```
+
+Each entry is `(module key, callback prefix, handled events)`. A client may
+register in several families. Prefixes must yield unique callback symbols;
+invalid events, duplicate clients within a family, duplicate callbacks and
+invalid assembler names fail at build time, even for absent clients.
+Missing callback implementations fail linking.
+
+| Family / event | Contract and timing |
+| --- | --- |
+| `transport.start` | Notify all: d0 = native PLAYING value, after its fresh-start write |
+| `transport.resume` | Notify all: d0 = native PLAYING value, after its resume write |
+| `midi.note_accepted` | Notify all: d0 = MIDI track 0–7, d1 = native pool kind, d2 = packet velocity, d3 = packet note; after the sender returns, before ownership bookkeeping |
+| `edit.held` | First owner: `<prefix>_claim(d0=encoder, d1=delta)` returns zero to pass or nonzero to select `<prefix>_handle` with the original native entry frame |
+| `edit.copy_pre` | Notify all: d0 = destination, d1 = source, d2 = length; before exactly one native copy with its original arguments |
+
+Notification symbols are `<prefix>_<event>` (for example `eu_seq_start` or
+`observer_note_accepted`). Family names describe contracts; there is no runtime
+event-number switch or universal callback ABI. `sequencer.s` implements timing
+notifications, `edit.s` implements editor ownership and copies, and `frame.inc`
+holds only their common register-save contract.
+
+Callbacks run synchronously in registration order, may clobber d0–d7/a0–a6,
+and must preserve SP and the interrupt mask. Arguments are reloaded before
+every callback, independently of earlier clients. Native registers and condition
+codes are restored before continuation. All saved frames are stack-local;
+dispatch stack depth does not grow with the number of clients.
+
+Transport/MIDI callbacks must not emit MIDI, re-enter the sequencer, or modify
+the native MIDI packet or ownership records. Acceptance describes the firmware
+boundary, not UART delivery or reception by an external device. It is per
+accepted voice, including chords and ownership replacement, not a chord-root
+event. Pool kind is passed through unchanged (1 is the live arp pool). Rejected
+and zero-velocity native notes bypass these boundaries; note-offs, CCs, MIDI
+input, pause and STOP are not events.
+
+Held predicates must be read-only. The first matching predicate wins; its
+handler receives the untouched native function frame. No match falls through
+to the native editor exactly once. New editors must define their context and
+test overlap with existing owners. Neither predicates nor handlers may re-enter
+held dispatch. Copy observers own their side data and filter addresses/lengths
+themselves; native memcpy runs once after all observers. Trig clear/paste hooks
+remain feature-owned. Persistence remains STORE's responsibility.
+
+## Selection and performance
+
+`Module.select` is applied in `registry.bound()` before claims, linking and
+installation. EVENTS chooses each event's detours independently and links only
+the source units needed by selected subscribers. Assembly omits every unused
+entry point. Consequently:
+
+- No clients: no event code, tables or hooks; zero runtime overhead.
+- PLOCKS only: 21 editor/copy hooks, no transport or MIDI hooks.
+- EUCLID only: two transport hooks, no MIDI or editor hooks.
+- Both: 23 hooks, no MIDI hooks (there is currently no production MIDI client).
+
+Active dispatch uses generated direct calls. There are no null checks, pointer
+tables, indirect callback calls or registration loops on a live event. One
+client pays one direct callback call; each additional notification client adds
+argument reloads and one call. Code size grows linearly with subscriber count;
+stack depth stays constant. This favors small, fixed firmware compositions.
+
+The assembled editor fixture measures the following instruction counts,
+excluding the entry instruction and client/native bodies. Held fallthrough
+includes the two displaced native prologue instructions:
+
+| Clients | Previous copy dispatcher | EVENTS copy | Previous held fallthrough | EVENTS held fallthrough |
+| --- | ---: | ---: | ---: | ---: |
+| 0 | 29 | 0 | 16 | 2 (stock prologue) |
+| 1 | 37 | 13 | 28 | 16 |
+| 3 | 53 | 21 | 52 | 26 |
+
+The old counts are from EDIT EVENTS in PR #858. Zero-client EVENTS has no
+dispatcher: tests execute stock code. Empty transport and MIDI paths execute
+one stock instruction at each former detour, versus the previous three/four
+instructions, respectively. These are emulator instruction counts, **not**
+ColdFire cycles, elapsed time, hardware CPU headroom or MIDI latency.
+
+## Verification boundary
+
+`verify_system_events.py` executes production assembly with zero/one/three
+synthetic clients, independent transport subscriptions, and native MIDI packet
+construction/arbitration. `verify_edit_events.py` checks first-owner precedence,
+native fallback, register/stack/condition-code preservation, callback ordering,
+copy results and counts. Synthetic callbacks deliberately clobber registers.
+`verify_events_selection.py` checks all 32 event subsets, absent code/hooks,
+invalid registrations and the registry's bound real-client selections.
+`verify_event_clients.py` checks executable callbacks, exclusive installed hook
+ownership and stock bytes at every unused boundary in each built image.
+
+EUCLID and PLOCKS retain their own behavior gates. No hardware run has tested
+this combined implementation. Earlier SEQUENCER EVENTS/EUCLID and EDIT EVENTS/
+PLOCKS MKII reports remain historical evidence for those earlier images only.
+Add further events only with an audited native boundary, a precise contract,
+and both dispatcher and installed-image tests.

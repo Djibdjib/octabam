@@ -31,7 +31,7 @@ them. SAVE PROJECT writes them and a power cycle loads them back.
   more has no power-cut copy: a power cut loses its unsaved page-2 locks
   back to the last save.
 
-EDIT EVENTS coordinates held-step editing and clipboard/undo copying for
+EVENTS coordinates held-step editing and clipboard/undo copying for
 registered extensions. PLOCKS P2 is its first client. This adds no controls.
 
 Core PLK858/build 98: held edits and copy/undo checked on an MKII, 22 October
