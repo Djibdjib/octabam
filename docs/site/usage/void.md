@@ -29,7 +29,8 @@ stamp defaults after flashing.
 - **COLR** / **HPF** — darken or thin the **noise** only; dry is untouched.
   COLR open (127) is bright; HPF 0 bypasses.
 - **SRC** (SETUP): **LFO** (default) uses RATE/SHPE; **NBR** AM’s the **noise**
-  from the previous track’s keybus — quiet → noise stops (RATE idle).
+  from the previous track’s keybus — quiet → noise stops (RATE idle). On
+  track 1, NBR reads T1’s own keybus lane (`Y:$800`) — it follows itself.
 - **DPTH** (SETUP): same in both modes — how hard the modulator opens the noise.
 - **WID** (SETUP): stereo grit from a second noise through the same
   HPF/COLR/DRV (no FDBK) and AM — `L/R = mid ± (w/2)·side` (mono keeps
