@@ -1632,6 +1632,36 @@ o3_name_pick:
         move.l  (%a0,%d0.l*4),%d1
         rts
 
+| o3_lfo_name -- Detour 0x4003bff0 (`mvs.b (a0),d0; lea 0x400d5f38,a0`, 8 bytes) in the LFO PMTR
+| formatter 0x4003bf64 (the LFO SETUP destination, read 23 Oct 2026 from the user's 1.40C): for a
+| PLAYBACK destination it takes the track's machine (a0 = Part + 0x8eda2 + track, d1 = the track)
+| and indexes PB_TABLE, so an OCTA-303 track (stored FLEX) drew FLEX's PTCH STRT LEN RATE RTRG
+| RTIM.  On a signed track the machine's record goes to a2 (its names TUNE CUT RES ENV DEC ACC,
+| as o3_page gives the SRC page) and the formatter resumes after its own lookup, 0x4003c058;
+| every other track: the displaced instructions and 0x4003c054.  The formatter keeps d1 (the
+| track), d2 (the slot) and a4 (the buffer) across here; scratch d0, a0, a1.
+o3_lfo_name:
+        mvs.b   (%a0),%d0               | displaced: the machine
+        moveq   #1,%d3
+        cmp.l   %d3,%d0                 | FLEX
+        bne     .Llf_stock
+        move.l  %d1,-(%sp)
+        suba.l  %d1,%a0
+        suba.l  #0x22,%a0               | Part' (Part + 0x8ed80)
+        move.l  %d1,%d0
+        bsr     o3_sig                  | (clobbers d1)
+        beq     .Llf_flex
+        bsr     o3_mdesc                | d0 = the machine's record (keeps d2, a2, a3)
+        move.l  (%sp)+,%d1
+        movea.l %d0,%a2
+        jmp     0x4003c058
+.Llf_flex:
+        move.l  (%sp)+,%d1
+        moveq   #1,%d0
+.Llf_stock:
+        lea     PB_TABLE,%a0            | displaced
+        jmp     0x4003c054
+
 | o3_setup_row -- Detour 0x4003c980 (`mvs.b (a0),d0; lea 24(sp),sp`): the row SRC SETUP highlights.
 o3_setup_row:
         mvs.b   (%a0),%d0

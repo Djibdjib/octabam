@@ -608,6 +608,23 @@ def mpage(signed, path='/AUDIO/KICK.WAV'):
     return c.d[0] - c.consts['o3_desc'] if c.d[0] != FLEX_P else 'stock', kept and bool(done)
 check('page_machine_gets_its_record', mpage(True) == (0x194, True) and mpage(True, '/AUDIO/TB303.WAV') == (0x194, True)
       and mpage(False) == ('stock', True) and mpage(False, '/AUDIO/TB303.WAV') == (0, True))
+def lfoname(signed, machine=1):
+    """o3_lfo_name at 0x4003bff0 in the LFO PMTR formatter: a0 = Part + 0x8eda2 + track, d1 = track."""
+    rig = Rig(); c = rig.cpu; m = c.mem
+    for i in range(0x192): m.w(FLEX_P + i, 'b', (i * 7 + 3) & 0xFF)
+    part, track = 2, 5; P = PP(part); m.w(P + 0x22 + track, 'b', machine)
+    for i, x in enumerate(b'TB\x01' if signed else b'\0\0\0'): m.w(P + 0x3c + 30 * track + i, 'b', x)
+    c.a[0] = P + 0x22 + track; c.d[1] = track; c.d[2] = 4; c.a[2] = 0x6602; c.a[4] = 0x6604
+    c.a[7] = STACK; out = []
+    c.hooks[0x4003c058] = lambda cpu: out.append(('rec', cpu.a[2]))
+    c.hooks[0x4003c054] = lambda cpu: out.append(('stock', cpu.a[0], cpu.d[0]))
+    c.call('o3_lfo_name')
+    kept = c.d[1] == track and c.d[2] == 4 and c.a[4] == 0x6604 and c.a[7] == STACK
+    return out[0] if out else None, kept
+_r, _k = lfoname(True)
+check('lfo_names_machine_record', _k and _r[0] == 'rec' and _r[1] == Rig().cpu.consts['o3_desc'] + 0x194, str(_r))
+check('lfo_names_flex_and_others_stock', lfoname(False) == (('stock', TABLE, 1), True)
+      and lfoname(False, machine=2) == (('stock', TABLE, 2), True), str((lfoname(False), lfoname(False, 2))))
 def mchrom(signed, idx=0):
     rig = Rig(); c = rig.cpu; m = c.mem; part, track = 2, 3
     m.w(0x46c82456, 'l', BANK); m.w(0x100b14cf, 'b', part)

@@ -94,6 +94,8 @@ MODULE = Module(
                "point SRC SETUP at six machine names", kind="lea"),
         Detour(0x4003D718, H("41f9400a78c8"), "octa303", "o3_name_a",
                "main page name lookup for the signed TB-303 track"),
+        Detour(0x4003BFF0, H("711041f9400d5f38"), "octa303", "o3_lfo_name",
+               "LFO SETUP's destination names: an OCTA-303 track's PLAYBACK row from the machine's record"),
         Detour(0x4004C36A, H("41f9400a78c8"), "octa303", "o3_name_b",
                "second main page name lookup for the signed TB-303 track"),
         Detour(0x4003C980, H("71104fef0018"), "octa303", "o3_setup_row",
