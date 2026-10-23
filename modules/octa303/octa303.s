@@ -90,10 +90,10 @@
         .set    LANE_FX2P2,     0x38            | FX2 page 2: +0x38..+0x3d
         .set    FXID1,          0x80000ec4      | the live FX1 id of each track, a byte a track (5d)
         .set    FXID2,          0x80000ecc      | FX2
-        .set    XFADER,         0x460d16c8      | v6.7.2: the crossfader, a long 0..127 (MIDI.md Appendix C 2)
-        .set    SCN_WORK,       0x80000ed4      | the scene working copy, 64 B a track, [A_k, B_k] (Appendix C 1)
-        .set    SCN_AOFF,       0x80000006      | scene A disabled (a byte; which flag is A is inferred)
-        .set    SCN_BOFF,       0x80000007      | scene B disabled
+        .set    VREC,           0x80000110      | v7.1: the DSP voice records, 64 B a track + ping * 0x200:
+                                                |   halfwords 6-11 FX1 page 1, 12-17 FX2 page 1, raw << 8, with
+                                                |   the locks, the scene morph and the LFOs (LFO.md 5, MIDI.md C)
+        .set    PINGW,          0x800000e0      | the frame's ping (0 or 1), as the builder's copy loop reads it
         .set    NEUTRAL_PTCH,   0x4000          | 0 semitones
         .set    NEUTRAL_RATE,   0x7f00          | rate 1.0
         .set    NTRACKS,        8
@@ -170,7 +170,7 @@
         .set    S_GEL,288                       | v6.5d: ticks since the START
         .set    S_GEND,292                      | close at 2 * S_GEL >= S_GEND (tps, + 2 tps a tie)
         .set    S_SQTH,296                      | v6.6: the square's duty, a Q32 phase threshold (O3_SQ_TH by pitch)
-        .set    S_DFK,300                       | v6.7.2: dEVILish page 1 after the scene morph (6 bytes)
+        .set    S_DFK,300                       | v7.1: dEVILish page 1 as the DSP gets it (6 bytes, o3_vrec)
         .set    S_UD,308                        | v6.9: the ring's decay by RES, dB/ms Q10 (O3_TB_UD), for FM's per-sample k
         .set    S_SQL,312                       | v6.9: the square's edge lowpass state
         .set    S_ACCVG,316                     | v7.0: the accent VCA gain (ACCV)
@@ -1951,94 +1951,54 @@ o3_blep:
         lsr.l   #7,%d1
         rts
 
+| ============================================================================
+| o3_vrec -- v7.1: dEVILish's page-1 knobs as the DSP gets them.  The frame builder writes the DSP
+| voice record (VREC + ping*0x200 + 64*track) with the locks, then the scene morph, then the LFOs
+| (0x4000cb2a, 0x4000cc.., 0x4000cf40..0x4000d09e), before the packer calls sy_render: so the knobs
+| read here follow locks, scenes, the crossfader and the LFOs.  v6.7.2..v7.0 morphed the lane bytes
+| itself (o3_morph), which the LFOs never reach: an LFO on a dEVILish knob did nothing (the owner's
+| MKI, 21 Oct 2026).  Knob = halfword >> 8, 0..127 (the low byte is an LFO's fraction, LFO.md 5).
+| In: d1 = the lane slot (18 FX1 / 24 FX2), d2 = track, a3 = state.
+| Out: a0 = S_DFK(a3), the six knobs.  Clobbers d0, d1.
+| ============================================================================
+o3_vrec:
+        lea     -12(%sp),%sp
+        movem.l %d3/%a1-%a2,(%sp)
+        move.l  PINGW,%d0
+        moveq   #9,%d3
+        lsl.l   %d3,%d0                 | ping * 0x200
+        move.l  %d2,%d3
+        lsl.l   #6,%d3
+        add.l   %d3,%d0                 | + 64 * track
+        sub.l   #12,%d1                 | lane slot 18 / 24 -> halfword 6 / 12
+        add.l   %d1,%d0
+        add.l   %d1,%d0
+        lea     VREC,%a1
+        add.l   %d0,%a1
+        lea     S_DFK(%a3),%a2
+        moveq   #5,%d3
+.Lvr_lp:
+        mvs.w   (%a1)+,%d0
+        bge     .Lvr_pos
+        moveq   #0,%d0                  | below the floor: 0
+.Lvr_pos:
+        asr.l   #8,%d0
+        moveq   #127,%d1
+        cmp.l   %d1,%d0
+        ble     .Lvr_k
+        move.l  %d1,%d0
+.Lvr_k:
+        move.b  %d0,(%a2)+
+        subq.l  #1,%d3
+        bge     .Lvr_lp
+        lea     S_DFK(%a3),%a0
+        movem.l (%sp),%d3/%a1-%a2
+        lea     12(%sp),%sp
+        rts
+
 | ---- o3_params: this call's record words, and dEVILish's twelve knobs on this track (from the FX
 |      slot that holds it, locks applied) or the neutral twelve.  d2 = track, a4 = FP.
 |      Clobbers d0, d1, a0, a1 (a2 saved).
-| ============================================================================
-| o3_morph -- v6.7.2: dEVILish's page-1 knobs through the scenes and the crossfader, as the frame
-| builder morphs the DSP-bound copy for every effect (MIDI.md Appendix C): the lane holds the knobs
-| with the locks, never the morph, so a scene lock on a dEVILish knob moved the screen, not the 303.
-| Per knob K (lane byte), A and B (the working copy's pair for lock slot d1 + i; negative = no lock,
-| a disabled scene = no locks):  A := K, B := K where unlocked;  (A*w + B*(32768 - w) + 16384) >> 15,
-| w = xf * 258 (xf = 127: scene A, 0: scene B).  Unlocked on both sides = K exactly.
-| In: a0 = the lane's page 1, d1 = its lock slot (18 / 24), d2 = track, a3 = state.
-| Out: a0 = S_DFK(a3), the six morphed knobs.  Clobbers d0, d1.
-| ============================================================================
-o3_morph:
-        lea     -24(%sp),%sp
-        movem.l %d3-%d6/%a1-%a2,(%sp)
-        move.l  XFADER,%d4
-        tst.l   %d4
-        bge     .Lmo_x0
-        moveq   #0,%d4
-.Lmo_x0:
-        moveq   #127,%d0
-        cmp.l   %d0,%d4
-        ble     .Lmo_x1
-        move.l  %d0,%d4
-.Lmo_x1:
-        move.l  #258,%d0
-        muls.l  %d0,%d4                 | w = xf * 258 (Q15; 127 -> 32766)
-        moveq   #0,%d6                  | bit 0: A disabled, bit 1: B disabled
-        tst.b   SCN_AOFF
-        beq     .Lmo_a
-        moveq   #1,%d6
-.Lmo_a:
-        tst.b   SCN_BOFF
-        beq     .Lmo_b
-        addq.l  #2,%d6
-.Lmo_b:
-        move.l  %d2,%d0                 | the pairs: SCN_WORK + 64 * track + 2 * slot
-        lsl.l   #6,%d0
-        add.l   %d1,%d0
-        add.l   %d1,%d0
-        lea     SCN_WORK,%a1
-        add.l   %d0,%a1
-        lea     S_DFK(%a3),%a2          | the output (a2, the page-2 pointer, saved)
-        moveq   #0,%d5                  | i
-.Lmo_lp:
-        moveq   #0,%d3                  | K, clamped 0..127
-        move.b  (%a0,%d5.l),%d3
-        cmp.l   #127,%d3
-        bls     .Lmo_k
-        moveq   #127,%d3
-.Lmo_k:
-        mvs.b   (%a1)+,%d0              | A
-        btst    #0,%d6
-        beq     .Lmo_1
-        moveq   #-1,%d0
-.Lmo_1:
-        tst.l   %d0
-        bge     .Lmo_2
-        move.l  %d3,%d0
-.Lmo_2:
-        mvs.b   (%a1)+,%d1              | B
-        btst    #1,%d6
-        beq     .Lmo_3
-        moveq   #-1,%d1
-.Lmo_3:
-        tst.l   %d1
-        bge     .Lmo_4
-        move.l  %d3,%d1
-.Lmo_4:
-        muls.l  %d4,%d0                 | A * w
-        move.l  #32768,%d3
-        sub.l   %d4,%d3
-        muls.l  %d3,%d1                 | B * (32768 - w)
-        add.l   %d1,%d0
-        add.l   #16384,%d0
-        moveq   #15,%d3
-        asr.l   %d3,%d0
-        move.b  %d0,(%a2)+
-        addq.l  #1,%d5
-        moveq   #6,%d0
-        cmp.l   %d0,%d5
-        blt     .Lmo_lp
-        lea     S_DFK(%a3),%a0
-        movem.l (%sp),%d3-%d6/%a1-%a2
-        lea     24(%sp),%sp
-        rts
-
 o3_params:
         bsr     o3_setup                | v7.0: FINE before the pitch words
         moveq   #0,%d0
@@ -2076,7 +2036,7 @@ o3_params:
         add.l   %d0,%a0
         lea     32(%a0,%d1.l),%a2       | page 2 = page 1 + 32 (0x32 - 18 = 0x38 - 24), both slots
         add.l   %d1,%a0
-        bsr     o3_morph                | v6.7.2: page 1 through the scenes and the crossfader
+        bsr     o3_vrec                 | v7.1: page 1 as the DSP gets it (locks, scenes, LFOs)
 .Lp_have:
         KB      0,%a0                   | OVDR
         TAB     O3_DF_GIN,S_GIN
