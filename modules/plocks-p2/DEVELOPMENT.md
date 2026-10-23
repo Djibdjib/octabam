@@ -131,7 +131,7 @@ or verification thresholds are changed by this contribution.
 
 ## EDIT EVENTS hardware results, 22 October 2026
 
-radiohagen, Octatrack, `octabam-core`, build 98, `PLK858`.
+radiohagen, Octatrack MKII, `octabam-core`, build 98, `PLK858`.
 Source `0c9b81f90b5ef5436297c3c741383c90b6570b3d`; tested MAIN OS / RMX SHA-256:
 `4aa41530d96ecb04b224253f00000ab1f02fd5307bd320cdaa0bd9748347431b`.
 
@@ -143,4 +143,8 @@ Operator-reported passes:
 - Tracks: T1-to-T2 paste, immediate undo, repaste and clear/undo preserve expected trigs/locks without changing T1.
 - Patterns: copy carries both tracks' locks; clear/undo and ten repeated clear/undo pairs restore checked trigs/locks.
 
-These cover Core editor/copy paths; physical latency was not measured.
+These cover Core editor/copy paths. Track and pattern operations exercise
+clipboard and undo-buffer transfers through EDIT EVENTS; trig copy/paste
+and lock clear/undo use PLOCKS' own hooks. Individual detour addresses and
+physical latency were not instrumented. Bus, Inserts and CX OSC have software
+coverage only for this migration.

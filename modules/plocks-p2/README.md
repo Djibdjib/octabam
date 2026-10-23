@@ -42,7 +42,7 @@ Image A0 (`bottleservice`, `CHANGELOG.md`) carries PLOCKS P2; `p2lk01.work` was 
 radiohagen tested the Core P4 build on an MKII on 17 October, including
 hold/edit/release/rehold and perceived page-one hold timing; see
 [contribution notes](DEVELOPMENT.md). Those reports predate EDIT EVENTS.
-Core PLK858/build 98: radiohagen reported FX1/FX2 held-edit, native fallback
+Core PLK858/build 98 on an MKII: radiohagen reported FX1/FX2 held-edit, native fallback
 and trig/track/pattern checks on 22 October 2026; see
 [EDIT EVENTS results](DEVELOPMENT.md#edit-events-hardware-results-22-october-2026).
 Refused-file prompts and `.bak` copies are not covered by these panel reports.

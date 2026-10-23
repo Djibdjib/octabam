@@ -29,7 +29,7 @@ def edit_inc(modules, remix=None):
 MODULE = Module(
     name='edit-events', key='EDIT EVENTS', kind=Kind.CF_PATCH,
     category=Category.PARTS, author='radiohagen',
-    author_url='https://github.com/radiohagen', proof=Proof.CHECK, proof_note='Assembled dispatcher tests (0/1/3 clients); 21 installed hooks and three PLOCKS callbacks checked; held-edit/copy paths on radiohagen’s Octatrack, Core PLK858 (22 Oct 2026)',
+    author_url='https://github.com/radiohagen', proof=Proof.CHECK, proof_note='Assembled dispatcher tests (0/1/3 clients); 21 installed hooks and three PLOCKS callbacks checked; held-edit/copy paths on radiohagen’s MKII, Core PLK858 (22 Oct 2026)',
     doc='Platform: held-step editor routing and pattern/track copy notifications.',
     linked=(Linked('editevents', 'modules/edit-events/events.s', dram=True, include=edit_inc),),
     gates=(Gate('tools/verify/verify_edit_events.py', once=True, venv=True),

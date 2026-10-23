@@ -21,7 +21,7 @@ STOCK14 = ("FILTER", "EQUALIZER", "DJ EQ", "PHASER", "FLANGER", "CHORUS", "SPATI
 
 REMIX = Remix(
     name="octabam-core",
-    family="mods", proof=Proof.PORT, proof_note="cursory testing on Sam's MKII (owner report, 16 Oct 2026); EDIT EVENTS held-edit/copy paths on radiohagen's Octatrack, PLK858 (22 Oct); scoped operator report",
+    family="mods", proof=Proof.HARDWARE, proof_note="cursory testing on Sam's MKII (owner report, 16 Oct 2026); EDIT EVENTS held-edit/copy paths on radiohagen's MKII, PLK858 (22 Oct); scoped operator report",
     doc="The core ColdFire modules on the 14 stock effects, with LOFI AMF FIX.",
     modules=CORE + ("LOFI AMF FIX",) + STOCK14,
     fallback="NONE",

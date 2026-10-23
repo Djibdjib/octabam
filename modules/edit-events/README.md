@@ -44,12 +44,27 @@ held fallthrough 16/28/52. Counts exclude client/native-copy bodies and the
 entry jump; held counts include the two displaced native instructions.
 These are instruction counts, not physical timing measurements.
 
+The old `plk_memcpy` had one tail jump after the mirror work. With PLOCKS,
+that work now returns to a six-instruction adapter plus the 37-instruction
+dispatcher: **43 extra instructions per copy-site invocation**. Assembled
+old/new paths (baseline `ff9c5f84`) give these counts, including mirror work:
+
+| Transfer | Old track | New track | Old pattern | New pattern |
+| --- | ---: | ---: | ---: | ---: |
+| Bank → clipboard | 680 | 723 | 4718 | 4761 |
+| Clipboard → bank | 681 | 724 | 4719 | 4762 |
+| Undo → bank | 683 | 726 | 4721 | 4764 |
+
+Counts exclude the unchanged caller, native memcpy and `nv_touch` bodies;
+copy results and `nv_touch` call counts match. The 29/37/53 dispatcher-only
+counts above exclude the PLOCKS adapter and mirror work.
+
 Only `held` and `copy_pre` ship, both consumed by PLOCKS. There is no sequencer
 note dispatch. `verify_edit_event_clients.py` checks 21 installed hooks and
 three executable callbacks; `verify_plocks_p2.py` covers real-client panel,
 copy, playback and persistence behavior under the port. The claims ledger
 rejects competing hook owners; dispatch selects one handler or native fallback.
 
-Hardware: radiohagen, Octatrack, Core PLK858/build 98, 22 October 2026:
+Hardware: radiohagen, Octatrack MKII, Core PLK858/build 98, 22 October 2026:
 FX1/FX2 held edits, multiple steps, native page-one/MIDI fallback and
 trig/track/pattern operations passed. [Observed cases and image identity](../plocks-p2/DEVELOPMENT.md#edit-events-hardware-results-22-october-2026).
