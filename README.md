@@ -22,6 +22,14 @@ form (`.github/ISSUE_TEMPLATE/`) asking for the remix, image build,
 hardware model and steps to reproduce.
 The licence is MIT.
 
+## Unofficial firmware
+
+This is unofficial firmware, not made, endorsed or supported by Elektron.
+Flashing it is generally safe and can be reverted by flashing the stock OS
+again ([BUILDING.md](docs/guide/BUILDING.md) section 7). Elektron is not
+responsible for any damage to your Octatrack. See
+[Before you flash anything](#before-you-flash-anything).
+
 ## Start here
 
 | you want to | read |
@@ -65,7 +73,8 @@ from the card (section 5).
 | [**BBD**](modules/bbd/README.md) | [JamCones](https://github.com/JamCones) | Clocked BBD delay: compander, clock/3 filters, bucket noise, freeze, governor; FX2. | on hardware: JamCones' MKII, BBDOB4 (remixes/test/bbd, BUILD 4), 17 Oct 2026 |
 | [**CHARACTER**](modules/character/README.md) | [sambanks](https://github.com/sambanks) | FX1 station: fold, saturation, tilt, compressor, width. | on hardware: Sam's MKII |
 | [**CHARACTER TXTR**](modules/character-txtr/README.md) | [sambanks](https://github.com/sambanks) | Character plus TXTR (Airwindows Pockey2): fold, texture, saturation, tilt, compressor, width. | on hardware: cursory testing on Sam's MKII (owner report, 16 Oct 2026) |
-| [**EUCLID**](modules/euclid/README.md) | [repeat98](https://github.com/repeat98) | Euclidean LP/BP/HP/notch/amp sequencer: swing, envelope, gate, random and loop. | on hardware: cursory testing on Sam's MKII (owner report, 16 Oct 2026); its own render gates |
+| [**DISTORX**](modules/distorx/README.md) | [MaMarko](https://github.com/braikomarko-hub) | SD-1 + RAT + Turbo RAT in one insert: MODE picks the pedal (OFF first), a 3 ms fade between them. | on hardware: the owner's MKI, image DTXPR3 (BUILD 96, remix distorx, on 0x05), 22 Oct 2026: DISTORX on T1 for more than four minutes with four DISTORX at once on both cores (T1 and T2 kicks with DISTORX, T3 hats and T4 claps dry, T5 COMB FILTER + DISTORX, T6 COMB FILTER + DARK REV, T7 COMB FILTER + DISTORX, T8 MASTER), MODE changed while playing, OFF on re-selection, no clicks, by ear. Before, on 0x0a, image DTXPR1 (21 Oct): every knob in every MODE, FX1 and FX2, an LFO, a scene, save and reload |
+| [**EUCLID**](modules/euclid/README.md) | [repeat98](https://github.com/repeat98) | Euclidean LP/BP/HP/notch/amp sequencer: swing, envelope, gate, random and loop. | on hardware: Cursory testing on Sam's MKII (owner report, 16 Oct 2026); radiohagen's MKII: start/resume recovery with one instance, several tracks and both FX slots (owner report, 21 Oct 2026; [PR #851](https://github.com/sambanks/octabam/pull/851)). |
 | [**GATE VERB**](modules/gateverb/README.md) | [Emilie Gillet (Mutable Instruments), ported here](https://github.com/pichenettes/eurorack) | A gated plate reverb (Griesinger topology, after the reverb stage of Mutable Instruments Clouds): amount, input gain, time, diffusion, tone, gate. One FX2 slot per instance. | on hardware: cursory testing on Sam's MKII (owner report, 16 Oct 2026); `verify_gateverb` (dsp_host, against a float model of Clouds' reverb) |
 | [**LOFI2**](modules/lofi2/README.md) | [Bryan T](https://github.com/bryantysinger) | Ring mod or frequency shifter, then sample-rate and bit reduction. | on hardware: Bryan T's MKII, images 96-99 (Oct 2026, this tree): tracks 1 and 5, five instances at once; `_bt_oct` build 11 (12 Oct 2026, the 414-cycle loop): eight in SHIFT at once, four per core, UP/DOWN switched while playing |
 | [**MINIVERB**](modules/miniverb/README.md) | [repeat98](https://github.com/repeat98) | Modulated diffused FDN reverb; independent FX2 buffers, smoothed controls. | on hardware: cursory testing on Sam's MKII (owner report, 16 Oct 2026); `make verify-miniverb` |
@@ -87,7 +96,7 @@ from the card (section 5).
 | module | author | what it does | proof |
 |---|---|---|---|
 | [**ANALOG BD**](modules/analog-bassdrum/README.md) | [repeat98](https://github.com/repeat98) | Analog BD track machine: switchable 808/909 circuit-informed synthesis. | on hardware: cursory testing on Sam's MKII (owner report, 16 Oct 2026); source/AMP/main on both cores and engine-browser/hidden-control gates |
-| [**BLACKPYRAMIDS_303**](modules/blackpyramids-303/README.md) | [Zac Kyoti](https://github.com/Zac-Kyoti) | BLKPYRAMD: a TB-303 voice (Open303) as a track machine, one per DSP core, played by the sequencer, the chromatic keys and MIDI. | on hardware: the author's MKI: standalone images 14-16 Oct 2026, this octabam form 19 Oct 2026 |
+| [**BLACKPYRAMIDS_303**](modules/blackpyramids-303/README.md) | [Zac Kyoti](https://github.com/Zac-Kyoti) | BLKPYRAMD: a TB-303 voice (built on Open303, recalibrated on the TB-303 circuit) as a track machine, one per DSP core, played by the sequencer, the chromatic keys and MIDI. | on hardware: the author's MKI: standalone images 14-21 Oct 2026; this octabam form 19 Oct 2026 and, with this voice, 21 Oct 2026 |
 | [**CX OSC**](modules/cxosc/README.md) | [ilia-murzinov](https://github.com/ilia-murzinov) | CX OSC in the machine list (no marker file): PTCH RATO INDX FOLD SYMM FDBK, mono, stock LFOs. Local fork of FM SYNTH. | on hardware: MKII BUILD CS @ 052bb14d (author, cxosc-core): machine select; each PLAYBACK knob (PTCH RATO INDX FOLD SYMM FDBK); FUNC RATO snaps; MIDI note-on; STOP/START; Part change. Port: verify_cxosc + make check REMIX=cxosc |
 | [**DIRECT JUMP**](modules/direct-jump/README.md) | [timhastie/octatrick-modules](https://github.com/timhastie/octatrick-modules) | CHAIN AFTER: DIRECT (its unused value 1) -- a pattern change lands at the next step, the step count continuing (A4/Rytm direct jump). | on hardware: `octatrick-usb` on his MKI, 26 Sep 2026 (OCTATRICK9) through 2.9; the last two 2.9 fixes under the port |
 | [**DIRECT_JUMP_KYOTI**](modules/direct-jump-kyoti/README.md) | [Zac Kyoti](https://github.com/Zac-Kyoti) | Clock-locked DIRECT JUMP ([PTN]+[YES]): a cued pattern lands on the next step exactly where it would be had it played since START. | on hardware: the author's MKI, 27-28 Sep 2026 (standalone 140C_KDJ7 and the KYOTI V1.0 combined image) and 1 Oct 2026 from DRAM (an octabam image with all six KYOTI modules); Program Change re-cues, MIDI tracks, START SILENT and the trig-condition reset emulator-verified |
@@ -115,6 +124,7 @@ from the card (section 5).
 | [**MIDI PART STATE**](modules/midi-part-state/README.md) | [radiohagen](https://github.com/radiohagen/octatrack-modules) | Shared native Part settings and coherent copy/clear publication; no KITS dependency. | on hardware |
 | [**MIDI SCENES**](modules/midi-scenes/README.md) | [bkkbrls-del/midisc](https://github.com/bkkbrls-del/midisc) | Scene locks for the MIDI tracks (hold-to-lock, readout, unlock, lock LEDs, XF morph, scene clear / copy / paste), kept per Part in scenes.work and CS1. Port of bkkbrls-del's midisc project. | on hardware: cursory testing on Sam's MKII (owner report, 16 Oct 2026); `verify_scenes` against MIDISC2.1 under the port, phase 1 scenarios (b1, b7, b3, b29copy, b29clear); MIDISC 2.0 ran on the author's unit as `ok-ms` (14 Sep 2026) |
 | [**SCENES P2**](modules/scenes-p2/README.md) | [sambanks](https://github.com/sambanks) | Scene locks and the crossfader on FX1/FX2 page 2 (hold a scene, turn a page-2 knob). | on hardware: cursory testing on Sam's MKII (owner report, 16 Oct 2026); 26 Sep 2026 |
+| [**SEQUENCER EVENTS**](modules/sequencer-events/README.md) | [radiohagen](https://github.com/radiohagen) | Platform: shared transport and accepted MIDI-output notifications. | `make check`: Assembled dispatcher tests (0/1/3 clients), independent event registrations, native MIDI and installed-hook checks; empty start/resume adds 2 instructions, MIDI adds 3. MKII owner checks: EUCLID configurations and ordinary/arpeggiated MIDI start/resume/stop on EUCL EVENTS 98 (22 Oct 2026). Optimized EUCL EVENTS 99 ordinary/arpeggiated MIDI start/resume/stop passed the same day. Empty transport paths, callback payloads and multiple clients remain software-tested ([PR #851](https://github.com/sambanks/octabam/pull/851)). |
 | [**STORE**](modules/store/README.md) | [sambanks](https://github.com/sambanks) | Platform: the stock save, load, copy, CS1 and Part sites STORE clients share. | on hardware: cursory testing on Sam's MKII (owner report, 16 Oct 2026) |
 
 ### MIDI and USB
