@@ -79,19 +79,17 @@ def main():
               'lock %s -> %s' % (before, lock(0, 0)))
         # 2. FUNC + TRIG 2: a trigless lock that ties into step 1's note
         #    (diagnostic: who writes the trigless masks, and do the trig handler's entry and tail run)
-        from unicorn import UC_HOOK_MEM_WRITE, UC_HOOK_CODE
-        from unicorn.m68k_const import UC_M68K_REG_PC
-        r0, seen = rec(0), []
-        def _w(uc, access, addr, size, value, user):
-            seen.append(('write', hex(uc.reg_read(UC_M68K_REG_PC)), hex(addr - r0), size, hex(value)))
-        def _c(uc, addr, size, user):
-            seen.append(('pc', hex(addr)))
-        hs = [p.rt.uc.hook_add(UC_HOOK_MEM_WRITE, _w, None, r0 + 8, r0 + 0x60),
-              p.rt.uc.hook_add(UC_HOOK_CODE, _c, None, 0x4005fb44, 0x4005fb44),
-              p.rt.uc.hook_add(UC_HOOK_CODE, _c, None, 0x40060b3e, 0x40060b3e),
-              p.rt.uc.hook_add(UC_HOOK_CODE, _c, None, 0x40060b4e, 0x40060b4e)]
+        r0 = rec(0)
+        p.proc.command('watch 0x4005fb44,0x40060b3e,0x40060b4e,0x400604e2,0x400606bc,0x40060892,0x40060a34,0x4005fef2,0x40060062,0x40060ca0', 'ok')
+        p.proc.command('hits', 'hits')
+        logf = work / 'port_o3keys.log'; n0 = len(logf.read_text(errors='replace')) if logf.exists() else 0
         p.chord('func', 'trig2'); p.run(200)
-        for h in hs: p.rt.uc.hook_del(h)
+        hits = p.proc.command('hits', 'hits')
+        p.proc.command('watch off', 'ok')
+        pcs = [h.split(':')[1] for h in hits.split()[2:]] if hits else []
+        tail = logf.read_text(errors='replace')[n0:] if logf.exists() else ''
+        wl = [l for l in tail.splitlines() if 'watch' in l.lower() or 'write' in l.lower()][:20]
+        seen = ['pcs', pcs, 'masks +8/+16 after', p.peek(r0 + 8, 16).hex()]
         print('  diag FUNC+TRIG 2:', seen[:40], flush=True)
         tl = (bits(0, 8, 1), bits(0, 16, 1), bits(0, 0, 1))
         check('[FUNC] + [TRIG 2]: a trigless step', tl[0] or tl[1], 'trigless trig/lock/trig bits %s' % (tl,))
