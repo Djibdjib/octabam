@@ -1632,6 +1632,348 @@ o3_name_pick:
         move.l  (%a0,%d0.l*4),%d1
         rts
 
+| o3_lfo_name -- Detour 0x4003bff0 (`mvs.b (a0),d0; lea 0x400d5f38,a0`, 8 bytes) in the LFO PMTR
+| formatter 0x4003bf64 (the LFO SETUP destination, read 23 Oct 2026 from the user's 1.40C): for a
+| PLAYBACK destination it takes the track's machine (a0 = Part + 0x8eda2 + track, d1 = the track)
+| and indexes PB_TABLE, so an OCTA-303 track (stored FLEX) drew FLEX's PTCH STRT LEN RATE RTRG
+| RTIM.  On a signed track the machine's record goes to a2 (its names TUNE CUT RES ENV DEC ACC,
+| as o3_page gives the SRC page) and the formatter resumes after its own lookup, 0x4003c058;
+| every other track: the displaced instructions and 0x4003c054.  The formatter keeps d1 (the
+| track), d2 (the slot) and a4 (the buffer) across here; scratch d0, a0, a1.
+o3_lfo_name:
+        mvs.b   (%a0),%d0               | displaced: the machine
+        moveq   #1,%d3
+        cmp.l   %d3,%d0                 | FLEX
+        bne     .Llf_stock
+        move.l  %d1,-(%sp)
+        suba.l  %d1,%a0
+        suba.l  #0x22,%a0               | Part' (Part + 0x8ed80)
+        move.l  %d1,%d0
+        bsr     o3_sig                  | (clobbers d1)
+        beq     .Llf_flex
+        bsr     o3_mdesc                | d0 = the machine's record (keeps d2, a2, a3)
+        move.l  (%sp)+,%d1
+        movea.l %d0,%a2
+        jmp     0x4003c058
+.Llf_flex:
+        move.l  (%sp)+,%d1
+        moveq   #1,%d0
+.Llf_stock:
+        lea     PB_TABLE,%a0            | displaced
+        jmp     0x4003c054
+
+| ---- v7.1 (23 Oct 2026): the TB-303's UP / DOWN and its slide, on the step locks ------------
+| A step's TUNE lock is byte 0 of its 32 lock bytes: bank blob + pattern * 0x8ed8 + track * 0x91a
+| + 0x59 + step * 32 (0xff = not locked), mirrored at 0x1001614e + the same offset (the battery-
+| backed copy of the current bank's patterns); the stock knob-lock writer (0x40050e60) writes
+| both, then sets bank + 0x9b332 and 0x100f8598 (edited) and calls 0x40027e00
+| (docs/firmware/STEP_LOCKS.md sections 1, 2).
+        .set    TRK_STRIDE,     0x91a
+        .set    PAT_STRIDE,     0x8ed8
+        .set    LOCK_OFF,       0x59            | the step's 32 lock bytes in the track record
+        .set    LOCK_SHADOW,    0x1001614e      | the battery-backed copy of the bank's patterns
+        .set    CUR_TRACK,      0x100b14cc      | the UI's track
+        .set    MIDI_MODE,      0x80000012      | non-zero: the UI is on the MIDI tracks
+        .set    HELD_TRIGS,     0x460d174a      | u16: the held trig keys (bit k = key k)
+        .set    HELD_PAGE,      0x460d174c      | the first step of the trig keys' page
+        .set    TRIG_PAGE,      0x460d1e04      | the page the trig keys place on (0..3)
+        .set    BANK_EDITED,    0x9b332         | bank + this, and 0x100f8598: the edited marks
+        .set    NOTIFY,         0x4005a2b8      | NOTIFY(text, duration): the stock toast
+        .set    O3_TLO,         64 + TUNE_LO    | raw TUNE range 40..88 (C1..C5)
+        .set    O3_THI,         64 + TUNE_HI
+
+| ---- o3_cur303: -> d0 = the UI's track when it is an OCTA-303 audio track, else -1 (flags set).
+|      Clobbers d1, a0, a1.
+o3_cur303:
+        tst.l   MIDI_MODE
+        bne     .Lc3_no
+        mvz.b   PART_IDX,%d0
+        move.l  #PART_SIZE,%d1
+        muls.l  %d1,%d0
+        movea.l BANK_PTR,%a0
+        adda.l  %d0,%a0
+        adda.l  #PART_OFF,%a0           | Part'
+        mvz.b   CUR_TRACK,%d0
+        bsr     o3_sig                  | (clobbers d1)
+        beq     .Lc3_no
+        mvz.b   CUR_TRACK,%d0
+        tst.l   %d0
+        rts
+.Lc3_no:
+        moveq   #-1,%d0
+        rts
+
+| ---- o3_tunelock: d0 = track, d1 = step -> a0 = its TUNE lock byte in the bank blob, a1 = the
+|      same byte in the battery-backed copy.  Clobbers d0, d1, d2.
+o3_tunelock:
+        move.l  #TRK_STRIDE,%d2
+        muls.l  %d2,%d0
+        lsl.l   #5,%d1
+        add.l   %d1,%d0
+        mvz.b   PAT_IDX,%d1
+        and.l   #15,%d1
+        move.l  #PAT_STRIDE,%d2
+        muls.l  %d2,%d1
+        add.l   %d1,%d0
+        add.l   #LOCK_OFF,%d0
+        movea.l BANK_PTR,%a0
+        adda.l  %d0,%a0
+        lea     LOCK_SHADOW,%a1
+        adda.l  %d0,%a1
+        rts
+
+| ---- o3_basetune: d0 = track -> d0 = the Part's TUNE (raw).  Clobbers d1; keeps a0, a1.
+o3_basetune:
+        move.l  %a0,-(%sp)
+        moveq   #30,%d1
+        muls.l  %d0,%d1
+        movea.l BANK_PTR,%a0
+        adda.l  %d1,%a0
+        mvz.b   PART_IDX,%d1
+        move.l  #PART_SIZE,%d0
+        muls.l  %d1,%d0
+        adda.l  %d0,%a0
+        adda.l  #PB_FLEX,%a0
+        mvz.b   (%a0),%d0
+        movea.l (%sp)+,%a0
+        rts
+
+| o3_octave -- Detour 0x400434d8 (`lea -28(sp),sp; movem.l d2-d7/a2,(sp)`, 8 bytes), the entry of
+| the held-trig layer's UP / DOWN handler (table 0x400becda; read 23 Oct 2026): stock opens the
+| sample-lock list on a STATIC or FLEX track.  On an OCTA-303 track there is no sample: UP raises
+| and DOWN lowers each held step's TUNE lock by an octave (a step without one starts from the
+| Part's TUNE), as the TB-303's UP / DOWN; a note past C1..C5 stays where it is.  The toast names
+| the note ("C4 +OCT").  handler(keycode @4, event @8); d2-d7 / a2-a6 are the caller's.
+o3_octave:
+        bsr     o3_cur303
+        bmi     .Loc_stock
+        lea     -40(%sp),%sp
+        movem.l %d2-%d7/%a2-%a5,(%sp)
+        move.l  %d0,%d4                 | the track
+        moveq   #12,%d5
+        moveq   #0x33,%d0
+        cmp.l   44(%sp),%d0             | UP
+        beq     .Loc_up
+        moveq   #-12,%d5
+.Loc_up:
+        mvz.w   HELD_TRIGS,%d6
+        move.l  HELD_PAGE,%d7
+        moveq   #0,%d3                  | the key
+        movea.l #-1,%a5                 | the last note written
+.Loc_key:
+        btst    %d3,%d6
+        beq     .Loc_next
+        move.l  %d4,%d0
+        move.l  %d7,%d1
+        add.l   %d3,%d1                 | the step
+        bsr     o3_tunelock
+        mvz.b   (%a0),%d0
+        cmp.l   #0xff,%d0
+        bne     .Loc_have
+        move.l  %d4,%d0
+        bsr     o3_basetune
+.Loc_have:
+        add.l   %d5,%d0
+        moveq   #O3_TLO,%d1
+        cmp.l   %d1,%d0
+        blt     .Loc_next               | past C1: unchanged
+        moveq   #O3_THI,%d1
+        cmp.l   %d1,%d0
+        bgt     .Loc_next               | past C5: unchanged
+        move.b  %d0,(%a0)
+        move.b  %d0,(%a1)
+        movea.l %d0,%a5
+.Loc_next:
+        addq.l  #1,%d3
+        moveq   #16,%d0
+        cmp.l   %d0,%d3
+        blt     .Loc_key
+        move.l  %a5,%d0
+        bmi     .Loc_done               | nothing moved
+        movea.l BANK_PTR,%a0
+        moveq   #1,%d1
+        move.l  #BANK_EDITED,%d0
+        move.l  %d1,(%a0,%d0.l)
+        move.l  %d1,0x100f8598
+        jsr     0x40027e00
+        move.l  %d4,-(%sp)
+        jsr     0x4009da20              | as the knob-lock writer, after its stores
+        addq.l  #4,%sp
+        move.l  %a5,-(%sp)              | the toast: the note and the direction
+        pea     o3_obuf
+        jsr     o3_fmt_tune             | d0 = its length
+        addq.l  #8,%sp
+        lea     o3_obuf,%a0
+        adda.l  %d0,%a0
+        move.b  #0x20,(%a0)+
+        moveq   #0x2b,%d0               | '+'
+        tst.l   %d5
+        bpl     .Loc_sign
+        moveq   #0x2d,%d0               | '-'
+.Loc_sign:
+        move.b  %d0,(%a0)+
+        move.b  #0x4f,(%a0)+            | "OCT"
+        move.b  #0x43,(%a0)+
+        move.b  #0x54,(%a0)+
+        clr.b   (%a0)
+        pea     0x30
+        pea     o3_obuf
+        jsr     NOTIFY
+        addq.l  #8,%sp
+.Loc_done:
+        movem.l (%sp),%d2-%d7/%a2-%a5
+        lea     40(%sp),%sp
+        jmp     0x40027de4              | the stock handler's own tail
+.Loc_stock:
+        lea     -28(%sp),%sp            | displaced
+        movem.l %d2-%d7/%a2,(%sp)
+        jmp     0x400434e0
+
+| o3_trig_in / o3_trig_out -- the trig keys (read 23 Oct 2026, and under the port with a PC watch):
+| the dispatcher 0x40060b58(key, event) sends a press (event 1) to 0x40050f20, which places or
+| removes the trig (FUNC + TRIG sets the trigless lock there), and a release (event 0) to the
+| handler 0x4005fb44.  On an OCTA-303 track a trigless trig or a trigless lock is a slide
+| (o3_slide), so the step gets the note it slides from, as the TB-303's slide ties into the next
+| step: the TUNE lock is written at once.  Press (Detour 0x40060b58, `lea -12(sp),sp;
+| movem.l d2-d4,(sp)`): the track's trigless masks (+8 trigless trigs, +16 trigless locks) are
+| kept, once until the next release.  Release (Detour 0x40060b3e, `movem.l 4(sp),d2-d7/a2-a5;
+| lea 44(sp),sp`, the handler's tail before its jmp 0x40027de4): every step whose trigless bit is
+| new gets, when it has no TUNE lock, the note of the previous step that has a trig, a trigless
+| trig or a trigless lock (its TUNE lock, or the Part's TUNE).  Comparing the masks, rather than
+| following the branches, makes the rule the same for every key chord that makes a slide.
+o3_trig_in:
+        lea     -12(%sp),%sp            | displaced
+        movem.l %d2-%d4,(%sp)
+        moveq   #1,%d0
+        cmp.l   20(%sp),%d0             | a press?
+        bne     .Lti_out
+        tst.l   o3_snapt
+        bpl     .Lti_out                | one kept already, until a release
+        bsr     o3_cur303               | (d0, d1, a0, a1)
+        bmi     .Lti_out
+        move.l  %d0,o3_snapt
+        move.l  %d0,%d2
+        bsr     o3_trackrec             | a0 = the track record
+        lea     o3_snap,%a1
+        move.l  8(%a0),(%a1)+           | +8 .. +23: the trigless trigs and the trigless locks
+        move.l  12(%a0),(%a1)+
+        move.l  16(%a0),(%a1)+
+        move.l  20(%a0),(%a1)
+.Lti_out:
+        jmp     0x40060b60
+
+o3_trig_out:
+        move.l  o3_snapt,%d4
+        bmi     .Lto_out
+        bsr     o3_cur303
+        cmp.l   %d4,%d0
+        bne     .Lto_out                | not the same OCTA-303 track any more
+        move.l  %d4,%d2
+        bsr     o3_trackrec
+        movea.l %a0,%a4                 | the track record
+        moveq   #0,%d5                  | the step
+.Lto_step:
+        move.l  %d5,%d0
+        lsr.l   #3,%d0
+        moveq   #7,%d1
+        sub.l   %d0,%d1                 | byte 7 - s / 8
+        move.l  %d5,%d2
+        and.l   #7,%d2                  | bit s % 8
+        mvz.b   8(%a4,%d1.l),%d0        | trigless trigs now
+        mvz.b   16(%a4,%d1.l),%d3       | trigless locks now
+        or.l    %d3,%d0
+        lea     o3_snap,%a0
+        mvz.b   (%a0,%d1.l),%d3
+        mvz.b   8(%a0,%d1.l),%d6
+        or.l    %d6,%d3                 | before
+        not.l   %d3
+        and.l   %d3,%d0                 | new
+        btst    %d2,%d0
+        beq     .Lto_next
+        move.l  %d4,%d0
+        move.l  %d5,%d1
+        bsr     o3_autoslide
+.Lto_next:
+        addq.l  #1,%d5
+        moveq   #64,%d0
+        cmp.l   %d0,%d5
+        blt     .Lto_step
+.Lto_out:
+        moveq   #-1,%d0
+        move.l  %d0,o3_snapt
+        movem.l 4(%sp),%d2-%d7/%a2-%a5  | displaced
+        lea     44(%sp),%sp
+        jmp     0x40060b48
+
+| ---- o3_trackrec: d2 = track -> a0 = its record in the current pattern.  Clobbers d0, d1.
+o3_trackrec:
+        mvz.b   PAT_IDX,%d0
+        and.l   #15,%d0
+        move.l  #PAT_STRIDE,%d1
+        muls.l  %d1,%d0
+        movea.l BANK_PTR,%a0
+        adda.l  %d0,%a0
+        move.l  #TRK_STRIDE,%d0
+        muls.l  %d2,%d0
+        adda.l  %d0,%a0
+        rts
+
+| ---- o3_autoslide: d0 = track, d1 = step, a4 = the track record: a step without a TUNE lock gets
+|      the note it slides from (above).  Clobbers d0-d3, d6, d7, a0-a3; keeps d4, d5, a4.
+o3_autoslide:
+        move.l  %d1,%d6                 | the step
+        move.l  %d0,-(%sp)              | the track
+        bsr     o3_tunelock
+        movea.l (%sp)+,%a1
+        mvz.b   (%a0),%d0
+        cmp.l   #0xff,%d0
+        bne     .Las_x                  | locked already
+        movea.l %a0,%a2                 | the step's lock byte
+        movea.l %a2,%a3
+        suba.l  BANK_PTR,%a3
+        adda.l  #LOCK_SHADOW,%a3        | and its copy
+        moveq   #1,%d3                  | k: steps back
+.Las_back:
+        move.l  %d6,%d1
+        sub.l   %d3,%d1
+        and.l   #63,%d1                 | the step k back (64 steps around)
+        move.l  %d1,%d0
+        lsr.l   #3,%d0
+        neg.l   %d0
+        addq.l  #7,%d0                  | byte 7 - s / 8
+        mvz.b   (%a4,%d0.l),%d2         | trigs
+        mvz.b   8(%a4,%d0.l),%d7        | trigless trigs
+        or.l    %d7,%d2
+        mvz.b   16(%a4,%d0.l),%d7       | trigless locks
+        or.l    %d7,%d2
+        move.l  %d1,%d0
+        and.l   #7,%d0
+        btst    %d0,%d2
+        bne     .Las_found
+        addq.l  #1,%d3
+        moveq   #64,%d0
+        cmp.l   %d0,%d3
+        blt     .Las_back
+        bra     .Las_base               | no note before it: the Part's TUNE
+.Las_found:
+        lsl.l   #5,%d1
+        mvz.b   LOCK_OFF(%a4,%d1.l),%d0
+        cmp.l   #0xff,%d0
+        bne     .Las_write
+.Las_base:
+        move.l  %a1,%d0                 | the track
+        bsr     o3_basetune
+.Las_write:
+        move.b  %d0,(%a2)
+        move.b  %d0,(%a3)
+        movea.l BANK_PTR,%a0            | the edited marks, as the knob-lock writer
+        moveq   #1,%d1
+        move.l  #BANK_EDITED,%d0
+        move.l  %d1,(%a0,%d0.l)
+        move.l  %d1,0x100f8598
+.Las_x:
+        rts
+
 | o3_setup_row -- Detour 0x4003c980 (`mvs.b (a0),d0; lea 24(sp),sp`): the row SRC SETUP highlights.
 o3_setup_row:
         mvs.b   (%a0),%d0
@@ -3629,6 +3971,13 @@ o3_f_plus:
 o3_notes:                               | v7.0: o3_fmt_tune's names, two bytes each
         .ascii  "C C#D D#E F F#G G#A A#B "
         .align  4
+o3_obuf:                                | v7.1: o3_octave's toast
+        .space  16
+        .align  4
+o3_snap:                                | v7.1: the trigless masks at the trig handler's entry
+        .space  16
+o3_snapt:
+        .long   -1
 
 | ---- runtime state: zeros, depacked by the loader at every boot (poly.s keeps its the same way)
         .align  4
