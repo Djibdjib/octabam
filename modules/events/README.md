@@ -7,9 +7,40 @@ copy notifications. The module adds no controls, persistent data or FX slots.
 
 This replaces **SEQUENCER EVENTS** and **EDIT EVENTS**. Existing remix selections
 must replace either old key with `EVENTS` (once if both were selected).
-The independent EDIT EVENTS proposal remains in
-[PR #858](https://github.com/sambanks/octabam/pull/858); this consolidation is
-a separate change. No client storage format or musical policy changes here.
+No client storage format or musical policy changes here.
+
+## Native boundaries and saved data
+
+The hook sites come from the preceding
+[SEQUENCER EVENTS](https://github.com/sambanks/octabam/blob/051508cce237159d40d08e7e8f9043b2432af9da/modules/sequencer-events/manifest.py)
+and [EDIT EVENTS](https://github.com/sambanks/octabam/blob/051508cce237159d40d08e7e8f9043b2432af9da/modules/edit-events/manifest.py)
+implementations. All 25 declared sites retain their expected stock 1.40C
+instructions, detour kinds and overwritten widths. The installer checks those
+instructions against the user's stock image before patching; selection determines
+which sites are actually installed.
+
+| Contract | Stock boundary and continuation |
+| --- | --- |
+| Transport | `0x4009c3d4` / `0x4009c4d4` write PLAYING at `0x800065b8`; continue at `0x4009c3da` / `0x4009c4da` |
+| Accepted MIDI | `0x4009fbb2` / `0x4009fcfa`, after native sender `0x40010bc8` returns; continue at `0x4009fbb8` / `0x4009fd00` |
+| Held editor | Entry `0x400508e4`; unclaimed edits replay its prologue and continue at `0x400508ec` |
+| Copy | The 20 call/address-load sites listed in `manifest.py` target native memcpy `0x40020898`; callbacks finish before entering it with the original frame |
+
+These addresses and instructions are observed; the event names describe their
+roles, not firmware symbols. Native-code tests check transport writes, MIDI
+acceptance and copy behavior. The individual copy sites retain PLOCKS' existing
+bank/track, clipboard and undo scope; they are not a claim to intercept every
+firmware copy. Memcpy's entry is not patched because stock also calls it before
+the runtime is loaded. Client-owned RAM and storage provenance remains in the
+[PLOCKS reference](../plocks-p2/README.md#what-stock-does) and
+[development notes](../plocks-p2/DEVELOPMENT.md#stock-address-provenance).
+
+EVENTS owns no project fields, sidecars, battery-RAM records or saved values,
+so it introduces no saved-data migration or new stock value range. PLOCKS keeps
+its existing `P2LK` version-1 sidecars and `P2NV` record; STORE still owns its
+save/load integration. Switching to firmware without a client removes that
+client's behavior. The unchanged formats do not establish a stock-firmware
+save/return guarantee for client data; no such round trip is claimed here.
 
 ## Register by contract
 
