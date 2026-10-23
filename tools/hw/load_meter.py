@@ -6,7 +6,8 @@
   tools/hw/load_meter.py --watch 1             # a reading a second
   tools/hw/load_meter.py --for 20 --json out.json   # 20 s of polling, summarised
 
-Needs libusb and pyusb, found as tools/hw/usb_counters.py finds them. The
+Needs pyusb and a libusb: `pip install pyusb libusb-package` (the bundled library loads in an arm64
+python), or a Homebrew libusb of the same architecture as the python. The
 image must carry LOAD METER and USB; on any other image the request STALLs
 (reported, not an error). wValue low names the block: 0 lm_stats, 1 lm_dsp,
 2 lm_ot (modules/load-meter/meter.s), all big-endian longs; wIndex low is the byte
@@ -69,16 +70,29 @@ def slot_name(i):
     return f"{core}{k // 2 + 1}.{'FX1' if k % 2 == 0 else 'FX2'}"
 
 
-def libusb_device():
+def libusb_backend():
+    """pyusb's libusb 1.x backend: libusb-package's bundled library when installed (arm64 and x86_64 wheels),
+    else a Homebrew libusb by path. On a Mac with the Intel Homebrew under /usr/local an arm64 python cannot
+    load that one (docstring of usb_counters.py)."""
     import usb.backend.libusb1
-    import usb.core
+    try:
+        import libusb_package
+        be = libusb_package.get_libusb1_backend()
+        if be is not None:
+            return be
+    except ImportError:
+        pass
     libs = (glob.glob("/usr/local/opt/libusb/lib/libusb-1.0.dylib") + glob.glob("/opt/homebrew/opt/libusb/lib/libusb-1.0.dylib")
             + glob.glob("/usr/local/lib/libusb-1.0*.dylib") + glob.glob("/usr/local/Cellar/libusb/*/lib/libusb-1.0*.dylib")
             + glob.glob("/opt/homebrew/lib/libusb-1.0*.dylib") + glob.glob("/opt/homebrew/Cellar/libusb/*/lib/libusb-1.0*.dylib"))
-    backend = usb.backend.libusb1.get_backend(find_library=lambda _: libs[0]) if libs else None
-    dev = usb.core.find(idVendor=0x1935, idProduct=0x0002, backend=backend)
+    return usb.backend.libusb1.get_backend(find_library=lambda _: libs[0]) if libs else None
+
+
+def libusb_device():
+    import usb.core
+    dev = usb.core.find(idVendor=0x1935, idProduct=0x0002, backend=libusb_backend())
     if dev is None:
-        sys.exit("no Octatrack on USB (1935:0002)")
+        sys.exit("no Octatrack on USB (1935:0002), or no libusb backend (pip install libusb-package)")
     return dev
 
 
