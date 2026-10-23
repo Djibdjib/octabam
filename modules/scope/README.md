@@ -12,3 +12,7 @@ T5–T8 right, centre divider).
 | **OSC** / **XY** / **ALL** | GAIN | TIME | — |
 
 XY is a hotter scale than OSC. ALL cells follow the panel track pad layout.
+
+**Measured:** `make check REMIX=test/scope` (port). **Inferred:** live
+waveform needs track audio; quiet under the emulator live path (like
+TUNER `--`). Not `Proof.HARDWARE` until a named tip is confirmed on unit.
