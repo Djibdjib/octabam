@@ -109,6 +109,8 @@ WIN_S = 0.25
 FREEZE_S = 1.0
 CRASH_S = 2.0
 CLICK_EXTRA, CLICK_RATIO = 10, 3.0
+CLICK_SKIP_S = 0.2        # the segment's first samples are a cut, not a click (all 255 'clicks' of layout 2, 24 Oct 2026, were in the first 12 ms)
+SETTLE_DBFS, SETTLE_MAX_S = -70.0, 15.0   # wait for the previous layout's tail to fade before the next segment
 STATIC_DB, LEVEL_DB = 6.0, 3.0
 LOAD_FRAC = 0.90
 BANKS = "ABCDEFGH"
@@ -615,7 +617,7 @@ def measure(x, fs, play_s):
     play = x[:int(play_s * fs)]
     return {"rms_db": _db(np.sqrt(np.mean(play ** 2))), "peak_db": _db(np.abs(play).max()),
             "dc": float(np.abs(play.mean(axis=0)).max()), "clip": int((np.abs(play) >= 0.9999).sum()),
-            "clicks": int(sum(click_events(play, fs))), "hf_db": float(hf_power_db(play, fs)),
+            "clicks": int(sum(click_events(play[int(CLICK_SKIP_S * fs):], fs))), "hf_db": float(hf_power_db(play, fs)),
             "alive": window_alive(play, fs).tolist(), "channels": int(x.shape[1])}
 
 
@@ -724,6 +726,60 @@ def parse_only(s, n):
     return [i for i in out if i < n]
 
 
+class LmFeed:
+    """LOAD METER readings with their times: in this process when libusb loads, else from
+    `load_meter.py --jsonl` under /usr/local/bin/python3 (the Intel Homebrew libusb does not load in an arm64 python)."""
+
+    def __init__(self):
+        self.rows, self.proc, self.dev, self.err = [], None, None, None
+        try:
+            import load_meter
+            self.lm = load_meter
+            self.dev = load_meter.libusb_device()
+            load_meter.read(self.dev)
+            return
+        except (SystemExit, Exception) as e:  # noqa: BLE001
+            self.err = str(e) or type(e).__name__
+        import os
+        import subprocess
+        if os.path.exists("/usr/local/bin/python3"):
+            self.proc = subprocess.Popen(["/usr/local/bin/python3", str(HERE / "load_meter.py"), "--jsonl", "--interval", "0.25"],
+                                         stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+            threading.Thread(target=self._pump, daemon=True).start()
+
+    def _pump(self):
+        for line in self.proc.stdout:
+            try:
+                self.rows.append(json.loads(line))
+            except ValueError:
+                pass
+
+    def ok(self):
+        return self.dev is not None or self.proc is not None
+
+    def window(self, t0, t1):
+        """Decoded readings taken between wall times t0 and t1."""
+        if self.proc is not None:
+            return [r for r in list(self.rows) if t0 <= r["t"] <= t1]
+        return []
+
+    def poll(self):
+        """In-process mode: take a reading now (the feed does its own polling otherwise)."""
+        if self.dev is None:
+            return None
+        try:
+            r = self.lm.read(self.dev)
+        except Exception:  # noqa: BLE001
+            return None
+        r["t"] = time.time()
+        self.rows.append(r)
+        return r
+
+    def close(self):
+        if self.proc is not None:
+            self.proc.terminate()
+
+
 def cmd_run(a):
     import numpy as np
     import ot_ladder as L
@@ -736,18 +792,15 @@ def cmd_run(a):
     dev, nch = U.find_input(a.audio)
     fs = 44100
 
-    lm = None
-    try:
-        import load_meter
-        dev_usb = load_meter.libusb_device()
-        load_meter.read(dev_usb)
-        lm = (load_meter, dev_usb)
-    except (SystemExit, Exception) as e:  # noqa: BLE001
-        print(f"LOAD METER: unavailable ({str(e) or type(e).__name__})")
+    lm = LmFeed()
+    print("LOAD METER: " + ("reading" if lm.ok() else f"unavailable ({lm.err})"))
 
     seg, lock = {"chunks": None}, threading.Lock()   # the callback fills seg while a layout plays
 
+    live = {"db": 0.0}
+
     def cb(indata, frames, t, status):
+        live["db"] = float(_db(np.sqrt(np.mean(indata.astype(np.float64) ** 2))))
         with lock:
             if seg["chunks"] is not None:
                 seg["chunks"].append(indata.copy())
@@ -762,16 +815,16 @@ def cmd_run(a):
                 e = entries[i]
                 clock.stop(); time.sleep(0.3)
                 clock.pc(pc_ch, e["program"]); time.sleep(0.8)
+                t_settle = time.time()
+                while live["db"] > SETTLE_DBFS and time.time() - t_settle < SETTLE_MAX_S:
+                    time.sleep(0.25)
+                settled = round(time.time() - t_settle, 1)
                 with lock:
                     seg["chunks"] = []
                 clock.start()
-                readings, t0 = [], time.monotonic()
-                while time.monotonic() - t0 < a.play:
-                    if lm:
-                        try:
-                            readings.append(lm[0].read(lm[1]))
-                        except Exception:  # noqa: BLE001
-                            lm = None
+                t_play = time.time()
+                while time.time() - t_play < a.play:
+                    lm.poll()
                     time.sleep(0.25)
                 clock.stop()
                 time.sleep(a.tail)
@@ -779,19 +832,23 @@ def cmd_run(a):
                     chunks, seg["chunks"] = seg["chunks"], None
                 x = np.concatenate(chunks).astype(np.float64) if chunks else np.zeros((0, nch))
                 m = measure(x, fs, a.play) if len(x) >= int((a.play + 0.5) * fs) else None
-                load = lm[0].summarise(readings) if lm and len(readings) > 1 else None
+                readings = [r for r in lm.window(t_play, t_play + a.play)] if lm.ok() else []
+                if lm.dev is not None:
+                    readings = [r for r in lm.rows if t_play <= r['t'] <= t_play + a.play]
+                import load_meter as _lmod
+                load = _lmod.summarise(readings) if len(readings) > 1 else None
                 if m is None:
                     flags, at = ["NO AUDIO CAPTURED"], None
                 elif e["name"] == "BASE":
                     base_m, flags, at = m, [], None
                 else:
                     flags, at = judge(m, base_m or m, load)
-                row = {"slot": e["slot"], "program": e["program"], "name": e["name"], "flags": flags,
+                row = {"slot": e["slot"], "program": e["program"], "name": e["name"], "flags": flags, "settle_s": settled,
                        "freeze_at_s": at, "metrics": {k: v for k, v in (m or {}).items() if k != "alive"}, "load": load}
                 results.append(row)
                 print(f"{i:3d} PC{e['program']:3d} {e['name']:34s} "
                       + (f"rms {m['rms_db']:6.1f} hf {m['hf_db']:6.1f} clicks {m['clicks']:4d} " if m else "")
-                      + (f"cf {100 * load['cf_share_max']:4.1f}% dsp {100 * load['dsp_core0_max']:4.1f}/{100 * load['dsp_core1_max']:4.1f}% " if load and load.get("windows") else "")
+                      + (f"settle {settled:4.1f}s cf {100 * load['cf_share_max']:4.1f}% dsp {100 * load['dsp_core0_max']:4.1f}/{100 * load['dsp_core1_max']:4.1f}% " if load and load.get("windows") else "")
                       + (" ".join(flags) or "ok"), flush=True)
                 if flags and x is not None and len(x):
                     wav = out_dir / f"{i:03d}_{re.sub(r'[^A-Za-z0-9]+', '_', e['name'])}.wav"
@@ -808,6 +865,7 @@ def cmd_run(a):
     finally:
         clock.stop()
         clock.close()
+        lm.close()
         (out_dir / "report.json").write_text(json.dumps({"remix": plan["remix"], "project": a.project, "args": vars(a),
                                                         "results": results}, indent=1))
     bad = [r for r in results if r["flags"]]

@@ -143,6 +143,8 @@ def main():
     ap.add_argument("--for", dest="secs", type=float, default=0, help="poll for this many seconds, then summarise")
     ap.add_argument("--interval", type=float, default=0.25, help="seconds between polls with --for")
     ap.add_argument("--json", help="with --for: write the summary here")
+    ap.add_argument("--jsonl", action="store_true", help="one JSON reading per line with its time, until killed "
+                    "(tools/hw/ot_matrix.py reads this through the x86_64 python)")
     a = ap.parse_args()
     try:
         import usb.core  # noqa: F401
@@ -153,6 +155,10 @@ def main():
         r = read(dev)
     except Exception as e:  # noqa: BLE001
         sys.exit(f"the request failed: {e} (a STALL means the image carries no LOAD METER or no USB)")
+    if a.jsonl:
+        while True:
+            print(json.dumps({"t": time.time(), **read(dev)}), flush=True)
+            time.sleep(a.interval)
     if a.secs:
         readings, t0 = [r], time.monotonic()
         while time.monotonic() - t0 < a.secs:
