@@ -43,6 +43,14 @@ class MatrixDetectors(unittest.TestCase):
         for i in range(20):
             s[self.FS + i * 4000] += 0.4
         self.assertIn("CLICKS", self.flags(s)[0])
+        self.assertNotIn("ROUGH", self.flags(s)[0])
+
+    def test_dense_events_are_rough_not_clicks(self):
+        t = np.arange(len(self.sig)) / self.FS
+        saw = (0.3 * ((t * 333.0) % 1.0 - 0.5)).astype(np.float32)           # a hard sawtooth: edges in every block
+        f = self.flags(saw)[0]
+        self.assertIn("ROUGH", f)
+        self.assertNotIn("CLICKS", f)
 
     def test_static(self):
         s = self.sig + (0.02 * self.rng.standard_normal(len(self.sig))).astype(np.float32)
@@ -62,6 +70,10 @@ class MatrixDetectors(unittest.TestCase):
         base = self.m.measure(self.stereo(quiet), self.FS, 12)
         self.assertNotIn("RINGS", self.m.judge(self.m.measure(self.stereo(quiet), self.FS, 12), base)[0])
         self.assertIn("RINGS", self.m.judge(self.m.measure(self.stereo(ring), self.FS, 12), base)[0])
+        held = np.concatenate([play, np.full(3 * self.FS, 0.1, dtype=np.float32)])
+        f = self.m.judge(self.m.measure(self.stereo(held), self.FS, 12), base)[0]
+        self.assertIn("DC", f)
+        self.assertNotIn("RINGS", f)
 
     def test_level(self):
         self.assertIn("LEVEL", self.flags(self.sig * 0.2)[0])

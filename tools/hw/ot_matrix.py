@@ -112,6 +112,7 @@ WIN_S = 0.25
 FREEZE_S = 1.0
 CRASH_S = 2.0
 CLICK_EXTRA, CLICK_RATIO = 10, 3.0
+ROUGH_BLOCKS = 0.10       # events in more than this share of 512-sample blocks: a rough signal, not isolated clicks
 CLICK_SKIP_S = 0.2        # the segment's first samples are a cut, not a click (all 255 'clicks' of layout 2, 24 Oct 2026, were in the first 12 ms)
 LOAD_SKIP_S = 2.0         # the first seconds after START still carry the previous layout's load (BASE read 26% mean and 77% max, 24 Oct 2026)
 SETTLE_DBFS, SETTLE_MAX_S = -70.0, 15.0   # wait for the previous layout's tail to fade before the next segment
@@ -580,7 +581,9 @@ def window_alive(x, fs):
 
 
 def click_events(x, fs):
-    """Per channel: samples whose second difference is far above their neighbourhood's median."""
+    """Per channel: (events, blocks that hold one, blocks): samples whose second difference is far above
+    their neighbourhood's median. Isolated clicks are few events in few blocks; a rough or heavily modulated
+    signal puts events in most blocks."""
     import numpy as np
     out = []
     blk = 512
@@ -588,14 +591,14 @@ def click_events(x, fs):
         d2 = np.abs(np.diff(x[:, c], 2))
         n = len(d2) // blk
         if n < 3:
-            out.append(0)
+            out.append((0, 0, n))
             continue
         b = d2[:n * blk].reshape(n, blk)
         med = np.median(b, axis=1)
         ref = np.maximum.reduce([np.roll(med, 1), med, np.roll(med, -1)])
         ref[0], ref[-1] = med[0], med[-1]
-        thr = np.maximum(1e-3, 50 * ref)[:, None]
-        out.append(int((b > thr).sum()))
+        hit = b > np.maximum(1e-3, 50 * ref)[:, None]
+        out.append((int(hit.sum()), int(hit.any(axis=1).sum()), n))
     return out
 
 
@@ -619,12 +622,18 @@ def measure(x, fs, play_s):
     import numpy as np
     x = x[:, np.abs(x).max(axis=0) > 0] if (np.abs(x).max(axis=0) > 0).any() else x
     play = x[:int(play_s * fs)]
+    ce = click_events(play[int(CLICK_SKIP_S * fs):], fs)
     return {"rms_db": _db(np.sqrt(np.mean(play ** 2))), "peak_db": _db(np.abs(play).max()),
             "dc": float(np.abs(play.mean(axis=0)).max()), "clip": int((np.abs(play) >= 0.9999).sum()),
-            "clicks": int(sum(click_events(play[int(CLICK_SKIP_S * fs):], fs))), "hf_db": float(hf_power_db(play, fs)),
+            "clicks": int(sum(e for e, _b, _n in ce)),
+            "click_block_frac": float(sum(b for _e, b, _n in ce) / max(sum(n for _e, _b, n in ce), 1)),
+            "hf_db": float(hf_power_db(play, fs)),
             "alive": window_alive(play, fs).tolist(), "channels": int(x.shape[1]),
             "tail_end_db": (float(_db(np.sqrt(np.mean(x[-int(0.5 * fs):] ** 2))))
-                            if len(x) >= int((play_s + 1.0) * fs) else None)}
+                            if len(x) >= int((play_s + 1.0) * fs) else None),
+            "tail_dc_frac": (float(np.abs(x[-int(0.5 * fs):].mean(axis=0)).max()
+                                   / max(np.sqrt(np.mean(x[-int(0.5 * fs):] ** 2)), 1e-12))
+                             if len(x) >= int((play_s + 1.0) * fs) else None)}
 
 
 def runs(mask):
@@ -655,7 +664,7 @@ def judge(m, base, load=None):
     if fr:
         flags.append("FREEZE")
     if m["clicks"] - base["clicks"] > CLICK_EXTRA and m["clicks"] > CLICK_RATIO * max(base["clicks"], 1):
-        flags.append("CLICKS")
+        flags.append("ROUGH" if m["click_block_frac"] > ROUGH_BLOCKS else "CLICKS")
     if m["hf_db"] - base["hf_db"] >= STATIC_DB:
         flags.append("STATIC")
     if abs(m["rms_db"] - base["rms_db"]) >= LEVEL_DB:
@@ -663,7 +672,8 @@ def judge(m, base, load=None):
     if m["clip"]:
         flags.append("CLIP")
     if m.get("tail_end_db") is not None and m["tail_end_db"] > SETTLE_DBFS and (base.get("tail_end_db") or -240.0) <= SETTLE_DBFS:
-        flags.append("RINGS")                # still sounding in the last half second of the tail, BASE is not
+        # still sounding in the last half second of the tail, BASE is not; a held constant is a DC offset
+        flags.append("DC" if (m.get("tail_dc_frac") or 0.0) > 0.9 else "RINGS")
     if load and load.get("windows"):
         top = max(load["cf_share_max"], load["dsp_core0_max"], load["dsp_core1_max"])
         if top >= LOAD_FRAC:
