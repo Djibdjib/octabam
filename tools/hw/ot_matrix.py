@@ -84,7 +84,10 @@ and not validated on a unit (constants at the top of this file):
   STATIC    8-16 kHz power up STATIC_DB or more over BASE's.
   LEVEL     rms differs from BASE's by LEVEL_DB or more.
   CLIP      samples at full scale.
-  LOAD      LOAD METER's frame-interrupt share or a DSP core's busy/period above LOAD_FRAC.
+  RINGS     the last half second of the tail is above SETTLE_DBFS and BASE's is not: the layout is still
+            sounding 2.5-3 s after STOP.
+  LOAD      LOAD METER's frame-interrupt share or a DSP core's busy/period above LOAD_FRAC, from
+            LOAD_SKIP_S into the play phase (the first seconds carry the previous layout's load).
 
 What it cannot see: what the material is (a gap in a loop looks like a
 dropout only when BASE has none at that time), a fault that BASE has too,
@@ -110,6 +113,7 @@ FREEZE_S = 1.0
 CRASH_S = 2.0
 CLICK_EXTRA, CLICK_RATIO = 10, 3.0
 CLICK_SKIP_S = 0.2        # the segment's first samples are a cut, not a click (all 255 'clicks' of layout 2, 24 Oct 2026, were in the first 12 ms)
+LOAD_SKIP_S = 2.0         # the first seconds after START still carry the previous layout's load (BASE read 26% mean and 77% max, 24 Oct 2026)
 SETTLE_DBFS, SETTLE_MAX_S = -70.0, 15.0   # wait for the previous layout's tail to fade before the next segment
 STATIC_DB, LEVEL_DB = 6.0, 3.0
 LOAD_FRAC = 0.90
@@ -618,7 +622,9 @@ def measure(x, fs, play_s):
     return {"rms_db": _db(np.sqrt(np.mean(play ** 2))), "peak_db": _db(np.abs(play).max()),
             "dc": float(np.abs(play.mean(axis=0)).max()), "clip": int((np.abs(play) >= 0.9999).sum()),
             "clicks": int(sum(click_events(play[int(CLICK_SKIP_S * fs):], fs))), "hf_db": float(hf_power_db(play, fs)),
-            "alive": window_alive(play, fs).tolist(), "channels": int(x.shape[1])}
+            "alive": window_alive(play, fs).tolist(), "channels": int(x.shape[1]),
+            "tail_end_db": (float(_db(np.sqrt(np.mean(x[-int(0.5 * fs):] ** 2))))
+                            if len(x) >= int((play_s + 1.0) * fs) else None)}
 
 
 def runs(mask):
@@ -656,6 +662,8 @@ def judge(m, base, load=None):
         flags.append("LEVEL")
     if m["clip"]:
         flags.append("CLIP")
+    if m.get("tail_end_db") is not None and m["tail_end_db"] > SETTLE_DBFS and (base.get("tail_end_db") or -240.0) <= SETTLE_DBFS:
+        flags.append("RINGS")                # still sounding in the last half second of the tail, BASE is not
     if load and load.get("windows"):
         top = max(load["cf_share_max"], load["dsp_core0_max"], load["dsp_core1_max"])
         if top >= LOAD_FRAC:
@@ -811,7 +819,11 @@ def cmd_run(a):
     sd_stream = sd.InputStream(device=dev, channels=nch, samplerate=fs, dtype="float32", callback=cb)
     try:
         with sd_stream:
-            for i in parse_only(a.only, len(entries)):
+            todo = parse_only(a.only, len(entries))
+            if entries[0]["name"] == "BASE" and 0 not in todo:
+                todo.insert(0, 0)                   # every other layout is judged against BASE
+                print("BASE added to the run: layouts are compared with it")
+            for i in todo:
                 e = entries[i]
                 clock.stop(); time.sleep(0.3)
                 clock.pc(pc_ch, e["program"]); time.sleep(0.8)
@@ -832,11 +844,13 @@ def cmd_run(a):
                     chunks, seg["chunks"] = seg["chunks"], None
                 x = np.concatenate(chunks).astype(np.float64) if chunks else np.zeros((0, nch))
                 m = measure(x, fs, a.play) if len(x) >= int((a.play + 0.5) * fs) else None
-                readings = [r for r in lm.window(t_play, t_play + a.play)] if lm.ok() else []
-                if lm.dev is not None:
-                    readings = [r for r in lm.rows if t_play <= r['t'] <= t_play + a.play]
+                allr = [r for r in lm.rows if t_play <= r["t"] <= t_play + a.play]
+                readings = [r for r in allr if r["t"] >= t_play + LOAD_SKIP_S]
                 import load_meter as _lmod
                 load = _lmod.summarise(readings) if len(readings) > 1 else None
+                series = [[round(r["t"] - t_play, 2), round(r["cf"]["share"] or 0, 4),
+                           round(_lmod.ratio(r["dsp"]["core0"]) or 0, 4), round(_lmod.ratio(r["dsp"]["core1"]) or 0, 4)]
+                          for r in allr]
                 if m is None:
                     flags, at = ["NO AUDIO CAPTURED"], None
                 elif e["name"] == "BASE":
@@ -844,7 +858,7 @@ def cmd_run(a):
                 else:
                     flags, at = judge(m, base_m or m, load)
                 row = {"slot": e["slot"], "program": e["program"], "name": e["name"], "flags": flags, "settle_s": settled,
-                       "freeze_at_s": at, "metrics": {k: v for k, v in (m or {}).items() if k != "alive"}, "load": load}
+                       "freeze_at_s": at, "load_series": series, "metrics": {k: v for k, v in (m or {}).items() if k != "alive"}, "load": load}
                 results.append(row)
                 print(f"{i:3d} PC{e['program']:3d} {e['name']:34s} "
                       + (f"rms {m['rms_db']:6.1f} hf {m['hf_db']:6.1f} clicks {m['clicks']:4d} " if m else "")

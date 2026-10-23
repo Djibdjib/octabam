@@ -55,6 +55,14 @@ class MatrixDetectors(unittest.TestCase):
         self.assertIn("FREEZE", flags)
         self.assertEqual(at, [5.0])
 
+    def test_a_layout_still_sounding_after_stop_rings(self):
+        play = self.sig
+        ring = np.concatenate([play, (0.05 * np.sin(2 * np.pi * 440 * np.arange(3 * self.FS) / self.FS)).astype(np.float32)])
+        quiet = np.concatenate([play, np.zeros(3 * self.FS, dtype=np.float32)])
+        base = self.m.measure(self.stereo(quiet), self.FS, 12)
+        self.assertNotIn("RINGS", self.m.judge(self.m.measure(self.stereo(quiet), self.FS, 12), base)[0])
+        self.assertIn("RINGS", self.m.judge(self.m.measure(self.stereo(ring), self.FS, 12), base)[0])
+
     def test_level(self):
         self.assertIn("LEVEL", self.flags(self.sig * 0.2)[0])
 
