@@ -552,7 +552,8 @@ def cmd_proj(a):
         n += make_project(a.src, dest, a.remix, [base] + rest[k:k + per], a.pattern, stimuli, tracks,
                           a.pc_channel, extra, a.clean, a.allow_dirty_template) - 1
         print(f"{dest}: {len(rest[k:k + per]) + 1} layouts (slot 0 BASE)")
-    print(f"{n} layouts in {-(-len(rest) // per)} project(s); material {a.src} {a.pattern}")
+    print(f"{n} layouts in {-(-len(rest) // per)} project(s); "
+          + (f"clean rebuild from {a.src}" if a.clean else f"material {a.src} {a.pattern}"))
 
 
 # ---------------------------------------------------------------------------
