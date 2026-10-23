@@ -979,7 +979,7 @@ def main():
     _probe.write_text(
         "from remix.schema import Remix\n\n"
         "REMIX = Remix(name='_selftest_scattered', doc='scratch',\n"
-        "              modules=('EUCLID', 'MINIVERB', 'PLATE REV'),\n"
+        "              modules=('EUCLID', 'SEQUENCER EVENTS', 'MINIVERB', 'PLATE REV'),\n"
         "              fallback='NONE',\n"
         "              fx1=('FILTER', 'EQUALIZER', 'DJ EQ', 'PHASER',\n"
         "                   'SPATIALIZER', 'COMPRESSOR', 'LO-FI',\n"
