@@ -79,6 +79,7 @@ nav:
       - Cx Osc: reference/modules/cxosc.md
       - Synth Machine: reference/modules/synth.md
       - Tempo Controls: reference/modules/tempo-bus.md
+      - Track Patterns: reference/modules/trackpatterns.md
       - Tuner: reference/modules/tuner.md
       - Varispeed: reference/modules/varispeed.md
   - Kits and Scenes:
