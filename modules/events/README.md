@@ -99,6 +99,19 @@ one stock instruction at each former detour, versus the previous three/four
 instructions, respectively. These are emulator instruction counts, **not**
 ColdFire cycles, elapsed time, hardware CPU headroom or MIDI latency.
 
+With one/three clients, transport dispatch falls from 27/43 to 12/16
+instructions, and accepted-MIDI dispatch from 42/58 to 30/34, excluding the
+entry jump and callback bodies. Both MIDI acceptance sites have the same count.
+
+The real PLOCKS mirror path was also assembled against its pre-dispatch source
+(`ff9c5f84`). Across 14 track/pattern transfers and uninitialized cases, native
+copy results, side data and `nv_touch` call counts match. Shared dispatch now
+adds **19 instructions**, versus **43** through EDIT EVENTS. For example, a
+track bank-to-clipboard copy is 680 → 699 (previously 723), and a pattern copy
+is 4718 → 4737 (previously 4761). These counts include the six-instruction
+PLOCKS adapter, but exclude the unchanged caller, native memcpy and `nv_touch`
+bodies, which the probe substitutes at their entry points.
+
 ## Verification boundary
 
 `verify_system_events.py` executes production assembly with zero/one/three
@@ -107,7 +120,8 @@ construction/arbitration. `verify_edit_events.py` checks first-owner precedence,
 native fallback, register/stack/condition-code preservation, callback ordering,
 copy results and counts. Synthetic callbacks deliberately clobber registers.
 `verify_events_selection.py` checks all 32 event subsets, absent code/hooks,
-invalid registrations and the registry's bound real-client selections.
+invalid registrations and the registry's bound real-client selections. A
+16-subscriber MIDI case also checks branch reach and constant stack depth.
 `verify_event_clients.py` checks executable callbacks, exclusive installed hook
 ownership and stock bytes at every unused boundary in each built image.
 
