@@ -7,7 +7,8 @@ Boots out/mainos_bus.bin with both DSP cores and the frame interrupt
 (`--dsp --frame`, no project), enumerates over the scripted host and reads
 the three blocks twice, a second of port time apart. Checks:
 
-  blocks     wValue 0, 1, 2 return 20, 48 and 256 bytes; wValue 3 STALLs
+  blocks     wValue 0, 1, 2 read whole through wIndex offsets (20, 48 and 256 bytes); no reply is a
+             multiple of 64 bytes; an offset at the end and wValue 3 STALL
   match      lm_stats read over USB equals the same words peeked from DRAM at
              the symbol's address (runtime.elf), so the request points at the
              meter's cells and not at a neighbour
@@ -109,9 +110,12 @@ def main():
             raise out["e"]
         return out["v"]
 
+    def ctrl_for(b):
+        return lambda w, off, n: bytes(serve(lambda: b.ctrl_in(0xc0, 0x57, w, off, n)))
+
     def blocks(b):
-        return [bytes(serve(lambda w=w, n=n: b.ctrl_in(0xc0, 0x57, w, 0, n)))
-                for w, n in ((0, 20), (1, 48), (2, 256))]
+        c = ctrl_for(b)
+        return [load_meter.read_block(c, w, n) for w, n in ((0, 20), (1, 48), (2, 256))]
 
     b = None
     try:
@@ -130,8 +134,19 @@ def main():
         b = res["b"]
         cmd("run 1500")
         first = blocks(b)
-        check("wValue 0, 1, 2 return 20, 48 and 256 bytes", [len(x) for x in first] == [20, 48, 256],
+        check("blocks 0, 1, 2 read whole: 20, 48 and 256 bytes", [len(x) for x in first] == [20, 48, 256],
               str([len(x) for x in first]))
+        c = ctrl_for(b)
+        lens = {n: len(c(2, 0, n)) for n in (64, 128, 192, 256, 255, 100)}
+        check("no reply is a multiple of 64 bytes (the next control request would return 0 bytes)",
+              all(v % 64 for v in lens.values()) and lens[256] == 255 and lens[100] == 100, str(lens))
+        check("wIndex resumes: the byte after a 255-byte reply is the block's last",
+              c(2, 255, 1) == first[2][255:], f"{c(2, 255, 1).hex()} vs {first[2][255:].hex()}")
+        try:
+            c(0, 20, 4)
+            check("an offset at the block's end STALLs", False, "a reply came back")
+        except Exception as e:  # noqa: BLE001
+            check("an offset at the block's end STALLs", True, type(e).__name__)
         try:
             serve(lambda: b.ctrl_in(0xc0, 0x57, 3, 0, 4))
             check("wValue 3 STALLs", False, "a reply came back")

@@ -9,7 +9,9 @@
 Needs libusb and pyusb, found as tools/hw/usb_counters.py finds them. The
 image must carry LOAD METER and USB; on any other image the request STALLs
 (reported, not an error). wValue low names the block: 0 lm_stats, 1 lm_dsp,
-2 lm_ot (modules/load-meter/meter.s), all big-endian longs.
+2 lm_ot (modules/load-meter/meter.s), all big-endian longs; wIndex low is the byte
+offset to read from, and a reply is never a multiple of 64 bytes long (a block can
+come in two pieces; `read_block`).
 
 Units. lm_stats is on DMA timer 3 (132 MHz): `window` counts a 0.5 s window,
 `sum` the frame interrupt's time in it, `count` its runs, `longest` the
@@ -80,13 +82,24 @@ def libusb_device():
     return dev
 
 
+def read_block(ctrl, w, size):
+    """Block `w` of `size` bytes through ctrl(w, offset, wLength) -> bytes. The unit never sends a reply whose
+    length is a multiple of 64 (the next control request would return 0 bytes), so a block can come in
+    pieces; wIndex is the byte offset to resume from."""
+    out = b""
+    while len(out) < size:
+        raw = ctrl(w, len(out), size - len(out))
+        if not raw:
+            raise RuntimeError(f"block {w}: 0 bytes back at offset {len(out)}")
+        out += raw
+    return out[:size]
+
+
 def read(dev):
-    def get(w, n):
-        raw = bytes(dev.ctrl_transfer(0xc0, 0x57, w, 0, n, timeout=1000))
-        if len(raw) != n:
-            raise RuntimeError(f"block {w}: {len(raw)} bytes back, expected {n}")
-        return raw
-    return decode(get(0, STATS_BYTES), get(1, DSP_BYTES), get(2, OT_BYTES))
+    """One reading: lm_stats, lm_dsp and lm_ot over vendor request 0xc0/0x57."""
+    def ctrl(w, off, n):
+        return bytes(dev.ctrl_transfer(0xc0, 0x57, w, off, n, timeout=1000))
+    return decode(read_block(ctrl, 0, STATS_BYTES), read_block(ctrl, 1, DSP_BYTES), read_block(ctrl, 2, OT_BYTES))
 
 
 def line(r):

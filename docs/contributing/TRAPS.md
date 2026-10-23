@@ -1134,3 +1134,26 @@ reports on a range it never watched. Rule: one comma-joined
 `--watch-mem addr,len;addr,len` argument; when a watch captures nothing,
 check what the command line actually watched before suspecting the
 runtime.
+
+<a name="trap-ep0-dma"></a>
+
+### An EP0 reply is DMA'd from memory the CPU's cache may not have written, and one of 64 bytes breaks the next request
+
+**A CELL THE CPU STORES RARELY STAYS STALE FOR THE USB DMA, AND A CONTROL REPLY
+OF A MULTIPLE OF 64 BYTES MAKES THE NEXT REQUEST RETURN 0 BYTES.** Both found
+on the first unit run of vendor request `0xc0/0x57` (24 Oct 2026), both clean
+under the port.
+- `lm_stats` is stored once in 0.5 s; the controller reads RAM, not the
+  copyback cache, so the request returned the same window for minutes and then
+  jumped 100 windows at once, while `lm_dsp` and `lm_ot` (stored every frame)
+  looked live. The reply is now copied into `lm_reply` through the uncached
+  alias (`+UNCACHED`) and sent from there, the rule `usbaudio.s` states at the
+  rings.
+- A reply of 64, 128, 192 or 256 bytes left the next control request returning
+  0 bytes once (63, 100, 252, 255 did not): `tools/hw/load_meter.py` alternated
+  success and failure per process. The request now sends a byte short and the
+  host resumes from `wIndex`.
+**Gate:** `verify_usb_load_meter` checks the lengths and the offset; the port
+cannot see the cache or the stale status, so a unit run (`load_meter.py`
+repeated, `--for 10`: `windows` near 20) is the check.
+

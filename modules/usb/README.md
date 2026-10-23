@@ -1190,10 +1190,15 @@ this open; anchor is the frames skipped at that poll.
 A second vendor GET, `0xc0/0x57`, returns LOAD METER's cells when the
 remix carries it (`LM_STATS`, `LM_DSP`, `LM_OT` are `defsyms`, 0 without
 the module, and a request then STALLs as stock does): wValue low 0 is
-`lm_stats` (20 bytes), 1 `lm_dsp` (48), 2 `lm_ot` (256), big-endian longs
-(`modules/load-meter/README.md`). `tools/hw/load_meter.py` reads and
-summarises them from a unit; `verify_usb_load_meter` checks the request
-under the port.
+`lm_stats` (20 bytes), 1 `lm_dsp` (48), 2 `lm_ot` (256), big-endian longs,
+from byte `wIndex` low on. The reply is copied into `lm_reply` through the
+uncached alias (the controller does not see the CPU's cached stores: on a
+unit `lm_stats`, stored every 0.5 s, stayed stale for minutes) and is never a
+multiple of 64 bytes (such a reply made the next control request return 0
+bytes, measured on a unit), so `lm_ot` comes as 255 bytes and 1.
+`tools/hw/load_meter.py` reads and summarises them from a unit;
+`verify_usb_load_meter` checks the request under the port (not the cache or
+the stale status, which only a unit shows; `docs/contributing/TRAPS.md`).
 
 #### Bus reset and session end
 
