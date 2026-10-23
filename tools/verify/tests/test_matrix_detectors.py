@@ -82,6 +82,12 @@ class MatrixDetectors(unittest.TestCase):
         self.assertNotIn("OVERLOAD", self.m.judge(m, self.base, full)[0])
         self.assertIn("OVERLOAD", self.m.judge(m, self.base, half)[0])
 
+    def test_bad_records_in_the_window_are_drops(self):
+        m = self.m.measure(self.stereo(self.sig), self.FS, 12)
+        ok = {"windows": 5, "irq_per_s_median": 2756.0, "bad_records": 0, "cf_share_max": 0.3, "dsp_core0_max": 0.5, "dsp_core1_max": 0.4}
+        self.assertNotIn("DROPS", self.m.judge(m, self.base, ok)[0])
+        self.assertIn("DROPS", self.m.judge(m, self.base, dict(ok, bad_records=2950, irq_per_s_median=2560.0))[0])
+
     def test_level(self):
         self.assertIn("LEVEL", self.flags(self.sig * 0.2)[0])
 

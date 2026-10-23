@@ -81,6 +81,27 @@ over 100 % overloaded the unit (24 Oct 2026: SPECTRUM FX1 + LOFI2 FX2 `dear`, pr
 interrupt fell to half rate and stayed there), so `predict` leaves those out unless `--include-overload`.
 No single-slot run has gone past 98.8 %.
 
+## Tests not yet run
+
+1. **The heaviest combinations of the stock effects.** Needs LOAD METER's slot costs for the 14 stock
+   effects, and no current remix has both: `octabam-core` carries them without the meter (the 14 effects
+   leave no DSP words for its 193 per payload), and `octabam-bus` and `octabam-inserts` carry the meter
+   without most of them. Options, not decided: a test remix that gives up the lightest stock effects for
+   the meter (`make cycles` prices them statically); or the static prices alone. The pair predictor
+   (`predict`) would then rank the combinations as it does for the octabam effects.
+2. **Part and pattern changes while playing.** The runs so far change layout with the transport stopped; the
+   new part's effects take effect at START (the first reading after START shows the previous layout's load for
+   under a second, and never more than both layouts' loads). The ColdFire share moved by 1.4 points at most
+   across that. The poll is every 0.25 s, so a spike of milliseconds is not seen. A `switch` run mode would send
+   the program change during play (it queues to the pattern boundary), cover BASE to the heaviest layout, the
+   heaviest to BASE, two heavy layouts, and a change of effect on all sixteen slots at once, record the ColdFire
+   longest run per reading (`longest_us` is in each run's series since 24 Oct 2026), the DSP busy per frame, the
+   `DROPS` count and any gap in the audio at the boundary. Not built.
+3. **Where the frame budget ends.** One layout at 98.2 % busy ran clean (three times); one at 105.3 % and one at
+   112 % overloaded the unit; EUCLID FX1 + LOFI2 FX2 at 95.8 % dropped frames, four times in four. Seven
+   EUCLID FX1 pairs with an FX2 effect at 42 to 81 % ran clean. Layouts between 96 and 105 % would show the edge, and
+   whether it moves with the ColdFire share.
+
 ## Flags
 
 Every flag is against BASE of the same project; thresholds are the constants at
@@ -97,6 +118,7 @@ the top of `ot_matrix.py`, first guesses not validated on a unit. A flag means
 | LEVEL | rms 3 dB or more from BASE's |
 | CLIP | samples at full scale |
 | DC / RINGS | the last half second of the tail is above -70 dBFS and BASE's is not; DC when the level is a held constant |
+| DROPS | LOAD METER's DSP record failed its checks more than 20 times in the play window: frames were skipped. 0 in every layout except EUCLID FX1 + LOFI2 FX2 (about 2,950 each of four runs) |
 | OVERLOAD | the frame interrupt ran under 80 % of 2,756 a second: the DSP missed its frames; the unit stays degraded and the run stops (power-cycle) |
 | LOAD | frame-interrupt share or a DSP core's busy/period at 90 % or more, from 2 s into play |
 

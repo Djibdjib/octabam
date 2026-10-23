@@ -89,6 +89,8 @@ and not validated on a unit (constants at the top of this file):
   CLIP      samples at full scale.
   RINGS     the last half second of the tail is above SETTLE_DBFS and BASE's is not: the layout is still
             sounding 2.5-3 s after STOP.
+  DROPS     LOAD METER's DSP record failed its checks more than DROPS_BAD times in the play window (frames were
+            skipped): 0 in every layout but EUCLID FX1 + LOFI2 FX2, where the median frame rate was only 7 % low.
   OVERLOAD  the frame interrupt ran under 80 % of 2,756 a second in the play window: the DSP missed its frames
             (the load was past its budget) and the unit stays degraded; the run stops. Power-cycle.
   LOAD      LOAD METER's frame-interrupt share or a DSP core's busy/period above LOAD_FRAC, from
@@ -119,6 +121,7 @@ CRASH_S = 2.0
 CLICK_EXTRA, CLICK_RATIO = 10, 3.0
 ROUGH_BLOCKS = 0.10       # events in more than this share of 512-sample blocks: a rough signal, not isolated clicks
 CLICK_SKIP_S = 0.2        # the segment's first samples are a cut, not a click (all 255 'clicks' of layout 2, 24 Oct 2026, were in the first 12 ms)
+DROPS_BAD = 20            # LOAD METER bad records in the play window: 0 in 150+ layouts, ~2,950 in EUCLID FX1 + LOFI2 FX2 (24 Oct 2026)
 NOMINAL_IRQ_PER_S, OVERLOAD_IRQ_FRAC = 2756.0, 0.8   # the frame interrupt runs 2,756 a second; far fewer means frames are being skipped
 LOAD_SKIP_S = 2.0         # the first seconds after START still carry the previous layout's load (BASE read 26% mean and 77% max, 24 Oct 2026)
 SETTLE_DBFS, SETTLE_MAX_S = -70.0, 15.0   # wait for the previous layout's tail to fade before the next segment
@@ -698,6 +701,8 @@ def judge(m, base, load=None):
         flags.append("DC" if (m.get("tail_dc_frac") or 0.0) > 0.9 else "RINGS")
     if load and load.get("irq_per_s_median") and load["irq_per_s_median"] < OVERLOAD_IRQ_FRAC * NOMINAL_IRQ_PER_S:
         flags.append("OVERLOAD")
+    elif load and (load.get("bad_records") or 0) > DROPS_BAD:
+        flags.append("DROPS")                # the DSP meter's per-frame record failed its checks: frames were skipped
     if load and load.get("windows"):
         top = max(load["cf_share_max"], load["dsp_core0_max"], load["dsp_core1_max"])
         if top >= LOAD_FRAC:
@@ -883,12 +888,15 @@ def cmd_run(a):
                 import load_meter as _lmod
                 load = _lmod.summarise(readings) if len(readings) > 1 else None
                 series = [[round(r["t"] - t_play, 2), round(r["cf"]["share"] or 0, 4),
-                           round(_lmod.ratio(r["dsp"]["core0"]) or 0, 4), round(_lmod.ratio(r["dsp"]["core1"]) or 0, 4)]
+                           round(_lmod.ratio(r["dsp"]["core0"]) or 0, 4), round(_lmod.ratio(r["dsp"]["core1"]) or 0, 4),
+                           round(r["cf"]["longest_us"], 1)]
                           for r in allr]
                 if m is None:
                     flags, at = ["NO AUDIO CAPTURED"], None
                     if load and load.get("irq_per_s_median") and load["irq_per_s_median"] < OVERLOAD_IRQ_FRAC * NOMINAL_IRQ_PER_S:
                         flags.append("OVERLOAD")             # judge() is not reached without audio; the frame rate says it
+                    elif load and (load.get("bad_records") or 0) > DROPS_BAD:
+                        flags.append("DROPS")
                 elif e["name"] == "BASE":
                     base_m, flags, at = m, [], None
                 else:
