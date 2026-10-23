@@ -37,6 +37,7 @@ python3 tools/hw/usb_transport_probe.py      # START / STOP over USB, one layout
 python3 tools/hw/load_meter.py --for 10      # LOAD METER summary
 ```
 
+`python3 tools/hw/ot_matrix.py report out/hw/matrix/<label>/report.json ...` prints a Markdown table per run.
 `run` adds layout 0 (BASE) when `--only` leaves it out. Reports go to
 `out/hw/matrix/<label>/report.json`: per layout the flags, the audio metrics,
 LOAD METER's summary and its per-reading series; flagged layouts also leave a

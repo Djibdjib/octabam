@@ -12,6 +12,7 @@ is the load readout where the image carries it.
     python3 tools/hw/ot_matrix.py run PROJECT_DIR LABEL [--midi Octatrack] [--audio Octatrack]
                                   [--pc-channel 1] [--bpm 121] [--play 12] [--tail 3] [--only 0,4-9]
     python3 tools/hw/ot_matrix.py audit PROJECT_DIR      # trigs, locks, odd part records, LFOs, sample paths: none in a fresh project
+    python3 tools/hw/ot_matrix.py report out/hw/matrix/<label>/report.json ...   # a Markdown table per run
     python3 tools/hw/ot_matrix.py selftest      # the detectors on synthetic audio; no unit
 
 LAYOUTS. Effect selection cannot be driven over MIDI, but every effect id
@@ -897,6 +898,25 @@ def cmd_run(a):
     return 1 if bad else 0
 
 
+def cmd_report(a):
+    """A Markdown table from one or more report.json files: a row per layout, BASE-relative flags and load."""
+    for path in a.reports:
+        rep = json.loads(pathlib.Path(path).read_text())
+        print(f"### {rep['remix']}  {pathlib.Path(rep['project']).name}  ({path})\n")
+        print("| # | PC | layout | rms dB | tail dBFS | CF max % | DSP0 mean/max % | DSP1 mean/max % | flags |")
+        print("|---|---|---|---|---|---|---|---|---|")
+        for r in rep["results"]:
+            m, l = r["metrics"], r["load"] or {}
+            tail = m.get("tail_end_db")
+            cf = f"{100 * l['cf_share_max']:.1f}" if l.get("windows") else "-"
+            d0 = f"{100 * l['dsp_core0_mean']:.1f}/{100 * l['dsp_core0_max']:.1f}" if l.get("windows") else "-"
+            d1 = f"{100 * l['dsp_core1_mean']:.1f}/{100 * l['dsp_core1_max']:.1f}" if l.get("windows") else "-"
+            print(f"| {r['slot']} | {r['program']} | {r['name']} | {m.get('rms_db', float('nan')):.1f} | "
+                  f"{'-' if tail is None else f'{tail:.1f}'} | {cf} | {d0} | {d1} | {' '.join(r['flags']) or 'ok'} |")
+        print()
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -919,9 +939,10 @@ def main():
     p.add_argument("--play", type=float, default=12.0); p.add_argument("--tail", type=float, default=3.0)
     p.add_argument("--only", default="")
     p = sub.add_parser("audit"); p.add_argument("project")
+    p = sub.add_parser("report"); p.add_argument("reports", nargs="+", help="report.json files from `run`")
     sub.add_parser("selftest")
     a = ap.parse_args()
-    return {"plan": cmd_plan, "proj": cmd_proj, "run": cmd_run, "selftest": cmd_selftest, "audit": cmd_audit}[a.cmd](a)
+    return {"plan": cmd_plan, "proj": cmd_proj, "run": cmd_run, "selftest": cmd_selftest, "audit": cmd_audit, "report": cmd_report}[a.cmd](a)
 
 
 if __name__ == "__main__":
