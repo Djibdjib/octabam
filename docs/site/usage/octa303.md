@@ -1,7 +1,7 @@
 A circuit-modelled Roland TB-303 voice on the ColdFire, one per track, as a
 machine of its own: **OCTA-303**. It needs no sample, gives up no stock
 effect, and its model is fitted to recordings of a real TB-303 (Din Sync's
-x0xb0x reference set). With the companion effect dEVILish on the track
+x0xb0x reference set). With the companion effect [dEVILish](devilish.md) on the track
 (a separate module) it plays Robin Whittle's Devil Fish modifications.
 
 ## Access

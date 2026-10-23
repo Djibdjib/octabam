@@ -38,7 +38,7 @@ def run(script, track=0, rig=None):
     for f, fr in enumerate(script):
         w, start_at, fname, alive = fr[:4]; df = fr[4] if len(fr) > 4 else None; fxslot = fr[5] if len(fr) > 5 else 1
         sq = fr[6] if len(fr) > 6 else None
-        rdf = fr[7] if len(fr) > 7 else df                            # v6.7.2: the knobs the 303 should hear
+        rdf = fr[7] if len(fr) > 7 else df                            # v7.1: the knobs the 303 should hear
         su = fr[8] if len(fr) > 8 else None                           # v7.0: the TB-303 machine's SETUP bytes
         sslot = 3 + (f % 2)                                          # the sample's FLEX slot
         rig.path(sslot, '/AUDIO/ACID/' + fname); rig.voice(track, alive, sslot)
@@ -107,43 +107,32 @@ for f in range(200):
     same &= R.render_call(st_a, w, f % 9 == 0, 0, 16, True, None) == R.render_call(st_b, w, f % 9 == 0, 0, 16, True, T.DF_NEUTRAL)
 check('devilish_neutral_is_absent', same)
 
-# v6.7.2: dEVILish's page 1 through the scenes and the crossfader (MIDI.md Appendix C), as the frame
-# builder morphs every effect's knobs on their way to the DSP
-from harness import scene_morph
+# v7.1: dEVILish's page 1 as the DSP gets it -- the voice record's halfwords (VREC + ping*0x200 +
+# 64*track, FX1 6-11 / FX2 12-17), where the frame builder has applied the locks, the scene morph and
+# the LFOs (LFO.md 5).  Knob = halfword >> 8, 0..127; the low byte is an LFO's fraction.
 _lane = (25, 0, 0, 64, 0, 50, 0, 0, 1, 0, 0, 0)
-def _pairs(slot, a, b):
-    p = [0xFF] * 64
-    for i in range(6):
-        if a[i] is not None: p[2 * (slot + i)] = a[i]
-        if b[i] is not None: p[2 * (slot + i) + 1] = b[i]
-    return p
-_A = (None, 127, 127, 0, None, 127); _B = (127, 0, None, 127, None, 3)
-_ok = []
-for fx, lslot in ((1, 18), (2, 24)):
-    for xf, ao, bo in ((0, 0, 0), (127, 0, 0), (64, 0, 0), (1, 0, 0), (126, 0, 0), (64, 1, 0), (64, 0, 1), (64, 1, 1)):
-        pr = _pairs(lslot, _A, _B)
-        if fx == 1: pr[2 * 24] = 0; pr[2 * 24 + 1] = 0      # FX2's slot locked: FX1 must not read it
-        rig = Rig(); rig.scene(0, pr, xf, ao, bo)
-        exp = scene_morph(_lane[:6], pr, lslot, xf, ao, bo) + _lane[6:]
-        sc = [(W(0, 60, 100, 90, 50, 127), 0, 'TB303.WAV', True, _lane, fx, None, exp)] + \
-             [(W(0, 60, 100, 90, 50, 0), None, 'TB303.WAV', True, _lane, fx, None, exp)] * (20 if FULL else 6)
-        A, B, mm = run(sc, rig=rig); _ok.append(mm is None)
-check('devilish_scene_morph_bit_exact', all(_ok), '%d/%d' % (sum(_ok), len(_ok)))
-_p = _pairs(18, _A, _B)
-check('scene_morph_endpoints', scene_morph(_lane[:6], _p, 18, 127) == (25, 127, 127, 0, 0, 127)
-      and scene_morph(_lane[:6], _p, 18, 0) == (127, 0, 0, 127, 0, 3)
-      and scene_morph(_lane[:6], _p, 18, 64) == (76, 64, 64, 63, 0, 65))
-check('scene_morph_no_locks_is_the_knob', all(scene_morph((k,) * 6, [0xFF] * 64, 18, xf) == (k,) * 6
-                                               for k in range(128) for xf in (0, 1, 63, 64, 126, 127)))
-_A2 = (127,) * 6; _B2 = (0,) * 6
+def _vr(fx, hws, ping=0, rounds=None):
+    rig = Rig(); rig.vrec(0, fx, hws, ping)
+    if fx == 1: rig.vrec(0, 2, (0x7f00,) * 6)                         # FX2's knobs: FX1 must not read them
+    else: rig.vrec(0, 1, (0x7f00,) * 6)
+    exp = tuple(min(max(h - 0x10000 if h & 0x8000 else h, 0) >> 8, 127) for h in hws) + _lane[6:]
+    sc = [(W(0, 60, 100, 90, 50, 127), 0, 'TB303.WAV', True, _lane, fx, None, exp)] + \
+         [(W(0, 60, 100, 90, 50, 0), None, 'TB303.WAV', True, _lane, fx, None, exp)] * (rounds or (20 if FULL else 6))
+    return run(sc, rig=rig)[2] is None
+_HW = ((0x7f00, 0x0000, 0x40fe, 0x22fe, 0x7fff, 0x0080),            # an LFO's dirty low bytes
+       (0x3200, 0x6400, 0x0100, 0x7e80, 0x1955, 0x00ff),
+       (0x8000, 0xff00, 0x7f00, 0x0000, 0x4000, 0x4000))             # below the floor: 0
+_ok = [_vr(fx, hw, ping) for fx in (1, 2) for hw in _HW for ping in (0, 1)]
+check('devilish_vrec_bit_exact', all(_ok), '%d/%d' % (sum(_ok), len(_ok)))
 rig = Rig(); rig.path(3, '/AUDIO/ACID/TB303.WAV'); rig.voice(0, True, 3); _l = []; st = R.Track()
-for xf in list(range(0, 128, 9)) + [127]:                          # the fader moving under a held note
-    rig.scene(0, _pairs(24, _A2, _B2), xf)
-    exp = scene_morph(_lane[:6], _pairs(24, _A2, _B2), 24, xf) + _lane[6:]
-    L, Rr = rig.call(0, W(0, 60, 100, 90, 50, 0), 0, 16, xf == 0, SILENCE, _lane, 2)
-    ref = R.render_call(st, W(0, 60, 100, 90, 50, 0), xf == 0, T.name_code('TB303.WAV') if xf == 0 else -1, 16, True, exp, last=True)
+for f in range(24):                                                # an LFO moving FM under a held note
+    hw = (25 << 8, ((f * 11) % 128) << 8 | (f * 37) & 0xFF, 0, 64 << 8, 0, 50 << 8)
+    rig.vrec(0, 2, hw, f % 2)
+    exp = tuple(h >> 8 for h in hw) + _lane[6:]
+    L, Rr = rig.call(0, W(0, 60, 100, 90, 50, 0), 0, 16, f == 0, SILENCE, _lane, 2)
+    ref = R.render_call(st, W(0, 60, 100, 90, 50, 0), f == 0, T.name_code('TB303.WAV') if f == 0 else -1, 16, True, exp, last=True)
     _l.append(L == ref)
-check('devilish_scene_fader_moving', all(_l), '%d/%d' % (sum(_l), len(_l)))
+check('devilish_lfo_moving', all(_l), '%d/%d' % (sum(_l), len(_l)))
 
 ex = []
 for fn in NAMES.values():
