@@ -625,6 +625,100 @@ _r, _k = lfoname(True)
 check('lfo_names_machine_record', _k and _r[0] == 'rec' and _r[1] == Rig().cpu.consts['o3_desc'] + 0x194, str(_r))
 check('lfo_names_flex_and_others_stock', lfoname(False) == (('stock', TABLE, 1), True)
       and lfoname(False, machine=2) == (('stock', TABLE, 2), True), str((lfoname(False), lfoname(False, 2))))
+# ---- v7.1: held trig + UP / DOWN (o3_octave) and the automatic slide lock (o3_autoslide)
+LK = lambda pat, t, s: BANK + pat * 0x8ed8 + t * 0x91a + 0x59 + s * 32
+SH = lambda pat, t, s: 0x1001614e + pat * 0x8ed8 + t * 0x91a + 0x59 + s * 32
+def lrig(signed=True, midi=0, part=1, pat=3, track=2, base=64):
+    rig = Rig(); c = rig.cpu; m = c.mem
+    m.w(0x46c82456, 'l', BANK); m.w(0x100b14cf, 'b', part); m.w(0x100b14d0, 'b', pat)
+    m.w(0x100b14cc, 'b', track); m.w(0x80000012, 'l', midi)
+    P = PP(part); m.w(P + 0x22 + track, 'b', 1)
+    for i, x in enumerate(b'TB\x01' if signed else b'\0\0\0'): m.w(P + 0x3c + 30 * track + i, 'b', x)
+    m.w(BANK + part * 6322 + 0x8edb0 + 30 * track, 'b', base)       # the Part's TUNE
+    for s in range(64):
+        m.w(LK(pat, track, s), 'b', 0xff); m.w(SH(pat, track, s), 'b', 0xff)
+    return rig, c, m
+def octave(key, held, page=0, locks=None, **kw):
+    rig, c, m = lrig(**kw); pat, t = kw.get('pat', 3), kw.get('track', 2)
+    for s, v in (locks or {}).items(): m.w(LK(pat, t, s), 'b', v)
+    m.w(0x460d174a, 'w', held); m.w(0x460d174c, 'l', page)
+    toast, ev, out = [], [], []
+    c.hooks[0x4005a2b8] = lambda cpu: toast.append(cpu.mem.r(cpu.a[7], 'l'))
+    c.hooks[0x40027e00] = lambda cpu: ev.append('e00')
+    c.hooks[0x4009da20] = lambda cpu: ev.append(('da20', cpu.mem.r(cpu.a[7], 'l')))
+    c.hooks[0x40027de4] = lambda cpu: out.append(('tail', cpu.a[7]))
+    def _stock(cpu): out.append(('stock', cpu.a[7], cpu.mem.r(cpu.a[7], 'l'))); cpu.a[7] += 28
+    c.hooks[0x400434e0] = _stock
+    for r in range(2, 8): c.d[r] = 0x7700 + r
+    for r in range(2, 7): c.a[r] = 0x6600 + r
+    m.w(STACK - 4, 'l', 1); m.w(STACK - 8, 'l', key); c.a[7] = STACK - 8    # (key, event); call pushes the return
+    c.call('o3_octave')
+    kept = all(c.d[r] == 0x7700 + r for r in range(2, 8)) and all(c.a[r] == 0x6600 + r for r in range(2, 7))
+    lk = {s: m.r(LK(pat, t, s), 'b') for s in range(64) if m.r(LK(pat, t, s), 'b') != 0xff}
+    sh = {s: m.r(SH(pat, t, s), 'b') for s in range(64) if m.r(SH(pat, t, s), 'b') != 0xff}
+    edited = m.r(BANK + 0x9b332, 'l') == 1 and m.r(0x100f8598, 'l') == 1
+    return dict(locks=lk, shadow=sh, edited=edited, ev=ev, out=out, kept=kept, toast=toast, m=m)
+r = octave(0x33, 0b101, page=16, locks={18: 70})               # steps 16 (no lock) and 18 (70)
+_txt = ''
+if r['toast']:
+    _a, _b = r['toast'][0], b''
+    while r['m'].r(_a + len(_b), 'b'): _b += bytes([r['m'].r(_a + len(_b), 'b')])
+    _txt = _b.decode()
+check('octave_up_held_steps', r['locks'] == {16: 76, 18: 82} and r['shadow'] == r['locks'] and r['edited']
+      and r['ev'] == ['e00', ('da20', 2)] and r['out'] == [('tail', STACK - 12)] and r['kept'], str(r))
+check('octave_toast_names_the_note', _txt == 'F#4 +OCT', repr(_txt))
+r = octave(0x20, 0b1, locks={0: 45})                           # C#1 + a fifth: below C1 after an octave down
+check('octave_down_stops_at_c1', r['locks'] == {0: 45} and not r['edited'] and r['ev'] == [] and r['toast'] == []
+      and r['out'] == [('tail', STACK - 12)], str(r))
+r = octave(0x20, 0b10, locks={1: 64})
+check('octave_down', r['locks'] == {1: 52} and r['shadow'] == {1: 52}, str(r))
+for kw in (dict(signed=False), dict(midi=1)):
+    r = octave(0x33, 0b1, **kw)
+    check('octave_stock_elsewhere_%s' % ('flex' if 'signed' in kw else 'midi'), r['locks'] == {}
+          and r['out'] == [('stock', STACK - 12 - 28, 0x7702)], str(r))
+def slide(steps, kind=8, trigs=(), trigless=(), tlocks=(), locks=None, other_track=False, **kw):
+    """o3_trig_in, then the handler (here: set the trigless bits of `steps` at +kind), then o3_trig_out."""
+    rig, c, m = lrig(**kw); pat, t = kw.get('pat', 3), kw.get('track', 2)
+    rec = BANK + pat * 0x8ed8 + t * 0x91a
+    setb = lambda off, s: m.w(rec + off + 7 - s // 8, 'b', m.r(rec + off + 7 - s // 8, 'b') | (1 << (s % 8)))
+    for s in trigs: setb(0, s)
+    for s in trigless: setb(8, s)
+    for s in tlocks: setb(16, s)
+    for s, v in (locks or {}).items(): m.w(LK(pat, t, s), 'b', v)
+    back = []
+    def _in(cpu): back.append(('in', cpu.a[7], cpu.mem.r(cpu.a[7], 'l'))); cpu.a[7] += 40
+    def _out(cpu): back.append(('out', cpu.a[7])); cpu.a[7] -= 44
+    c.hooks[0x4005fb4c] = _in; c.hooks[0x40060b48] = _out
+    for r_ in range(2, 8): c.d[r_] = 0x7700 + r_
+    for r_ in range(2, 6): c.a[r_] = 0x6600 + r_
+    c.a[7] = STACK; c.call('o3_trig_in')
+    ok_in = back == [('in', STACK - 44, 0x7702)]
+    c.a[7] = STACK                                            # the handler's frame is gone again
+    for s in steps: setb(kind, s)
+    if other_track: m.w(0x100b14cc, 'b', t + 1)
+    # the exit: pea -1 below the saved registers (44 bytes: -1, d2-d7, a2-a5)
+    base = STACK - 48
+    m.w(base, 'l', 0xffffffff)
+    for i, v in enumerate([0x5502 + k for k in range(6)] + [0x4402 + k for k in range(4)]): m.w(base + 4 + 4 * i, 'l', v)
+    c.a[7] = base + 4; c.call('o3_trig_out')       # call's return address stands in the -1's slot
+    ok_out = back[-1] == ('out', base + 44) and [c.d[k] for k in range(2, 8)] == [0x5502 + k for k in range(6)] \
+        and [c.a[k] for k in range(2, 6)] == [0x4402 + k for k in range(4)]
+    lk = {s: m.r(LK(pat, t, s), 'b') for s in range(64) if m.r(LK(pat, t, s), 'b') != 0xff}
+    sh = {s: m.r(SH(pat, t, s), 'b') for s in range(64) if m.r(SH(pat, t, s), 'b') != 0xff}
+    return lk, sh, ok_in and ok_out
+# a trig with E (68) on step 20, a trigless trig placed on step 21: it ties into E
+check('slide_takes_the_previous_note', slide([21], trigs=[20], locks={20: 68}) == ({20: 68, 21: 68}, {21: 68}, True),
+      str(slide([21], trigs=[20], locks={20: 68})))
+check('slide_trigless_lock_too', slide([21], kind=16, trigs=[20], locks={20: 68}) == ({20: 68, 21: 68}, {21: 68}, True))
+check('slide_previous_trig_without_lock_is_the_part_tune', slide([21], trigs=[20], base=60) == ({21: 60}, {21: 60}, True))
+check('slide_chains_through_a_slide', slide([22], trigs=[20], trigless=[21], locks={20: 68, 21: 75})
+      == ({20: 68, 21: 75, 22: 75}, {22: 75}, True))
+check('slide_wraps_around', slide([0], trigs=[63], locks={63: 50}) == ({63: 50, 0: 50}, {0: 50}, True))
+check('slide_keeps_an_existing_lock', slide([21], trigs=[20], locks={20: 68, 21: 40}) == ({20: 68, 21: 40}, {}, True))
+check('slide_only_new_trigless_steps', slide([], trigs=[20], trigless=[21], locks={20: 68}) == ({20: 68}, {}, True))
+check('slide_stock_elsewhere', slide([21], trigs=[20], locks={20: 68}, signed=False) == ({20: 68}, {}, True)
+      and slide([21], trigs=[20], locks={20: 68}, midi=1) == ({20: 68}, {}, True)
+      and slide([21], trigs=[20], locks={20: 68}, other_track=True) == ({20: 68}, {}, True))
 def mchrom(signed, idx=0):
     rig = Rig(); c = rig.cpu; m = c.mem; part, track = 2, 3
     m.w(0x46c82456, 'l', BANK); m.w(0x100b14cf, 'b', part)

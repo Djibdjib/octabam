@@ -26,8 +26,17 @@ Markers as in `CHIP.md`: ✅ measured, 🟡 inferred.
    FUNC + SRC opens the same list, but on a FLEX or STATIC track with a sample it opens the sample
    list first: LEFT reaches the machines (the stock behaviour).
 2. Sequence it like any track. **Accent** = an ACC parameter lock. **Slide** = a trigless trig or a
-   trigless PTCH (TUNE) lock on the following step.
+   trigless lock (FUNC + TRIG) on the following step; since v7.1 it gets the note it slides from as
+   its TUNE lock the moment it is placed (the previous step with a trig or a trigless step: its TUNE
+   lock, or the Part's TUNE), so the slide ties into that note as on the TB-303. Turn TUNE with the
+   step held to slide somewhere else. A step that already has a TUNE lock keeps it.
 3. The CHROMATIC keys play semitones on an OCTA-303 track.
+4. **The TB-303's UP and DOWN** (v7.1): in GRID RECORDING, hold one or more trigs and press UP or
+   DOWN: each held step's TUNE goes an octave up or down (a step without a TUNE lock starts from
+   the Part's TUNE; a note past C1..C5 stays where it is), and the screen shows the note
+   (`C4 +OCT`). On every other track TRIG + UP / DOWN is stock (the sample-lock list).
+5. LFO SETUP names an OCTA-303 track's PLAYBACK destinations TUNE CUT RES ENV DEC ACC (v7.1; before,
+   FLEX's PTCH STRT LEN RATE RTRG RTIM: the modulation was right, the names were not).
 
 The older form still works and is unchanged: a FLEX track whose sample is named `TB303*.wav`
 (`TB303`, `TB303SQ`, `TB303D`, `TB303SQD`, any case) plays the same engine with neutral SETUP values.
@@ -107,7 +116,7 @@ Accent (v6.8, Din Sync set A5, peak / energy in the first 4–40 ms, relative to
 
 ### The code (✅)
 
-- `tools/octa303/sim/test_octa303.py`: 89/89 in a tree without `modules/devilish` (92/92 with it:
+- `tools/octa303/sim/test_octa303.py`: 108/108 with `modules/devilish` (v7.1; 92/92 before, 89/89 without it:
   three checks read dEVILish's manifest, one checks OCTA303's own `DEVIL_ID`). `octa303.s` executed
   from its source text in a ColdFire simulator equals the Python model `ref303.py` sample for sample:
   both carriers, accents, slides, split frames, extreme knobs, Devil Fish on FX1/FX2 (read from the DSP
@@ -129,6 +138,28 @@ but driving one engine call per case through the sequencer there would take hour
 simulator checks in seconds. Not done: `cfsim.py`'s output has not been compared bit for bit with
 the same calls under `ot_emu`; the port gate and the unit are what catch a simulator that reads an
 instruction differently from the chip.
+
+### v7.1 (23 Oct 2026): the sites, read from the user's 1.40C
+
+- ✅ The LFO PMTR formatter `0x4003bf64` (LFO page descriptor `0x400d37be`, slot 6's formatter)
+  takes a PLAYBACK destination's names from `PB_TABLE[the track's machine]`; the detour at
+  `0x4003bff0` hands it OCTA303's machine record on a signed track (Zac Kyoti's BLACKPYRAMIDS_303
+  hooks the same site for its own row, MT13: the two modules already conflict).
+- ✅ The held-trig layer's key table `0x400becda` sends UP and DOWN to `0x400434d8`, which opens
+  the sample-lock list for the first held step on a STATIC or FLEX track; the detour at its entry
+  takes the keys on an OCTA-303 track. The TUNE lock is written as the stock knob-lock writer
+  (`0x40050e60`) writes it: the bank blob and its battery-backed copy (`0x1001614e + …`), then
+  `bank + 0x9b332` and `0x100f8598`, `0x40027e00`, `0x4009da20(track)`.
+- ✅ The trig-key handler `0x4005fb44` places, removes and converts every trig kind; its entry
+  (`0x4005fb44`) and its tail before `jmp 0x40027de4` (`0x40060b3e`) are detoured: the track's
+  trigless masks (+8 trigless trigs, +16 trigless locks) at the entry are compared with the masks at
+  the tail, and a step that became trigless gets its note. 🟡 Which of the handler's branches FUNC +
+  TRIG and TRIG + NO take is not read; the compare does not depend on it.
+- ✅ `test_octa303`: the three routines from their source text (octave up and down, the edges, the
+  toast's note, the battery-backed copy, the stock path on FLEX and MIDI tracks; the slide's note
+  from a trig, a slide, the Part, around the end of the pattern, a step already locked, no new step,
+  another track).
+- Not yet: `tools/octa303/port_o3keys.py` (the panel under the port) and the unit.
 
 ### Under the port (✅, `ot_emu`, the user's OS 1.40 image, 19 Oct 2026)
 

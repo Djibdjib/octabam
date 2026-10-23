@@ -96,6 +96,14 @@ MODULE = Module(
                "main page name lookup for the signed TB-303 track"),
         Detour(0x4003BFF0, H("711041f9400d5f38"), "octa303", "o3_lfo_name",
                "LFO SETUP's destination names: an OCTA-303 track's PLAYBACK row from the machine's record"),
+        Detour(0x400434D8, H("4fefffe448d704fc"), "octa303", "o3_octave",
+               "held trig + UP / DOWN: on an OCTA-303 track the held steps' TUNE an octave up / down "
+               "(stock: the sample-lock list, which a track without samples has no use for)"),
+        Detour(0x4005FB44, H("4fefffd848d73cfc"), "octa303", "o3_trig_in",
+               "trig-key handler entry: an OCTA-303 track's trigless masks kept for o3_trig_out"),
+        Detour(0x40060B3E, H("4cef3cfc00044fef002c"), "octa303", "o3_trig_out",
+               "trig-key handler tail: a new trigless trig or lock on an OCTA-303 track gets the TUNE "
+               "lock of the note it slides from"),
         Detour(0x4004C36A, H("41f9400a78c8"), "octa303", "o3_name_b",
                "second main page name lookup for the signed TB-303 track"),
         Detour(0x4003C980, H("71104fef0018"), "octa303", "o3_setup_row",
@@ -133,8 +141,9 @@ MODULE = Module(
         ("SYNTH MACHINE", "both own the FLEX renderer entry 0x400d6438, the PLAYBACK resolver "
                           "load 0x40031ece and the command-byte copy 0x4000c634"),
         ("ANALOG BD", "both own the FLEX renderer entry 0x400d6438 and machine row 5 (v7.0)"),
-        ("BLACKPYRAMIDS_303", "both are a TB-303 on machine row 5: 15 shared detour sites (the machine "
-                              "chooser, SRC SETUP, the Part validator 0x40002318 among them) and 7 shared "
+        ("BLACKPYRAMIDS_303", "both are a TB-303 on machine row 5: 16 shared detour sites (the machine "
+                              "chooser, SRC SETUP, the Part validator 0x40002318, the LFO PMTR names "
+                              "0x4003bff0 among them) and 7 shared "
                               "pokes (the chooser's row count, draw, highlight and persistence, SRC SETUP's "
                               "row count and name lookup, the FLEX renderer entry 0x400d6438)"),
     ),

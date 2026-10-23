@@ -424,7 +424,6 @@ def main():
         elif group=='octa303':jobs=[('octa303',capture_octa303,[])]
         elif group=='distorx':jobs=[('distorx',capture_fx,[(2,'fx2','DISTORX')])]
         elif group=='machines':jobs=[('analog-bassdrum',capture_analog,[]),('octatrick',capture_synth,[]),('blackpyramids-303',capture_blackpyramids,[]),('octa303',capture_octa303,[]),('cxosc',capture_cxosc,[])]
-        elif group=='machines':jobs=[('analog-bassdrum',capture_analog,[]),('octatrick',capture_synth,[]),('blackpyramids-303',capture_blackpyramids,[]),('octa303',capture_octa303,[])]
         elif group=='devilish':jobs=[('devilish',capture_fx,[(2,'fx2','DEVILISH')])]
         elif group=='probes':jobs=[('cfmeter',capture_fx,[(8,'fx2','CF METER')])]
         elif group=='utilities':jobs=[('buffer-saver',capture_buffer_saver,[])]
