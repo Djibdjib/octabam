@@ -22,7 +22,7 @@ MODULE = Module(
     author="ilia-murzinov",
     author_url="https://github.com/ilia-murzinov",
     proof=Proof.HARDWARE,
-    proof_note="MKII: LSCOPE BH 23 Oct 2026 (OSC/XY/ALL 4×2 T1 top, clip !, G/P HUD); also make check REMIX=test/scope",
+    proof_note="MKII: LSCOPE BJ 24 Oct 2026 (OSC/XY/ALL; owner busy 8-track: CF METER SCOPE open ISR mean 291 µs / closed 288 µs, TUE 0 ROE 0; several min ALL soak no glitch); also make check REMIX=test/scope",
     doc="DOWN+TEMPO OSC/XY/ALL; UP/DOWN switch; A GAIN B TIME; bridges TUNER.",
     requires=("TUNER",),
     overrides=(
