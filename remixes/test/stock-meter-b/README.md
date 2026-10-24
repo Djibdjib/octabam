@@ -1,6 +1,6 @@
 # `stock-meter-b` -- LOAD METER with the stock effects
 
-CORE (as `octabam-inserts`) with LOAD METER and the stock effects except SPATIALIZER, whose 261 words (67 free after the meter's 194 on payload A) hold the meter's DSP half. `stock-meter-a` and `stock-meter-b` together list all 14 stock effects with the meter, so each stock effect's slot cost can be read on a unit (`docs/contributing/HARDWARE_MATRIX.md`).
+CORE (as `octabam-inserts`) with LOAD METER and the stock effects except SPATIALIZER, whose 261 words (67 free after the meter's 194 on payload A) hold the meter's DSP half. `stock-meter-a` and `stock-meter-b` together list all 14 stock effects with the meter, so each stock effect's slot cost can be read on a unit (`tools/hw/ot_matrix.py`, on `hw/usb-standalone-transport`).
 
 ## What is in it
 
