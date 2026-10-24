@@ -64,8 +64,9 @@ WDTH. `stamp-defaults` before play.
   COMB 7.93 %, PHSR 8.65 %; `dear` costs what its mode costs. Caps at a 95 % limit:
   9.07 % core 0, 10.0 % core 1. FLNG was 0.15 over; its fixed-tap arm was then trimmed
   (the second channel reuses the first's address, the fraction waits in n3, bl is an
-  immediate): 259.8 → 253.6 instructions a sample, 1,417 → 1,413 words. Not measured
-  after the trim.
+  immediate): 259.8 → 253.6 instructions a sample, 1,417 → 1,413 words. I4 (the same
+  project and layouts): FLNG 8.95 %, 0.12 under the core-0 cap; the other modes and `dear`
+  unchanged (JUNO 7.20, DIM 8.75, COMB 7.93, PHSR 8.65, `dear` 8.65 %).
 - **5 Oct 2026, the cycles pass** (bit-identical, `make verify-ident
   MOD=modulation` 13/13): LINE 354 → 330, COMB 329 → 291, PHSR 298.
   The lines run as modulo-1024 rings in the two loops (`m5 = $3ff`, a
