@@ -1199,6 +1199,13 @@ def cmd_switch(a):
                     row["rate_hz"] = round(len(rr) / SW_RUN_S, 1)
                     row["series"] = [[round(r["t"] - t0, 3), round(r["cf"]["longest_us"], 1), round(load_meter.ratio(r["dsp"]["core0"]) or 0, 4),
                                       round(load_meter.ratio(r["dsp"]["core1"]) or 0, 4), r["dsp"]["bad"], r["dsp"]["seq"]] for r in rr[::10]]
+                    if x is not None and "GAP" in row["flags"]:
+                        import wave
+                        i0, i1 = int((m["t_switch_s"] - 1.0) * fs), int((m["t_switch_s"] + 2.0) * fs)
+                        w = wave.open(str(out_dir / f"{sa:02d}_{sb:02d}_{len(results):02d}.wav"), "wb")
+                        w.setnchannels(2); w.setsampwidth(2); w.setframerate(fs)
+                        w.writeframes((np.clip(x[i0:i1, :2], -1, 1) * 32767).astype("<i2").tobytes())
+                        w.close()
                     exp = expected.get(sb)
                     if exp is not None and abs(m["level_b"] - exp) > 0.05:
                         row["flags"].append("NO_SWITCH")        # the load after the change is not the target layout's

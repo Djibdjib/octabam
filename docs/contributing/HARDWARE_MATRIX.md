@@ -96,12 +96,14 @@ No single-slot run has gone past 98.8 %.
    ColdFire's longest frame-interrupt run was 421 to 432 µs (against 280 µs steady and 366 µs at a plain
    pattern wrap with no part change, and 421 to 434 µs at START), so 116 to 119 % of the 362.8 µs frame, about
    60 µs over a wrap; the DSP busy rose 1.2 points at most above the steady value once and not otherwise;
-   LOAD METER's bad records stayed at 0 and no silence reached 40 ms. Heavy to BASE (428 µs) was the same.
-   Not yet: transitions between two heavy layouts and from every effect to every effect, a switch of the
-   instrument's own audio (the gaps flagged on transitions involving EUCLID FX1 + CHARACTER FX2 were not
-   reproduced with a healthy unit), and a repeat of the cases that failed: in one run (sw03) a program change
-   to a layout during play was not applied at all, and the next start came up on the wrong layout, after a
-   control that sent the program change for the layout already playing; do not use that control.
+   LOAD METER's bad records stayed at 0 and no silence reached 40 ms. TRANSIENT + LOFI2 to BASE, three times:
+   425, 425 and 433 µs, no gap. TRANSIENT + LOFI2 to EUCLID FX1 + CHARACTER FX2 `dear`: 484 µs (133 % of a frame), the
+   largest seen, probably EUCLID's ColdFire setup; back again: 426 µs, DSP busy 99.8 % against 98.3 % steady. Every
+   transition ran with 0 bad records and no silence. Not yet run: transitions between more pairs, in both directions,
+   and with real material. One earlier run (sw03) did not apply a program change sent during play, and the next start
+   came up on the wrong layout, after a control that sent the program change for the layout already playing; use
+   `--pairs` with two different layouts, not that control. A 1,080 ms silence flagged on one heavy-to-BASE transition
+   in that run did not recur in three repeats.
 3. **Where the frame budget ends.** One layout at 98.2 % busy ran clean (three times); one at 105.3 % and one at
    112 % overloaded the unit; EUCLID FX1 + LOFI2 FX2 at 95.8 % dropped frames, four times in four. Seven
    EUCLID FX1 pairs with an FX2 effect at 42 to 81 % ran clean. Layouts between 96 and 105 % would show the edge, and
