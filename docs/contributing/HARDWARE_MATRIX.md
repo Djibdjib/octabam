@@ -109,6 +109,21 @@ No single-slot run has gone past 98.8 %.
    EUCLID FX1 pairs with an FX2 effect at 42 to 81 % ran clean. Layouts between 96 and 105 % would show the edge, and
    whether it moves with the ColdFire share.
 
+4. **KITS, MIDI SCENES and DIRECT_JUMP_KYOTI** (all three are in `octabam-core`, `-inserts` and `-bus`; the last two
+   also with LOAD METER in the latter two). The area with the most recent work. What the cable can drive, what
+   needs hands, and what has run on a unit:
+
+   | feature | over the cable | needs the panel | hardware record |
+   |---|---|---|---|
+   | KITS | a pattern change by program change loads the pattern's Kit into the Part slot; the per-slot costs in LOAD METER fingerprint which effects a Kit put on which slot; audio and load around the change (`switch`) | LOAD KIT, SAVE KIT, the list copy / paste / clear / undo, assigning a Kit to a pattern | `modules/kits/README.md` "On the unit": not run unattended with the BCR2000 |
+   | MIDI SCENES | scene A / B select and the crossfader are CCs (55 / 56, 48), so the morph can be swept over USB MIDI with the locks stamped in `scenes.work` (MSC, 4,096 B); a MIDI track's output is the observable, if the unit sends it over USB (the USB README records no MIDI transmit measurement) | setting a lock (hold a scene, turn a knob), copy / paste a scene | the MIDISC 2.1 reimplementation has not run on hardware (the original ran on its author's unit, 14 Sep 2026) |
+   | DIRECT_JUMP_KYOTI | after the toggle ([PTN] + [YES], OFF at every power-on) a program change cues a jump at the next step; the stimuli (impulse and hit trains of known spacing) make the landing step and the phase checkable, and `switch` gives the load and gaps at the jump | the toggle | the author's MKI, 27-28 Sep and 1 Oct 2026; program change on fast re-cues, MIDI tracks and START SILENT only under the author's emulator |
+
+   Not built. Open: what Sam has seen go wrong (symptoms, patterns, the project), which tracks and Kits are in play,
+   and whether the unit transmits MIDI track output over USB. Candidate runs: `switch` with the toggle on, many
+   program changes at random times and in bursts; a Kits project with a distinct effect set per Kit and a
+   program-change walk over all of them; a scene sweep with a known morph.
+
 ## Flags
 
 Every flag is against BASE of the same project; thresholds are the constants at
