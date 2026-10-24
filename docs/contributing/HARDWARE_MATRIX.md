@@ -83,12 +83,18 @@ No single-slot run has gone past 98.8 %.
 
 ## Tests not yet run
 
-1. **The heaviest combinations of the stock effects.** Needs LOAD METER's slot costs for the 14 stock
-   effects, and no current remix has both: `octabam-core` carries them without the meter (the 14 effects
-   leave no DSP words for its 193 per payload), and `octabam-bus` and `octabam-inserts` carry the meter
-   without most of them. Options, not decided: a test remix that gives up the lightest stock effects for
-   the meter (`make cycles` prices them statically); or the static prices alone. The pair predictor
-   (`predict`) would then rank the combinations as it does for the octabam effects.
+1. **The heaviest combinations of the stock effects: slot costs measured, combinations not yet ranked.**
+   `remixes/test/stock-meter-a` and `-b` carry LOAD METER and 13 of the 14 stock effects each (a lacks
+   PHASER, b lacks SPATIALIZER). Runs of 25 Oct 2026 (images S1 and S2, projects MXSTK_a_01 and
+   MXSTK_b_01, `def` settings, one effect on all eight tracks in FX1 or FX2, 0 of 23 layouts flagged),
+   cost per slot = (layout - BASE) / 4 with BASE 22.5 % on core 0 and 14.9 % on core 1; the same on both
+   cores and in FX1 and FX2 to 0.1 point:
+   DJ EQ 7.30 %, LO-FI 6.65, SPRING REV 6.38, CHORUS 6.28, DARK REV 5.47, PLATE REV 5.28, PHASER 5.18,
+   FILTER 5.10, EQUALIZER 4.10, FLANGER 3.12, COMB FILTER 2.72, COMPRESSOR 2.17, SPATIALIZER 1.28,
+   DELAY 0.00. DELAY runs on the ColdFire (Sam, 25 Oct 2026), so its DSP cost is 0; the frame
+   interrupt's share did not move (59.7 % against 59.6 %). The ColdFire cost of DELAY is not measured.
+   Not run: the combinations (the pair predictor, `predict`, ranks them from these costs), `dear`
+   settings (the stock effects have none in the registry).
 2. **Part and pattern changes while playing: first results, more to run.** `ot_matrix.py switch` (24 Oct
    2026, MXEUC_01 on `octabam-inserts`): a program change sent during play takes effect at the end of the
    pattern, 8.02 s after START (64 steps at 120 BPM), whether it was sent 1 s or 6 s after START (BASE to
