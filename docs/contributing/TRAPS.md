@@ -1135,6 +1135,32 @@ reports on a range it never watched. Rule: one comma-joined
 check what the command line actually watched before suspecting the
 runtime.
 
+<a name="trap-frame-count"></a>
+
+### A frame count past $7fffff reaches `move a,n1` with A2 stale, and a frame engine that stops after 50.7 minutes
+
+**A COUNT WITH BIT 23 SET, LOADED INTO A AND MASKED, LEAVES A2 AT $FF AND
+`move a,n1` LIMITS.** Core 0's frame count in `dsp_meter.asm` indexed the 16
+OTOP cost cells (`move x:(r1+6),a / and #>$f,a / move a,n1`, then
+`move x:(r1+n1),a`). At 8,388,608 frames the load sign-extends A2 to $FF,
+`and` leaves it (`trap-a2-stale`), and the move limits n1 to $800000: the
+cost read goes to a wild address. The unit's frame interrupt and every
+counter on it stopped 8,388,607 frames after power-up (3,043.6 s at
+2,756.25 a second), on an idle unit, twice (24 Oct 17:23, 25 Oct 07:41). The
+port reads zero at the wild address and goes on; the OTOP costs after the
+crossing are zero. Inferred, not measured: that the read stalls the core on
+the unit (an image with the count preset, Q1, stopped within seconds of boot;
+Q2, with the wrap below, did not).
+- Fix: `and #>$7fffff,a` after the add keeps the count below bit 23 (2^23 is
+  a multiple of 16, so the slot index continues).
+- Located by presetting: the ColdFire seq preset to 8,388,000 (P1) stopped at
+  8,388,607 records from boot, so the stop followed the DSP count and not the
+  ColdFire seq.
+**Gate:** `verify_load_meter` `wrap` (`LM_FRAME0` = 2^23 - 1000; `--wrap-only`
+runs just it): every OTOP slot sampled and the costs read (heaviest slots 1
+and 9, core 0 sum above zero). Without the `and` the sum is 0. A counter
+that must outlive 50 minutes at 2,756 a second needs a preset test.
+
 <a name="trap-ep0-dma"></a>
 
 ### An EP0 reply is DMA'd from memory the CPU's cache may not have written, and one of 64 bytes breaks the next request

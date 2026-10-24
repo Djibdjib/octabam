@@ -171,6 +171,14 @@ the chip's:
   MAIN, the USB stream);
 - the view's text widths on the unit's LCD.
 
+## Frame count
+
+Core 0 counts frames in `x:(r1+6)`, 24 bits, wrapping at 2^23 (a multiple of
+16, so the OTOP slot index continues). Before the wrap, bit 23 of the count reached
+`move a,n1` with A2 stale and the unit's frame interrupt stopped 8,388,607
+frames (50.7 minutes) after power-up (docs/contributing/TRAPS.md#trap-frame-count). `LM_FRAME0=N` starts
+the count at N in a gate build.
+
 ## Measured
 
 Both DSP cores under the port (`verify_load_meter`, 12 Oct 2026, project
