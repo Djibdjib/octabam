@@ -89,14 +89,19 @@ No single-slot run has gone past 98.8 %.
    without most of them. Options, not decided: a test remix that gives up the lightest stock effects for
    the meter (`make cycles` prices them statically); or the static prices alone. The pair predictor
    (`predict`) would then rank the combinations as it does for the octabam effects.
-2. **Part and pattern changes while playing.** The runs so far change layout with the transport stopped; the
-   new part's effects take effect at START (the first reading after START shows the previous layout's load for
-   under a second, and never more than both layouts' loads). The ColdFire share moved by 1.4 points at most
-   across that. The poll is every 0.25 s, so a spike of milliseconds is not seen. A `switch` run mode would send
-   the program change during play (it queues to the pattern boundary), cover BASE to the heaviest layout, the
-   heaviest to BASE, two heavy layouts, and a change of effect on all sixteen slots at once, record the ColdFire
-   longest run per reading (`longest_us` is in each run's series since 24 Oct 2026), the DSP busy per frame, the
-   `DROPS` count and any gap in the audio at the boundary. Not built.
+2. **Part and pattern changes while playing: first results, more to run.** `ot_matrix.py switch` (24 Oct
+   2026, MXEUC_01 on `octabam-inserts`): a program change sent during play takes effect at the end of the
+   pattern, 8.02 s after START (64 steps at 120 BPM), whether it was sent 1 s or 6 s after START (BASE to
+   TRANSIENT FX1 + LOFI2 FX2 `dear`, three times each, load 22 to 98 % at 8.02 s). Around the switch: the
+   ColdFire's longest frame-interrupt run was 421 to 432 µs (against 280 µs steady and 366 µs at a plain
+   pattern wrap with no part change, and 421 to 434 µs at START), so 116 to 119 % of the 362.8 µs frame, about
+   60 µs over a wrap; the DSP busy rose 1.2 points at most above the steady value once and not otherwise;
+   LOAD METER's bad records stayed at 0 and no silence reached 40 ms. Heavy to BASE (428 µs) was the same.
+   Not yet: transitions between two heavy layouts and from every effect to every effect, a switch of the
+   instrument's own audio (the gaps flagged on transitions involving EUCLID FX1 + CHARACTER FX2 were not
+   reproduced with a healthy unit), and a repeat of the cases that failed: in one run (sw03) a program change
+   to a layout during play was not applied at all, and the next start came up on the wrong layout, after a
+   control that sent the program change for the layout already playing; do not use that control.
 3. **Where the frame budget ends.** One layout at 98.2 % busy ran clean (three times); one at 105.3 % and one at
    112 % overloaded the unit; EUCLID FX1 + LOFI2 FX2 at 95.8 % dropped frames, four times in four. Seven
    EUCLID FX1 pairs with an FX2 effect at 42 to 81 % ran clean. Layouts between 96 and 105 % would show the edge, and

@@ -1183,9 +1183,9 @@ def cmd_switch(a):
                     seg["chunks"] = []
                 t0 = time.time()
                 clock.start()
-                time.sleep(SW_PC_AT_S)
+                time.sleep(a.pc_at)
                 clock.pc(pc_ch, eb["program"])
-                time.sleep(SW_RUN_S - SW_PC_AT_S)
+                time.sleep(SW_RUN_S - a.pc_at)
                 clock.stop()
                 with lock:
                     chunks, seg["chunks"] = seg["chunks"], None
@@ -1282,6 +1282,7 @@ def main():
     p.add_argument("--report", help="a report.json of a run of this project: pick light, heavy and second-heaviest from it")
     p.add_argument("--midi", default="Elektron Octatrack DPS-1"); p.add_argument("--audio", default="Octatrack")
     p.add_argument("--pc-channel", type=int, default=None); p.add_argument("--bpm", type=float, default=None)
+    p.add_argument("--pc-at", type=float, default=SW_PC_AT_S, help="seconds after START at which the program change is sent (2)")
     p = sub.add_parser("report"); p.add_argument("reports", nargs="+", help="report.json files from `run`")
     sub.add_parser("selftest")
     a = ap.parse_args()
