@@ -153,6 +153,14 @@ A project to start from needs no unit: `ot_fresh.py --remix octabam-inserts` has
 `ot_matrix.py audit` finds nothing), `proj --clean` builds the stimuli projects from it, and the replay ran on them
 (3 of 3 clean, 20 s each, 24 Oct 2026).
 
+`.github/workflows/fuzz.yml` runs the same chain on runners, by hand (`workflow_dispatch`: remix, Kits none / identity /
+rotated, profile, seconds, seeds per shard; 8 shards of `ubuntu-latest`). Each shard fetches the stock OS as the `gates`
+job does, has the port make its own fresh project, builds the stimuli project, has the firmware migrate the Kits when
+asked (`ot_kits.py migrate`, `--rotate 1` for the rotated assignment), and replays its seeds; it uploads the verdict
+text and each seed's sequence and MIDI script and nothing derived from the OS. A red shard reproduces locally with the
+same seed. Written and its YAML parsed, its action pins checked against `ci.yml`'s and the upload action's against
+GitHub; not yet run: it needs the branch pushed, and nothing here has measured how fast the port runs on a runner.
+
 ## Flags
 
 Every flag is against BASE of the same project; thresholds are the constants at

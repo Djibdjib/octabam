@@ -4,6 +4,7 @@
     python3 tools/hw/ot_kits.py show PROJECT_DIR                  # Kits present, the pattern assignment
     python3 tools/hw/ot_kits.py from-card CARD_AFTER.img OUT_DIR  # the kits.work the firmware wrote, out of a card image
     python3 tools/hw/ot_kits.py assign PROJECT_DIR 4:0 5:1 ...     # pattern index (16 * bank + pattern - 1) : Kit
+    python3 tools/hw/ot_kits.py migrate PROJECT_DIR REMIX [--rotate N]   # the firmware makes the Kits (port), installs kits.work
     python3 tools/hw/ot_kits.py rotate PROJECT_DIR N [--patterns 0-3,16-19,...]   # pattern i plays Kit (i's Kit + N)
 
 Layout (modules/kits/README.md "Files", version 2): 64-byte header (`KITS`, version, length, CRC-32 of everything
@@ -132,15 +133,42 @@ def cmd_rotate(a):
     return 0
 
 
+def cmd_migrate(a):
+    """Have the firmware migrate the project's stock Parts into Kits at its first load (a project with no kits.work), under
+    the port, and install the kits.work it wrote. `--rotate N` then points every used pattern N Kits along."""
+    import shutil
+    import subprocess
+    root = pathlib.Path(__file__).resolve().parents[2]
+    tmp = root / "out" / f"_kits_migrate_{pathlib.Path(a.project).name}"
+    if tmp.exists():
+        shutil.rmtree(tmp)
+    shutil.copytree(a.project, tmp, ignore=shutil.ignore_patterns("kits.*"))
+    label = f"migrate_{pathlib.Path(a.project).name}"
+    r = subprocess.run([str(root / ".venv/bin/python3"), str(root / "tools/hw/ot_fuzz.py"), "port", a.remix, str(tmp), label,
+                        "--seeds", "1", "--seconds", "5", "--jobs", "1", "--keep-card"], cwd=root, capture_output=True, text=True)
+    card = root / "out/fuzz_port" / label / "seed1.card"
+    if not card.exists():
+        sys.exit(f"the port run left no card image:\n{r.stdout[-600:]}{r.stderr[-400:]}")
+    a2 = type("A", (), {"card": str(card), "out": str(pathlib.Path(a.project))})
+    cmd_from_card(a2)
+    shutil.rmtree(tmp)
+    if a.rotate:
+        used = [i for i, v in enumerate(parse((pathlib.Path(a.project) / "kits.work").read_bytes())["assign"]) if v != 0xFF]
+        cmd_rotate(type("A", (), {"project": a.project, "n": a.rotate, "patterns": ",".join(map(str, used))}))
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("show"); p.add_argument("project")
     p = sub.add_parser("from-card"); p.add_argument("card"); p.add_argument("out")
     p = sub.add_parser("assign"); p.add_argument("project"); p.add_argument("pairs", nargs="+")
+    p = sub.add_parser("migrate"); p.add_argument("project"); p.add_argument("remix")
+    p.add_argument("--rotate", type=int, default=0, help="then point each used pattern this many Kits along")
     p = sub.add_parser("rotate"); p.add_argument("project"); p.add_argument("n", type=int); p.add_argument("--patterns", default="")
     a = ap.parse_args()
-    return {"show": cmd_show, "from-card": cmd_from_card, "assign": cmd_assign, "rotate": cmd_rotate}[a.cmd](a)
+    return {"show": cmd_show, "from-card": cmd_from_card, "assign": cmd_assign, "rotate": cmd_rotate, "migrate": cmd_migrate}[a.cmd](a)
 
 
 if __name__ == "__main__":

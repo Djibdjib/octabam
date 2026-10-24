@@ -358,6 +358,7 @@ def cmd_port(a):
     for name, seq in seqs:
         script, kept, skipped = midi_script(seq, frames)
         (out_dir / f"{name}.midi").write_text(script)
+        (out_dir / f"{name}.json").write_text(json.dumps(seq))          # the sequence itself: what a failing seed is reproduced from
         scen.append(f"{out_dir / (name + '.log')} --sequencer --internal-clock --frames {frames} --midi {out_dir / (name + '.midi')} "
                     f"--mem-dump 0x80000ec4,16={out_dir / (name + '.ids')}"
                     + (f" --card-out {out_dir / (name + '.card')}" if a.keep_card else ""))
