@@ -538,6 +538,27 @@ position 0's advance — one step ahead for good on the unit (images 40–47,
 on X:$213 (stale at proc time), and `dsp_host` places FX2 slots at
 0x6200 + 0x300·pos (`verify_two_core` had 0x200·pos until image 48).
 
+<a name="trap-module-id"></a>
+
+### A module's id is the remix's, not the manifest's: `registry.modules()` reads the preferred one
+
+**A MODULE'S ID IS THE REMIX'S, NOT THE MANIFEST'S.** `MenuEntry.fx2_id` is the
+id a module prefers; `registry.assign_ids` (called by `registry.bound(remix)`)
+settles the id in a remix, and in a 64-id image the FX2 tables are elsewhere
+too (`idspace.fx2_ids(remix)`). A tool, gate or module that reads
+`registry.modules()[k].menu.fx2_id`, a literal id or `0x400d5fdc` is right only
+for the stock layout. On `remixes/test/ids64` (BBD pinned to `0x25`) that cost
+a run of gates one at a time, 22 Oct 2026: `verify_dirty_state` ("not placed on
+either payload": it asked for `0x1b`), `verify_labels` and `verify_mode_names`
+(a vector-4 trap in the emulated formatter call), `verify_menu` (the panel
+printed PHASER for BBD: stock's table read past its 32 entries),
+`verify_replaces` (it read B's dispatch tables at stock's address, which B had
+left). The fix in each is `registry.bound(remix)` for ids and `idspace` for
+addresses (`fx2_ids`, `id2pos`, `layout_of`, `dispatch_word`,
+`payloads`; `dsp_modmap.payloads_of` for the payload locations). Left on the
+preferred ids: `tools/hw/ot_project.py` after the first two functions,
+`ot_spec.py`, `rig_render.py`, `remix/app.py`, `harness/stress_project.py`.
+
 <a name="trap-audio-block"></a>
 
 ### `dsp_host`'s default audio block (X:0x80) sits inside the scratch the stock effects use

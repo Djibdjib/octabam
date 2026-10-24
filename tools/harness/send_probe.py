@@ -53,6 +53,7 @@ INIT_TAB, PROC_TAB = 0x215, 0x235
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1])); import toolpath  # noqa: E402,F401  (every tools/ dir on sys.path)
 from remix import registry  # noqa: E402
 from remix.schema import render_slot  # noqa: E402
+import idspace  # noqa: E402
 
 SERVER_ID = {m.harness.layout_char: m.menu.fx2_id
              for m in registry.modules().values()
@@ -126,7 +127,10 @@ def entry_points(mem_path, fxid):
     same tables the hardware dispatches through -- a hardcoded entry point
     silently jumps into whatever moved into that address."""
     blob = pathlib.Path(mem_path).read_bytes()
-    want = {INIT_TAB + fxid, PROC_TAB + fxid}
+    # ids from 32 up live in the 64-id layout's own record (tools/build/idspace.py);
+    # below that the legacy tables hold them in either layout
+    init_tab, proc_tab = (INIT_TAB, PROC_TAB) if fxid < 32 else (idspace.XADDR, idspace.XADDR + idspace.PROC_OFF)
+    want = {init_tab + fxid, proc_tab + fxid}
     found, pos = {}, 0
     while pos + 9 <= len(blob):
         sp, addr, cnt = struct.unpack_from("<BII", blob, pos)
@@ -138,7 +142,7 @@ def entry_points(mem_path, fxid):
                 if addr <= a < addr + cnt:
                     found[a] = struct.unpack_from("<I", blob, pos + (a - addr) * 4)[0]
         pos += cnt * 4
-    init, proc = found.get(INIT_TAB + fxid), found.get(PROC_TAB + fxid)
+    init, proc = found.get(init_tab + fxid), found.get(proc_tab + fxid)
     if init is None or proc is None:
         die(f"no dispatch entry for fx id 0x{fxid:02x} in {pathlib.Path(mem_path).name}")
     _MAX_INIT = 256

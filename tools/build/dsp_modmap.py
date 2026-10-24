@@ -27,6 +27,20 @@ PAYLOADS = [("A", 0x400e2324, 0x136cb), ("B", 0x400f59ef, 0x12d05)]
 BOOTSTRAPS = [("A", 0x400e21e0, 0x96, 0x31000), ("B", 0x400e2276, 0xae, 0x32000)]
 
 
+def payloads_of(img):
+    """PAYLOADS as `img` lays them out: A where stock puts it, B where A's
+    terminator ends (stock's constants for a 32-id image, the shifted B of a
+    64-id one, tools/build/idspace.py)."""
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+    import ab_records
+    a_va = PAYLOADS[0][1]
+    _, term = ab_records.records(img, a_va, 1 << 20)
+    a_len = term + 6 - (a_va - BASE)
+    b_va = a_va + a_len
+    _, term = ab_records.records(img, b_va, 1 << 20)
+    return [("A", a_va, a_len), ("B", b_va, term + 6 - (b_va - BASE))]
+
+
 def w24(b, i):
     """24-bit little-endian word, as FUN_40001b18 assembles it."""
     return b[i] | (b[i + 1] << 8) | (b[i + 2] << 16)
@@ -79,7 +93,7 @@ def extract(img, args):
     """--extract <A|B> <hex dsp addr> <out.bin>  : dump one module's raw words."""
     tag, addr_s, out = args
     addr = int(addr_s, 16)
-    for t, va, ln in PAYLOADS:
+    for t, va, ln in payloads_of(img):
         if t != tag.upper():
             continue
         mods, b = modules(img, va, ln)
@@ -105,7 +119,7 @@ def dumpmem(img, args):
     """
     import struct
     tag, out = args
-    for t, va, ln in PAYLOADS:
+    for t, va, ln in payloads_of(img):
         if t != tag.upper():
             continue
         mods, b = modules(img, va, ln)
@@ -147,7 +161,7 @@ def main():
     for tag, va, ln, dsp in BOOTSTRAPS:
         print(f"  {tag}: 0x{va:08x} +0x{ln:<6x} -> P:0x{dsp:05x}  ({ln//3} words)")
 
-    for tag, va, ln in PAYLOADS:
+    for tag, va, ln in payloads_of(img):
         b = img[va - BASE: va - BASE + ln]
         print(f"\n=== payload {tag} @0x{va:08x}  {ln:,} B  ({ln//3:,} words) ===")
         print(f"  first bytes: {b[:12].hex(' ',1)}")

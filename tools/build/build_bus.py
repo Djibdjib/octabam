@@ -42,6 +42,7 @@ import mode_names  # noqa: E402
 import wide_dial  # noqa: E402
 from remix import dsp_ranges, ledger  # noqa: E402
 from remix import ybase as ybase_lit  # noqa: E402
+import idspace  # noqa: E402
 
 OUT = pathlib.Path("out/mainos_bus.bin")
 DIS = pathlib.Path("vendor/dsp56300/build/source/dsp_host/dsp_asm")
@@ -126,6 +127,14 @@ NONE_ID = 0x00                  # a fresh part's FX2 id -- aliased to SEND below
 # itself against (scripts/refhash.sh); there is no default. A module with no menu entry (a ColdFire patch) takes no chooser row,
 # so ORDER is the menu modules alone, in the remix's declared order.
 REMIX = remix_registry.remix(os.environ.get("REMIX"))
+# 32: stock's id space; 64: tools/build/idspace.py converts the finished image. A 64-id
+# build writes its id tables to a virtual window (idspace.VIRT) and the DSP dispatch
+# entries at idspace.PROC_OFF + id instead of 32 + id.
+ID_SPACE = REMIX.id_space
+PROC_OFF = idspace.PROC_OFF if ID_SPACE == 64 else 32
+if ID_SPACE == 64:
+    FX2_IDS = idspace.V_FX2_IDS
+    ID2POS = idspace.V_ID2POS
 # Every module, the selected ones bound to the remix's build-time settings
 # (schema.Module.bind): the build reads a module's code from here only.
 _BOUND = remix_registry.bound(REMIX)
@@ -497,7 +506,7 @@ ASM_SRC = {k: v for k, v in {**_DEF_ASM,
                             else "dsp/silence_stub.asm" if os.environ.get("XBUS") == "1"
                             else "dsp/alias_probe.asm" if os.environ.get("BURN") == "1"
                             else os.environ.get("DLSRC") or _DEF_ASM.get("DELAY SERVER")),
-           "REVERB SERVER": ("dsp/xmem_probe.asm" if os.environ.get("XPROBE") == "1"
+           "REVERB SERVER": ((os.environ.get("XPROBE_SRC") or "dsp/xmem_probe.asm") if os.environ.get("XPROBE") == "1"
                              else "dsp/page2_probe.asm" if os.environ.get("PROBE") == "1"
                              else "dsp/tempoprobe.asm" if os.environ.get("TPROBE") == "1"
                              else os.environ.get("RVSRC") or _DEF_ASM.get("REVERB SERVER")),
@@ -511,6 +520,9 @@ PP = {
     "B": dict(chorus=0x00c77, plate=0x00dc0, spring=0x01012, dark=0x01439,
               nul_i=0x00588, nul_p=0x00589, xtab=0x400f5a10, ybase=0x38000),
 }
+if ID_SPACE == 64:
+    for _t in PP:
+        PP[_t]["xtab"] = idspace.V_XTAB[_t]
 # DEV only: where the DELAY SERVER's code lives when it is NOT packed into
 # the donor region. The hatch region capped
 # the delay at ~583 words (24 free after stage 1) vs payload B's ~1,953 --
@@ -759,13 +771,24 @@ def main():
     if _kept:
         sys.exit("not 1.40C where a module keeps stock bytes:\n  " + "\n  ".join(_kept))
 
+    _virt = idspace.new_virt(img) if ID_SPACE == 64 else None
+
     def rd32(a):
+        if _virt is not None and a >= idspace.VIRT:
+            return int.from_bytes(_virt[a - idspace.VIRT:a - idspace.VIRT + 4], "big")
         return int.from_bytes(img[a - BASE:a - BASE + 4], "big")
 
     def wr32(a, v):
+        if _virt is not None and a >= idspace.VIRT:
+            _virt[a - idspace.VIRT:a - idspace.VIRT + 4] = v.to_bytes(4, "big")
+            return
         img[a - BASE:a - BASE + 4] = v.to_bytes(4, "big")
 
     def wrw_p(a, v):
+        if _virt is not None and a >= idspace.VIRT:
+            i = a - idspace.VIRT
+            _virt[i], _virt[i + 1], _virt[i + 2] = v & 0xff, (v >> 8) & 0xff, (v >> 16) & 0xff
+            return
         i = a - BASE
         img[i], img[i + 1], img[i + 2] = v & 0xff, (v >> 8) & 0xff, (v >> 16) & 0xff
 
@@ -989,6 +1012,12 @@ def main():
         if cave_end > LONG_LIST:
             sys.exit(f"{len(CLONED_ORDER)} descriptor clones run into the "
                      f"long chooser list at 0x{LONG_LIST:08x}")
+    if ID_SPACE == 64:
+        # the SRAM-init cave and the two FX2 id tables sit just below the long list
+        cave_limit = min(cave_limit, idspace.CAVE)
+        if cave_end > cave_limit:
+            sys.exit(f"{len(CLONED_ORDER)} descriptor clones run into the 64-id reserve "
+                     f"at 0x{idspace.CAVE:08x}")
     for i, v in enumerate(entries):
         wr32(list_addr + i * 4, v)
 
@@ -2987,7 +3016,7 @@ hostquit:
             # fb_init/fb_proc when the fallback is not a module.
             fb_init, fb_proc = pp["nul_i"], pp["nul_p"]
             wrw_p(pp["xtab"] + NONE_ID * 3, fb_init)
-            wrw_p(pp["xtab"] + (32 + NONE_ID) * 3, fb_proc)
+            wrw_p(pp["xtab"] + (PROC_OFF + NONE_ID) * 3, fb_proc)
         cursor = base_a
         # LFO roll table: reverb_server.asm's rolled lines 2-7
         # read per-line [rate const, phase slot, int slot, frac slot] from a
@@ -3241,7 +3270,7 @@ hostquit:
                              f"entry-point plausibility bound "
                              f"(0x{_at + len(words):05x} >= 0x20000)")
                 wrw_p(pp["xtab"] + NEW_IDS[name] * 3, init_a)
-                wrw_p(pp["xtab"] + (32 + NEW_IDS[name]) * 3, proc_a)
+                wrw_p(pp["xtab"] + (PROC_OFF + NEW_IDS[name]) * 3, proc_a)
                 if tag == "A":
                     dev_delay = _lead + list(words)
                 print(f"  {name:13} P:0x{_at:05x}..0x"
@@ -3541,10 +3570,10 @@ hostquit:
                 cursor += len(words)
                 continue
             wrw_p(pp["xtab"] + NEW_IDS[name] * 3, init_a)
-            wrw_p(pp["xtab"] + (32 + NEW_IDS[name]) * 3, proc_a)
+            wrw_p(pp["xtab"] + (PROC_OFF + NEW_IDS[name]) * 3, proc_a)
             if name == REMIX.fallback:
                 wrw_p(pp["xtab"] + NONE_ID * 3, init_a)          # id 0 alias,
-                wrw_p(pp["xtab"] + (32 + NONE_ID) * 3, proc_a)   # fresh = send
+                wrw_p(pp["xtab"] + (PROC_OFF + NONE_ID) * 3, proc_a)   # fresh = send
                 fb_init, fb_proc = init_a, proc_a
             extra = (f"  Y base 0x{0x38000 if DEV else pp['ybase']:x}"
                      + ("  (shipping payload-B address, see plan above)"
@@ -3558,7 +3587,7 @@ hostquit:
             # Same fail-safe on the DSP side: the id resolves to the fallback's
             # entry points rather than to whatever occupies its dispatch slot.
             wrw_p(pp["xtab"] + _m.menu.fx2_id * 3, fb_init)
-            wrw_p(pp["xtab"] + (32 + _m.menu.fx2_id) * 3, fb_proc)
+            wrw_p(pp["xtab"] + (PROC_OFF + _m.menu.fx2_id) * 3, fb_proc)
 
         for _abs in absent:
             # The absent engine's id must still dispatch to something on this
@@ -3567,7 +3596,7 @@ hostquit:
             # already placed above: same fail-safe id 0 uses, and a track that
             # selects the "wrong" server becomes a send to the right one.
             wrw_p(pp["xtab"] + NEW_IDS[_abs] * 3, fb_init)
-            wrw_p(pp["xtab"] + (32 + NEW_IDS[_abs]) * 3, fb_proc)
+            wrw_p(pp["xtab"] + (PROC_OFF + NEW_IDS[_abs]) * 3, fb_proc)
             print(f"  {_abs:13} NOT PLACED on this core -- id "
                   f"0x{NEW_IDS[_abs]:02x} aliased to SEND P:0x{fb_init:05x} "
                   f"(selecting it here makes the track a send, not silence)")
@@ -3580,7 +3609,7 @@ hostquit:
                 sys.exit("silence stub does not fit the region's free tail")
             place(words, cursor)
             wrw_p(pp["xtab"] + STOCK_DELAY_ID * 3, init_a)
-            wrw_p(pp["xtab"] + (32 + STOCK_DELAY_ID) * 3, proc_a)
+            wrw_p(pp["xtab"] + (PROC_OFF + STOCK_DELAY_ID) * 3, proc_a)
             print(f"  {'SILENCE STUB':13} P:0x{cursor:05x}..0x{cursor + len(words):05x} "
                   f"({len(words):4} words)  id 0x{STOCK_DELAY_ID:02x} "
                   f"*** DELAY now writes silence, NOT passthrough ***")
@@ -3606,7 +3635,7 @@ hostquit:
             # answers is only "does the delay survive our code in its slot",
             # not "is the send level right".
             wrw_p(pp["xtab"] + STOCK_DELAY_ID * 3, fb_init)
-            wrw_p(pp["xtab"] + (32 + STOCK_DELAY_ID) * 3, fb_proc)
+            wrw_p(pp["xtab"] + (PROC_OFF + STOCK_DELAY_ID) * 3, fb_proc)
             print(f"  {'SEND @ 0x08':13} P:0x{fb_init:05x} "
                   f"(reuses the SEND client)  id 0x{STOCK_DELAY_ID:02x} "
                   f"*** DELAY's slot now runs SEND; audio passes through ***")
@@ -3669,7 +3698,7 @@ hostquit:
                 continue
             eid = _MODS[donor].menu.fx2_id
             wrw_p(pp["xtab"] + eid * 3, pp["nul_i"])
-            wrw_p(pp["xtab"] + (32 + eid) * 3, pp["nul_p"])
+            wrw_p(pp["xtab"] + (PROC_OFF + eid) * 3, pp["nul_p"])
         if not kept:
             # ⚠️ WORDING FROZEN for the default harvest: the build report is
             # API (refhash hashes it, and verify_* parse it). Every shipping
@@ -3920,6 +3949,14 @@ hostquit:
             sys.exit(f"{_pwho}: the platform runtime linked differently the second time")
         _appends[_platform_at] = (
             "octabam loader + payloads (" + ", ".join(_pnames) + ")", _pappend)
+
+    if ID_SPACE == 64:
+        try:
+            _id_report = idspace.convert(img, _virt, pathlib.Path("out/idspace"))
+        except idspace.Refusal as _e:
+            sys.exit(f"remix {REMIX.name!r}: id_space=64 cannot be applied: {_e}")
+        for _l in _id_report:
+            print(_l)
 
     # ... and after everything is written but the appends.
     _kept = _keep.violations(img, BASE, [remix_modules()[k] for k in REMIX.modules])

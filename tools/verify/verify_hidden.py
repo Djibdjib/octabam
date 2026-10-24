@@ -49,8 +49,11 @@ WRITER = 0x40054cd8
 def main():
     from remix import registry
     name = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("REMIX")
+    import idspace
     remix = registry.remix(name)
-    mods = registry.modules()
+    mods = registry.bound(remix)                    # the remix's own ids
+    global FX2_IDS, ID2POS
+    FX2_IDS, ID2POS = idspace.fx2_ids(remix), idspace.id2pos(remix)   # a 64-id image moves them
     hidden = [k for k in remix.modules
               if mods[k].menu is not None and k in remix.hidden]
     listed = [k for k in remix.modules
