@@ -124,6 +124,17 @@ No single-slot run has gone past 98.8 %.
    program changes at random times and in bursts; a Kits project with a distinct effect set per Kit and a
    program-change walk over all of them; a scene sweep with a known morph.
 
+## Stress sequences
+
+`tools/hw/ot_fuzz.py` plays seeded random sequences of the things a person does over MIDI (program changes, START /
+STOP, a moving tempo, the crossfader, scene select, mutes, levels, FX knobs) against one of the generated projects,
+with the health checks above every 0.5 s, and stops on the first failure with the operation index and the last 40
+operations; `run SEQ LABEL --until N` replays up to it. It is meant for the vague instability reports on KITS, MIDI
+SCENES and DIRECT_JUMP_KYOTI: a failure comes with a seed. It does not drive the panel, so a Kit, a scene lock or
+the direct-jump toggle has to be set up by hand. The generator is tested (`tools/verify/tests/test_fuzz.py`); no
+sequence has been run on a unit yet. The same sequences could be replayed under the port, which models that a program
+change waits for the pattern's end (`tools/emu/README.md`, `--midi`); not built.
+
 ## Flags
 
 Every flag is against BASE of the same project; thresholds are the constants at
