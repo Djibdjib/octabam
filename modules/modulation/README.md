@@ -58,6 +58,14 @@ WDTH. `stamp-defaults` before play.
   the successive differences in registers, 71 → 54 words and one scratch word
   instead of eight (the COMB walk is 9 words, not 17). `modulation_ref.py`
   models the block-linear sweep (`process(exact=True)` is the per-sample LFO).
+- **25 Oct 2026, on the unit** (I3 = hw/usb-standalone-transport + the pass above,
+  MODULATION on all 8 tracks in one slot, per-slot cost = (layout - BASE) / 4, BASE
+  22.5 % / 14.9 %; core 0 = core 1, FX1 = FX2): JUNO 7.2 %, DIM 8.76 %, FLNG 9.22 %,
+  COMB 7.93 %, PHSR 8.65 %; `dear` costs what its mode costs. Caps at a 95 % limit:
+  9.07 % core 0, 10.0 % core 1. FLNG was 0.15 over; its fixed-tap arm was then trimmed
+  (the second channel reuses the first's address, the fraction waits in n3, bl is an
+  immediate): 259.8 → 253.6 instructions a sample, 1,417 → 1,413 words. Not measured
+  after the trim.
 - **5 Oct 2026, the cycles pass** (bit-identical, `make verify-ident
   MOD=modulation` 13/13): LINE 354 → 330, COMB 329 → 291, PHSR 298.
   The lines run as modulo-1024 rings in the two loops (`m5 = $3ff`, a

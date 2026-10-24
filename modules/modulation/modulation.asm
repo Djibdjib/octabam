@@ -35,7 +35,6 @@
 ;   $22        MIX's run value between blocks (26 Sep 2026)
 ;   $43        1 once the run values started at their targets (0 at init and
 ;              on a MODE change; mo_rset)
-;   $44        the fixed taps' fraction f (per sample, LINE)
 ;   $73..$83 free
 ; init zeroes $11..$46 and, on FX1, the lines.
 ; ---------------------------------------------------------------------------
@@ -267,10 +266,9 @@ mo_bdim:
         bra     mo_line
 mo_bflng:
 ; FLNG: bl 0.7071, bd 0, ff -0.7071, kc 0, kb 0 (Dattorro Table 6); bl and
-; ff x 0.447, the -7 dB trim (the feedback is FDBK's, untrimmed)
+; ff x 0.447, the -7 dB trim (the feedback is FDBK's, untrimmed); bl is an
+; immediate in the loop
         clr     a
-        move    #>$286dc6,x0            ; 0.7071 x 0.447
-        move    x0,x:(r7+$07)
         move    a,x:(r7+$08)
         move    #>$d7923a,x0            ; -0.7071 x 0.447
         move    x0,x:(r7+$09)
@@ -517,15 +515,14 @@ mo_line:
         and     #>$fff,a
         asl     #$b,a,a
         move    a1,y1                   ; f
-        move    y1,x:(r7+$44)
+        move    y1,n3                   ; kept for R
         move    x0,a
         asr     #$c,a,a
         move    a1,x0                   ; i
-        move    x0,n3
         move    r2,r5
         bsr     mo_itap
         move    a,x0                    ; fixed L
-        move    x:(r7+$07),y1           ; bl
+        move    #>$286dc6,y1            ; bl = 0.7071 x 0.447, the -7 dB trim
         mpy     x0,y1,a x:(r0),x0       ; dry L
         bra     mo_fjl
 mo_nfl:
@@ -579,12 +576,12 @@ mo_whl:
         move    n4,a
         cmp     #>$2,a
         bne     mo_nfr
-        move    n3,x0                   ; the fixed tap: i and f from L's split
-        move    x:(r7+$44),y1
+        move    n3,y1                   ; the fixed tap: f from L's split, n5 still L's address
         move    r6,r5
-        bsr     mo_itap
+        move    (r5)+n5
+        bsr     mo_itrd
         move    a,x0                    ; fixed R
-        move    x:(r7+$07),y1           ; bl
+        move    #>$286dc6,y1            ; bl
         mpy     x0,y1,a x:(r0+n0),x0    ; dry R
         bra     mo_fjr
 mo_nfr:
@@ -1422,6 +1419,7 @@ mo_itap:
         and     #>$3ff,a                ; (a2 may be stale: a1 is what is read)
         move    a1,n5
         move    (r5)+n5                 ; -> delay i (r5 = the line, m5 = $3ff)
+mo_itrd:
         move    y:(r5)-,b               ; t0; the modulo steps r5 to delay i + 1
         move    y:(r5),a                ; t1
         sub     b,a                     ; t1 - t0
