@@ -866,6 +866,13 @@ def cmd_run(a):
                 print("BASE added to the run: layouts are compared with it")
             for i in todo:
                 e = entries[i]
+                if lm.dev is not None:
+                    ok, why = lm.lm.healthy(lm.dev)
+                    if not ok:
+                        print(f"The unit is not running normally before {e['name']}: {why}. Stopping; power-cycle it.")
+                        results.append({"slot": e["slot"], "program": e["program"], "name": e["name"], "flags": ["UNHEALTHY"],
+                                        "metrics": {}, "load": None, "why": why})
+                        break
                 clock.stop(); time.sleep(0.3)
                 clock.pc(pc_ch, e["program"]); time.sleep(0.8)
                 t_settle = time.time()
@@ -1154,11 +1161,21 @@ def cmd_switch(a):
     th = threading.Thread(target=poll, daemon=True)
     th.start()
     results = []
+    expected = {}
+    if a.report:
+        for r in json.loads(pathlib.Path(a.report).read_text())["results"]:
+            if r.get("load"):
+                expected[r["slot"]] = r["load"]["dsp_core0_mean"]
     print(f"{len(pairs)} transitions: {pairs}")
     try:
         with sd.InputStream(device=dev, channels=nch, samplerate=fs, dtype="float32", callback=cb):
             for sa, sb in pairs:
                 ea, eb = entries[sa], entries[sb]
+                ok, why = load_meter.healthy(usb)
+                if not ok:
+                    print(f"The unit is not running normally: {why}. Stopping; power-cycle it.")
+                    results.append({"from": ea["name"], "to": eb["name"], "flags": ["UNHEALTHY"], "why": why})
+                    break
                 clock.stop(); time.sleep(0.5)
                 clock.pc(pc_ch, ea["program"]); time.sleep(1.0)
                 n0 = len(rows)
@@ -1180,6 +1197,13 @@ def cmd_switch(a):
                     row.update(m)
                     row["flags"] = switch_flags(m)
                     row["rate_hz"] = round(len(rr) / SW_RUN_S, 1)
+                    row["series"] = [[round(r["t"] - t0, 3), round(r["cf"]["longest_us"], 1), round(load_meter.ratio(r["dsp"]["core0"]) or 0, 4),
+                                      round(load_meter.ratio(r["dsp"]["core1"]) or 0, 4), r["dsp"]["bad"], r["dsp"]["seq"]] for r in rr[::10]]
+                    exp = expected.get(sb)
+                    if exp is not None and abs(m["level_b"] - exp) > 0.05:
+                        row["flags"].append("NO_SWITCH")        # the load after the change is not the target layout's
+                    if m["level_a"] and expected.get(sa) is not None and abs(m["level_a"] - expected[sa]) > 0.05:
+                        row["flags"].append("WRONG_START")
                 else:
                     row["flags"] = ["NO READINGS"]
                 results.append(row)

@@ -125,6 +125,21 @@ def read_fast(dev):
     return d
 
 
+def healthy(dev, wait=0.4):
+    """-> (ok, why): the DSP's frame count advances about 1,400 per 0.5 s and the frame interrupt runs near 2,756 a second.
+    A unit left stuck by an overload (24 Oct 2026) fails one or both and needs a power-cycle."""
+    a = read_fast(dev)
+    time.sleep(wait)
+    b = read_fast(dev)
+    adv = (b["dsp"]["seq"] - a["dsp"]["seq"]) / wait
+    irq = b["cf"]["irq_per_s"] or 0.0
+    if adv < 1500:
+        return False, f"the DSP's frame count advances {adv:.0f} a second (about 2,800 when running)"
+    if irq < 0.9 * 2756:
+        return False, f"the frame interrupt runs {irq:.0f} a second (nominal 2,756)"
+    return True, ""
+
+
 def line(r):
     cf, dsp = r["cf"], r["dsp"]
     c0, c1 = ratio(dsp["core0"]), ratio(dsp["core1"])
