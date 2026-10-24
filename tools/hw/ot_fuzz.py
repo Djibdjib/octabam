@@ -160,6 +160,8 @@ def cmd_run(a):
     ops = seq["ops"] if a.until is None else seq["ops"][:a.until + 1]
     out_dir = pathlib.Path("out/hw/fuzz") / a.label
     out_dir.mkdir(parents=True, exist_ok=True)
+    for stale in ("failure.json", "run.json"):
+        (out_dir / stale).unlink(missing_ok=True)            # a previous run's verdict must not outlive it
     usb = load_meter.libusb_device()
     dev, nch = U.find_input(a.audio)
     out = ot_midi.Out(a.midi)

@@ -126,8 +126,9 @@ def read_fast(dev):
 
 
 def healthy(dev, wait=0.4):
-    """-> (ok, why): the DSP's frame count advances about 1,400 per 0.5 s and the frame interrupt runs near 2,756 a second.
-    A unit left stuck by an overload (24 Oct 2026) fails one or both and needs a power-cycle."""
+    """-> (ok, why): the DSP's record count advances about 2,800 a second and the frame interrupt keeps its rate.
+    A unit left stuck by an overload, or found frozen with the count at 0x7FFFFF (24 Oct 2026), fails this and needs a
+    power-cycle."""
     a = read_fast(dev)
     time.sleep(wait)
     b = read_fast(dev)
