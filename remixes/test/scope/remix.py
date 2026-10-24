@@ -6,7 +6,7 @@ REMIX = Remix(
     name="scope",
     family="mods",
     proof=Proof.HARDWARE,
-    proof_note="MKII: LSCOPE BH 23 Oct 2026; also make check REMIX=test/scope",
+    proof_note="MKII: LSCOPE BJ 24 Oct 2026 (CF METER + busy soak); also make check REMIX=test/scope",
     doc="stock effects with SCOPE + TUNER (shared TEMPO detours).",
     modules=(
         "TUNER",
