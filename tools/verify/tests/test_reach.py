@@ -1,5 +1,6 @@
 """The path classifier, against a fake registry and a fake dependency graph:
 no manifests, no firmware."""
+import json
 import os
 import pathlib
 import sys
@@ -508,6 +509,38 @@ class TestRemixTests(unittest.TestCase):
         c = self.ctx_without_tests()
         self.assertIn("--remixes bamsep26 usb", c.identity()[1])
         self.assertNotIn("--remixes", ctx().identity()[1])
+
+
+class PlanJsonTests(unittest.TestCase):
+    def test_one_entry_per_command_in_plan_order(self):
+        rows = reach.classify(["remixes/miniverb/remix.py"], ctx())
+        items = reach.plan(rows)
+        d = reach.plan_json("origin/main", "abc", True, 2, reach.remixes_reached(rows), items)
+        self.assertEqual([g["command"] for g in d["gates"]], [c for _, c, _ in items])
+        self.assertEqual(d["remixes"], ["miniverb"])
+        self.assertEqual((d["tier"], d["jobs"], d["merge_base"]), ("quick", 2, "abc"))
+        self.assertEqual(json.loads(json.dumps(d)), d)
+
+    def test_a_full_plan_says_so_and_nothing_to_run_is_an_empty_list(self):
+        d = reach.plan_json("origin/main", None, False, 1, [], [])
+        self.assertEqual((d["tier"], d["gates"]), ("full", []))
+
+    def test_main_prints_only_the_json_on_stdout(self):
+        import contextlib
+        import io
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            rc = reach.main(["--json", "--paths", "docs/README.md"])
+        self.assertEqual(rc, 0)
+        d = json.loads(out.getvalue())
+        self.assertEqual(d["tier"], "quick")
+        self.assertIn("docs/README.md", err.getvalue())
+
+    def test_json_refuses_run(self):
+        import contextlib
+        import io
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            reach.main(["--json", "--run"])
 
 
 class VendorWriterTests(unittest.TestCase):

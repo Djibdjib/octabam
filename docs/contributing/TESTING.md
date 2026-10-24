@@ -279,7 +279,11 @@ when you want those, before a flash for instance.
 `tools/verify/reach.py` reads the branch's diff against `origin/main`
 (`BASE=` for another base) and prints the gates in run order. `RUN=1` runs
 them, `KEEP=1` runs every one and prints a table instead of stopping at
-the first failure, `JOBS=n` runs the per-remix work over n worktrees. It
+the first failure, `JOBS=n` runs the per-remix work over n worktrees.
+`REACHARGS=--json` (`reach.py --json`) prints the plan as one JSON object on
+stdout (base, merge-base, tier, jobs, remixes, and per gate its kind,
+command and the paths that put it there; the report goes to stderr) and
+runs nothing. It
 refuses a tree that is not rebased onto the base, and before running it
 rebuilds `out/emu/ot_emu` when a source under `tools/emu/ot_emu` is newer
 than the binary.
