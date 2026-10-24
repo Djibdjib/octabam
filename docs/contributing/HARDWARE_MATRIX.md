@@ -141,6 +141,18 @@ predicts: a program change lands at the next pattern end and the last one receiv
 (24 Oct 2026, `octabam-inserts`, MXINS_01, profile `pc`, seeds 1-8, 30 s each, 82,687 frames, 20 to 38 operations
 each): 8 of 8 clean and on the predicted layout; 895 s of wall time for the batch at 3 jobs.
 
+KITS were idle in every run before this: the projects carried the template's blank `kits.work`, so the library was
+empty. Without a `kits.work` the firmware migrates the stock Parts at the first load (Kit `4 * bank + part` is that
+Part, each pattern with content plays its Part's Kit: 32 Kits for the 32 layouts); `ot_kits.py from-card` reads the
+file it wrote and `rotate 1` points every pattern at the next Kit. Replays of both (`MXKIT_IDENT`, `MXKIT_ROT1`,
+`octabam-inserts`, `pc` profile, seeds 1-8, 30 s): 8 of 8 clean each, and in the rotated project every seed ends on
+the layout of the pattern's Kit and not of the bank file's Part, so the assigned Kit loads on each program change.
+Not yet: Kit load and save, the list operations, scene locks inside the Kits, and the unit.
+
+A project to start from needs no unit: `ot_fresh.py --remix octabam-inserts` has the port create one (90 files, 30 MB,
+`ot_matrix.py audit` finds nothing), `proj --clean` builds the stimuli projects from it, and the replay ran on them
+(3 of 3 clean, 20 s each, 24 Oct 2026).
+
 ## Flags
 
 Every flag is against BASE of the same project; thresholds are the constants at

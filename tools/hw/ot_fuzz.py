@@ -319,6 +319,19 @@ def expected_ids(remix, project, slot):
     return ([L._slot_bytes(lo[t][0], r, mods)[0] for t in range(1, 9)] + [L._slot_bytes(lo[t][1], r, mods)[0] for t in range(1, 9)])
 
 
+def kits_assign(project):
+    """The project's ASSIGN table (pattern index -> Kit, 0xff none) when it has a valid kits.work with Kits, else None."""
+    import ot_kits
+    f = pathlib.Path(project) / "kits.work"
+    if not f.is_file():
+        return None
+    try:
+        info = ot_kits.parse(f.read_bytes())
+    except ValueError:
+        return None
+    return info["assign"] if any(v != 0xFF for v in info["assign"]) else None
+
+
 def cmd_port(a):
     """Replay sequences under the ColdFire port: stage the project once, load it once, fork one child per sequence."""
     import shutil
@@ -346,7 +359,8 @@ def cmd_port(a):
         script, kept, skipped = midi_script(seq, frames)
         (out_dir / f"{name}.midi").write_text(script)
         scen.append(f"{out_dir / (name + '.log')} --sequencer --internal-clock --frames {frames} --midi {out_dir / (name + '.midi')} "
-                    f"--mem-dump 0x80000ec4,16={out_dir / (name + '.ids')}")
+                    f"--mem-dump 0x80000ec4,16={out_dir / (name + '.ids')}"
+                    + (f" --card-out {out_dir / (name + '.card')}" if a.keep_card else ""))
     cmd = [str(root / "out/emu/ot_emu"), "--image", str(out_dir / "image.bin"), "--card", str(out_dir / "card.img"),
            "--set", "OCTABAM", "--project", "RIG", "--load-ms", "90000", "--dsp", "--main-level", "64", "--audio-in", "tones"]
     for sc in scen:
@@ -363,13 +377,20 @@ def cmd_port(a):
         ip = out_dir / f"{name}.ids"
         if ok and ip.exists():
             slot = effective_layout(seq, a.seconds)
+            kit_note = ""
+            assign = kits_assign(a.project)
+            if assign is not None:
+                k = assign[program_of(slot)]
+                if k != 0xFF:
+                    kit_note = f" (pattern {program_of(slot)} plays Kit {k})"
+                    slot = k                      # Kit k is layout k's Part, from the first load's migration
             want = expected_ids(a.remix, a.project, slot)
             got = list(ip.read_bytes()[:16])
             if got != want:
                 ok = False
                 why += f"; the live effect ids are not layout {slot}'s: got {bytes(got).hex(' ')}, want {bytes(want).hex(' ')}"
             else:
-                why += f"; ends on layout {slot} as the model says"
+                why += f"; ends on layout {slot}{kit_note} as the model says"
         bad += not ok
         print(f"  [{'ok' if ok else 'FAIL'}] {name:10s} {len(seq['ops']):4d} operations  {why}")
     print(f"{len(seqs) - bad} of {len(seqs)} ran clean in {time.time() - t0:.0f} s (parent exit {rc}); logs in {out_dir}")
@@ -391,6 +412,7 @@ def main():
     p.add_argument("--seeds", default="1-4", help="N or N-M: sequences generated on the fly"); p.add_argument("--seconds", type=float, default=30.0)
     p.add_argument("--profile", choices=sorted(PROFILES), default="pc"); p.add_argument("--layouts", type=int, default=28)
     p.add_argument("--jobs", type=int, default=3)
+    p.add_argument("--keep-card", action="store_true", help="write each child's card image (64 MB) as NAME.card, to read kits.work back")
     p = sub.add_parser("show"); p.add_argument("seq")
     p.add_argument("--from", dest="start", type=int, default=None); p.add_argument("--to", type=int, default=None)
     a = ap.parse_args()
