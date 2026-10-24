@@ -113,7 +113,9 @@ No single-slot run has gone past 98.8 %.
 
 Every flag is against BASE of the same project; thresholds are the constants at
 the top of `ot_matrix.py`, first guesses not validated on a unit. A flag means
-"differs from BASE past a threshold", not "broken".
+"differs from BASE past a threshold", not "broken". A program change sent while stopped takes effect 0.26 to
+0.77 s after START (48 layouts), one sent during play at the end of the pattern; the audio figures start 1 s into
+play and the load statistics 2 s in.
 
 | flag | meaning |
 |---|---|

@@ -122,6 +122,7 @@ FREEZE_S = 1.0
 CRASH_S = 2.0
 CLICK_EXTRA, CLICK_RATIO = 10, 3.0
 ROUGH_BLOCKS = 0.10       # events in more than this share of 512-sample blocks: a rough signal, not isolated clicks
+PLAY_SKIP_S = 1.0         # audio figures start here: the new layout's effects arrive 0.26-0.77 s after START
 CLICK_SKIP_S = 0.2        # the segment's first samples are a cut, not a click (all 255 'clicks' of layout 2, 24 Oct 2026, were in the first 12 ms)
 DROPS_BAD = 20            # LOAD METER bad records in the play window: 0 in 150+ layouts, ~2,950 in EUCLID FX1 + LOFI2 FX2 (24 Oct 2026)
 NOMINAL_IRQ_PER_S, OVERLOAD_IRQ_FRAC = 2756.0, 0.8   # the frame interrupt runs 2,756 a second; far fewer means frames are being skipped
@@ -648,14 +649,18 @@ def measure(x, fs, play_s):
     """x[:, channels], the play phase first, then the tail. -> metrics dict."""
     import numpy as np
     x = x[:, np.abs(x).max(axis=0) > 0] if (np.abs(x).max(axis=0) > 0).any() else x
-    play = x[:int(play_s * fs)]
+    full = x[:int(play_s * fs)]
+    # the program change sent while stopped lands 0.26 to 0.77 s after START (24 Oct 2026, 48 layouts), so the first
+    # second still plays the previous layout's effects: the figures below start at PLAY_SKIP_S; `alive` keeps the whole
+    # phase so it lines up with BASE's
+    play = full[int(PLAY_SKIP_S * fs):] if len(full) > int((PLAY_SKIP_S + 2.0) * fs) else full
     ce = click_events(play[int(CLICK_SKIP_S * fs):], fs)
     return {"rms_db": _db(np.sqrt(np.mean(play ** 2))), "peak_db": _db(np.abs(play).max()),
             "dc": float(np.abs(play.mean(axis=0)).max()), "clip": int((np.abs(play) >= 0.9999).sum()),
             "clicks": int(sum(e for e, _b, _n in ce)),
             "click_block_frac": float(sum(b for _e, b, _n in ce) / max(sum(n for _e, _b, n in ce), 1)),
             "hf_db": float(hf_power_db(play, fs)),
-            "alive": window_alive(play, fs).tolist(), "channels": int(x.shape[1]),
+            "alive": window_alive(full, fs).tolist(), "channels": int(x.shape[1]),
             "tail_end_db": (float(_db(np.sqrt(np.mean(x[-int(0.5 * fs):] ** 2))))
                             if len(x) >= int((play_s + 1.0) * fs) else None),
             "tail_dc_frac": (float(np.abs(x[-int(0.5 * fs):].mean(axis=0)).max()
