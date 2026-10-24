@@ -51,6 +51,30 @@ class FuzzGen(unittest.TestCase):
         kinds = {o["op"] for o in self.f.gen(2, 10, 28, "xf")["ops"]}
         self.assertTrue({"cc"} <= kinds and "tempo" not in kinds)
 
+    def test_the_effective_layout_is_the_last_change_before_a_pattern_end(self):
+        seq = {"layouts": 28, "ops": [
+            {"t": 0, "op": "start", "bytes": [0xFA]},
+            {"t": 3, "op": "pc", "bytes": [0xC0, 16]},      # layout 4
+            {"t": 7, "op": "pc", "bytes": [0xC0, 2]},       # layout 2: the last before the end at 8 s
+            {"t": 9, "op": "pc", "bytes": [0xC0, 17]}]}     # layout 5: lands at 16 s
+        self.assertEqual(self.f.effective_layout(seq, 7.9), 0)
+        self.assertEqual(self.f.effective_layout(seq, 10.0), 2)
+        self.assertEqual(self.f.effective_layout(seq, 17.0), 5)
+
+    def test_midi_script_lines_are_frames_then_bytes(self):
+        seq = {"ops": [{"t": 1.0, "op": "pc", "bytes": [0xC0, 16]}, {"t": 2.0, "op": "start", "bytes": [0xFA]},
+                       {"t": 3.0, "op": "cc", "bytes": [0xB0, 48, 64]}, {"t": 99.0, "op": "pc", "bytes": [0xC0, 1]}]}
+        text, kept, skipped = self.f.midi_script(seq, int(10 * self.f.FRAMES_PER_S))
+        self.assertEqual(text.splitlines(), ["2756 c0 10", "8269 b0 30 40"])
+        self.assertEqual((kept, skipped), (2, 1))
+
+    def test_a_port_log_must_reach_its_frames_with_no_midi_left(self):
+        good = "midi in    : 0 byte(s) still queued at the end (0 = the firmware took them all)\nframes run : 100 since transport start (target 100), run ended REACHED\n"
+        self.assertTrue(self.f.parse_port_log(good)[0])
+        self.assertFalse(self.f.parse_port_log(good.replace("REACHED", "ILLEGAL -- illegal instruction at 0x40001234"))[0])
+        self.assertFalse(self.f.parse_port_log(good.replace("0 byte(s)", "6 byte(s)"))[0])
+        self.assertFalse(self.f.parse_port_log("nothing")[0])
+
     def test_midi_bytes_are_in_range(self):
         for o in self.f.gen(9, 10, 28, "mix")["ops"]:
             for b in o["bytes"][1:]:

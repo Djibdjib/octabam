@@ -131,9 +131,15 @@ STOP, a moving tempo, the crossfader, scene select, mutes, levels, FX knobs) aga
 with the health checks above every 0.5 s, and stops on the first failure with the operation index and the last 40
 operations; `run SEQ LABEL --until N` replays up to it. It is meant for the vague instability reports on KITS, MIDI
 SCENES and DIRECT_JUMP_KYOTI: a failure comes with a seed. It does not drive the panel, so a Kit, a scene lock or
-the direct-jump toggle has to be set up by hand. The generator is tested (`tools/verify/tests/test_fuzz.py`); no
-sequence has been run on a unit yet. The same sequences could be replayed under the port, which models that a program
-change waits for the pattern's end (`tools/emu/README.md`, `--midi`); not built.
+the direct-jump toggle has to be set up by hand. The generator is tested (`tools/verify/tests/test_fuzz.py`); no sequence has been run on a unit yet.
+
+`ot_fuzz.py port REMIX PROJECT LABEL --seeds 1-8 --seconds 30` replays the program changes and CCs of the same
+sequences under the ColdFire port (`--sequencer --internal-clock --midi`, one load forked into one child per seed,
+`tools/emu/README.md`; START, STOP and tempo have no counterpart there). A seed passes when its run reaches all its
+frames, the firmware takes every MIDI byte, and the final live effect ids are those of the layout the model
+predicts: a program change lands at the next pattern end and the last one received before it wins. First batch
+(24 Oct 2026, `octabam-inserts`, MXINS_01, profile `pc`, seeds 1-8, 30 s each, 82,687 frames, 20 to 38 operations
+each): 8 of 8 clean and on the predicted layout; 895 s of wall time for the batch at 3 jobs.
 
 ## Flags
 

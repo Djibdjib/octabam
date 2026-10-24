@@ -4,6 +4,7 @@
     python3 tools/hw/ot_fuzz.py gen SEED OUT.json [--profile mix] [--minutes 5] [--layouts 28]
     python3 tools/hw/ot_fuzz.py run SEQ.json LABEL [--until N] [--audio Octatrack] [--midi NAME]
     python3 tools/hw/ot_fuzz.py show SEQ.json [--from N --to M]
+    python3 tools/hw/ot_fuzz.py port REMIX PROJECT LABEL [--seeds 1-8] [--seconds 30] [--profile pc]   # no unit: the ColdFire port
 
 A sequence is a list of timed operations a person could make over MIDI: program changes to the
 project's layouts (single, in bursts a few tenths of a second apart, and back again), START and
@@ -243,6 +244,138 @@ def cmd_run(a):
     return code
 
 
+FRAMES_PER_S = 44100 / 16.0          # the frame engine's rate: 2,756.25 frames a second
+
+
+def midi_script(seq, frames):
+    """The port's --midi file: `<frames after the transport start> <hex bytes>` for the program changes and CCs
+    inside `frames`. START, STOP and tempo are the unit's own and have no counterpart under --internal-clock."""
+    lines, kept, skipped = [], 0, 0
+    for o in seq["ops"]:
+        f = int(round(o["t"] * FRAMES_PER_S))
+        if f >= frames:
+            break
+        if o["op"] in ("pc", "cc"):
+            lines.append(f"{max(f, 1)} " + bytes(o["bytes"]).hex(" "))
+            kept += 1
+        else:
+            skipped += 1
+    return "\n".join(lines) + "\n", kept, skipped
+
+
+def parse_port_log(text):
+    """-> (ok, summary) from an ot_emu log: the run must reach its frame target with every MIDI byte taken."""
+    import re
+    m = re.search(r"frames run : (\d+) since transport start \(target (\d+)\), run ended (\w+)(?: -- (.*))?", text)
+    if not m:
+        return False, "no frames line (the load or the run did not complete)"
+    ran, target, how, why = int(m.group(1)), int(m.group(2)), m.group(3), m.group(4)
+    q = re.search(r"midi in\s+: (\d+) byte\(s\) still queued", text)
+    if how != "REACHED":
+        return False, f"{how} after {ran} of {target} frames: {why or ''}"[:300]
+    if q and int(q.group(1)) > 0:
+        return False, f"{q.group(1)} MIDI byte(s) still queued at the end"
+    return True, f"{ran} frames"
+
+
+PATTERN_S = 8.0                      # 64 steps at 120 BPM: a program change lands at the next multiple of this
+
+
+def effective_layout(seq, end_s, start=0):
+    """The layout playing at end_s if a program change is taken at the next pattern end and the last one received
+    before that end wins (the model under test, 24 Oct 2026: measured on a unit for one change at a time)."""
+    cur, pending = start, None
+    ops = [o for o in seq["ops"] if o["op"] == "pc" and o["t"] < end_s]
+    boundary, i = PATTERN_S, 0
+    while boundary <= end_s:
+        while i < len(ops) and ops[i]["t"] < boundary:
+            pending = ops[i]["bytes"][1]; i += 1
+        if pending is not None:
+            cur = layout_of_program(pending, seq.get("layouts", 32))
+            pending = None
+        boundary += PATTERN_S
+    return cur
+
+
+def layout_of_program(program, layouts):
+    """Inverse of program_of for slots < layouts."""
+    for i in range(layouts):
+        if program_of(i) == program:
+            return i
+    return None
+
+
+def expected_ids(remix, project, slot):
+    """-> the 16 live effect ids (FX1 x 8, FX2 x 8) layout `slot` of the project stamps."""
+    sys.path.insert(0, str(HERE.parent))
+    import toolpath  # noqa: F401
+    import ot_ladder as L
+    import ot_matrix as M
+    from remix import registry
+    plan = json.loads((pathlib.Path(project) / "OCTABAM_MATRIX.json").read_text())
+    name = plan["layouts"][slot]["name"]
+    lo = {n: lo for n, _k, lo in M.layouts(remix, True, True)}[name]
+    r, mods = registry.remix(remix), registry.modules()
+    return ([L._slot_bytes(lo[t][0], r, mods)[0] for t in range(1, 9)] + [L._slot_bytes(lo[t][1], r, mods)[0] for t in range(1, 9)])
+
+
+def cmd_port(a):
+    """Replay sequences under the ColdFire port: stage the project once, load it once, fork one child per sequence."""
+    import shutil
+    import subprocess
+    root = HERE.parents[1]
+    out_dir = root / "out/fuzz_port" / a.label
+    out_dir.mkdir(parents=True, exist_ok=True)
+    venv_py = root / ".venv/bin/python3"
+    r = subprocess.run([str(venv_py), "tools/verify/verify_set.py", a.remix, "--project", a.project, "--bank", str(a.bank), "--stage-only"],
+                       cwd=root, capture_output=True, text=True)
+    if r.returncode:
+        sys.exit(f"staging failed:\n{r.stdout[-600:]}{r.stderr[-600:]}")
+    for f in ("image.bin", "card.img"):
+        shutil.copy2(root / "out/setverify" / f, out_dir / f)
+    seqs = []
+    if a.seqs:
+        seqs = [(pathlib.Path(p).stem, json.loads(pathlib.Path(p).read_text())) for p in a.seqs]
+    else:
+        lo, _, hi = a.seeds.partition("-")
+        for sd in range(int(lo), int(hi or lo) + 1):
+            seqs.append((f"seed{sd}", gen(sd, a.seconds / 60.0, a.layouts, a.profile)))
+    frames = int(a.seconds * FRAMES_PER_S)
+    scen = []
+    for name, seq in seqs:
+        script, kept, skipped = midi_script(seq, frames)
+        (out_dir / f"{name}.midi").write_text(script)
+        scen.append(f"{out_dir / (name + '.log')} --sequencer --internal-clock --frames {frames} --midi {out_dir / (name + '.midi')} "
+                    f"--mem-dump 0x80000ec4,16={out_dir / (name + '.ids')}")
+    cmd = [str(root / "out/emu/ot_emu"), "--image", str(out_dir / "image.bin"), "--card", str(out_dir / "card.img"),
+           "--set", "OCTABAM", "--project", "RIG", "--load-ms", "90000", "--dsp", "--main-level", "64", "--audio-in", "tones"]
+    for sc in scen:
+        cmd += ["--scenario", sc]
+    cmd += ["--scenario-jobs", str(a.jobs)]
+    print(f"{len(seqs)} sequences of {a.seconds:g} s ({frames} frames) from one load, {a.jobs} at a time ...", flush=True)
+    t0 = time.time()
+    with open(out_dir / "parent.log", "w") as lf:
+        rc = subprocess.run(cmd, cwd=root, stdout=lf, stderr=subprocess.STDOUT).returncode
+    bad = 0
+    for name, seq in seqs:
+        lp = out_dir / f"{name}.log"
+        ok, why = parse_port_log(lp.read_text()) if lp.exists() else (False, "no log")
+        ip = out_dir / f"{name}.ids"
+        if ok and ip.exists():
+            slot = effective_layout(seq, a.seconds)
+            want = expected_ids(a.remix, a.project, slot)
+            got = list(ip.read_bytes()[:16])
+            if got != want:
+                ok = False
+                why += f"; the live effect ids are not layout {slot}'s: got {bytes(got).hex(' ')}, want {bytes(want).hex(' ')}"
+            else:
+                why += f"; ends on layout {slot} as the model says"
+        bad += not ok
+        print(f"  [{'ok' if ok else 'FAIL'}] {name:10s} {len(seq['ops']):4d} operations  {why}")
+    print(f"{len(seqs) - bad} of {len(seqs)} ran clean in {time.time() - t0:.0f} s (parent exit {rc}); logs in {out_dir}")
+    return 1 if bad or rc else 0
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -252,10 +385,16 @@ def main():
     p = sub.add_parser("run"); p.add_argument("seq"); p.add_argument("label")
     p.add_argument("--until", type=int, default=None, help="stop after this operation index (a replay)")
     p.add_argument("--audio", default="Octatrack"); p.add_argument("--midi", default="Elektron Octatrack DPS-1")
+    p = sub.add_parser("port", help="replay sequences under the ColdFire port, no unit")
+    p.add_argument("remix"); p.add_argument("project"); p.add_argument("label")
+    p.add_argument("--bank", type=int, default=1); p.add_argument("--seqs", nargs="*", help="sequence files; else --seeds")
+    p.add_argument("--seeds", default="1-4", help="N or N-M: sequences generated on the fly"); p.add_argument("--seconds", type=float, default=30.0)
+    p.add_argument("--profile", choices=sorted(PROFILES), default="pc"); p.add_argument("--layouts", type=int, default=28)
+    p.add_argument("--jobs", type=int, default=3)
     p = sub.add_parser("show"); p.add_argument("seq")
     p.add_argument("--from", dest="start", type=int, default=None); p.add_argument("--to", type=int, default=None)
     a = ap.parse_args()
-    return {"gen": cmd_gen, "run": cmd_run, "show": cmd_show}[a.cmd](a)
+    return {"gen": cmd_gen, "run": cmd_run, "show": cmd_show, "port": cmd_port}[a.cmd](a)
 
 
 if __name__ == "__main__":
