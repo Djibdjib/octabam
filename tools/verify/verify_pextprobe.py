@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""PEXT PROBE under dsp_host: the idle signature, and the ladder stepping once GO is on.
+"""PEXT PROBE under dsp_host: the idle signature, and both ladders stepping once GO is on.
 
 dsp_host maps P memory at every rung, so this proves the instrument (the frame
-signature, the 64-frame spacing, the mask the decoder reads) and not the
-hardware's answer: ALIAS, ABSENT and a frozen core are covered by the decoder's
-own tests (tools/verify/tests/test_pextprobe.py).
+signature, the 64-frame spacing, the mask the decoder reads, the routine a WINDOW
+rung writes and calls) and not the hardware's answer: ALIAS, ABSENT and a frozen
+core are covered by the decoder's own tests (tools/verify/tests/test_pextprobe.py).
 """
 import pathlib
 import subprocess
@@ -56,14 +56,17 @@ check("idle: GO 0, rung 0, an empty mask, in every frame", all((f["go"], f["k"],
 check("idle: the parity bit toggles every frame", all(fr[i]["parity"] != fr[i + 1]["parity"] for i in range(len(fr) - 1)))
 check("idle: the signs are the bits (samples are +-0.5)", {abs(s) for s in L + R} == {0x400000})
 
-L, R, (ph, fr) = run(1)
-steps = [(i, f["k"]) for i, f in enumerate(fr) if i == 0 or f["k"] != fr[i - 1]["k"]]
-check("GO: the ladder runs seven rungs, then stops at 7", [k for _, k in steps] == list(range(8)), str(steps))
-gaps = [steps[i + 1][0] - steps[i][0] for i in range(1, len(steps) - 1)]
-check("GO: a rung every 64 frames", gaps == [64] * (len(steps) - 2), str(gaps))
-final = fr[-1]
-check("GO: under dsp_host every rung reads REAL (mask 01 x 7)", final["mask"] == int("01" * 7, 2), f"{final['mask']:014b}")
-check("GO: frames keep arriving after the ladder", fr[-1]["parity"] != fr[-2]["parity"])
+for go, name, want in ((1, "LOW", int("01" * 7, 2)), (2, "WINDOW", int("10" * 7, 2))):
+    L, R, (ph, fr) = run(go)
+    steps = [(i, f["k"]) for i, f in enumerate(fr) if i == 0 or f["k"] != fr[i - 1]["k"]]
+    check(f"{name}: seven rungs, then stops at 7", [k for _, k in steps] == list(range(8)), str(steps))
+    gaps = [steps[i + 1][0] - steps[i][0] for i in range(1, len(steps) - 1)]
+    check(f"{name}: a rung every 64 frames", gaps == [64] * (len(steps) - 2), str(gaps))
+    final = fr[-1]
+    check(f"{name}: GO reads back as {go}", final["go"] == go)
+    check(f"{name}: under dsp_host every rung reads {'REAL' if go == 1 else 'read/write and execute'}",
+          final["mask"] == want, f"{final['mask']:014b}")
+    check(f"{name}: frames keep arriving after the ladder", fr[-1]["parity"] != fr[-2]["parity"])
 
 print("PASS" if not fails else f"{fails} FAIL")
 sys.exit(1 if fails else 0)

@@ -1,68 +1,77 @@
 # `pextprobe` -- PEXT PROBE
 
-A measurement instrument: how far does P memory reach above `P:0x2000` on each
-DSP core? Hot reload (the proof of concept on the hot-reload branch) puts swapped effects above the stock code; `DSP.md` section 3 records
-`P:0x2000` as executable (a relocated CHORUS ran on the unit) and the upper
-bound as unmeasured. This probe measures it. It ships in no remix but
-`remixes/test/pext-probe`.
+A measurement instrument: where can a DSP core keep code besides its stock P
+memory? Hot reload (the proof of concept on the hot-reload branch) needs a
+pool for swapped effects. `DSP.md` section 3 records `P:0x2000` as executable
+(a relocated CHORUS ran on the unit, `P:0x2000..0x2148`) and the upper bound
+as unmeasured; the stock boot code also runs from the shared window
+(`P:0x30000`, `P:0x38000`). It ships in no remix but `remixes/test/pext-probe`.
 
 It is an insert on EQUALIZER's id (every id 4..31 is taken). Its output replaces
 its track's audio with a status word, 32 bits a frame, one per sample slot, and
-a capture of the track's audio reads it with `decode.py`.
+a capture of the track's audio reads it with `decode.py`. `pextprobe.asm` is
+written by `gen_pextprobe.py` (the rungs are the same code at different
+addresses).
 
-## The ladder
+## First run, 25 Oct 2026 (image P1, the first version of this probe)
 
-Seven rungs, one every 64 frames (23 ms) after GO is turned on: `P:0x3fe0`,
-`0x5fe0`, `0x7fe0`, `0x9fe0`, `0xbfe0`, `0xdfe0`, `0xffe0`, the top 32 words of
-each 8 K block above the first. Each is congruent to the base `P:0x1fe0` modulo
-`0x2000`, and `P:0x1fe0..0x1fff` is unused on both payloads (A's top is
-`0x1fdf`, B's `0x1d9f`), so a rung that wraps onto a power-of-two memory lands
-on spare words. A rung writes SENTINEL (`0x5a5a5a`) to the base and PATTERN
-(`0x123456`) to the rung, then reads:
+Seven rungs at `P:0x3fe0, 0x5fe0 ... 0xffe0` (each congruent to the spare base
+`0x1fe0` modulo `0x2000`), on both cores, T1 = core 1 and T5 = core 0, project
+MXPEXT01 by the hardware session: every rung ABSENT, no alias, no freeze. That
+fits "P ends below `0x3fe0`" and equally "the register-indirect P store does
+not work": the first version had no control at a known-real address.
 
-| result | meaning |
-|---|---|
-| REAL | the rung holds PATTERN and the base still holds SENTINEL: its own memory |
-| ALIAS | the base holds PATTERN: the address wrapped onto the base; the memory is `(rung + 1) * 0x2000` words |
-| ABSENT | neither: reads do not return what was written |
-| frames stop | the core froze on the rung: the last frames name it |
+## The two ladders
 
-The first rung that is not REAL gives the extent: ALIAS at rung k means P is
-`(k + 1) * 0x2000` words (8 K granularity); ABSENT at rung k means it ends
-before `(k + 1) * 0x2000 + 0x1fe0`. The frame's layout is at the head of
-`pextprobe.asm`.
+GO is a select: OFF, LOW, WIN. Seven rungs, one every 64 frames (23 ms) after
+64 idle frames. Turning GO to OFF starts the ladder over.
 
-Under `dsp_host` every rung reads REAL (the emulator maps P at all of them), so
-`tools/verify/verify_pextprobe.py` proves the instrument and the decoder
-(`tools/verify/tests/test_pextprobe.py` the three outcomes and a frozen core on
-synthetic frames). Nothing here says what the chip does. A form the chip has
-not run: a P store through `(r1)`; the stock listing has absolute stores
-(`move x0,p:>$58c`), `dsp_asm` takes the register-indirect one.
+| GO | rungs | what a rung does | codes |
+|---|---|---|---|
+| LOW | `P:0x1fe0` (a control: spare words on both payloads, known real), `0x2000`, `0x2100`, `0x2400`, `0x2800`, `0x3000`, `0x3800` | reads the address and the address `0x2000` below it: equal and non-zero is a wrap onto live code and nothing is written; otherwise writes a pattern, reads it back, puts the old word back | 1 REAL, 2 ALIAS, 3 ABSENT |
+| WIN | `P:0x30100, 0x35900, 0x36300, 0x36800, 0x37000, 0x37800, 0x37e00` | writes the pattern and reads it back; then writes a three-word routine (`move #>$a5a5a5,x0` / `rts`), calls it and reads x0; then zeroes the three words | 1 read/write only, 2 read/write and EXECUTE, 3 read/write failed |
+
+If LOW's rung 0 is not REAL, the store does not work and nothing else in LOW
+means anything. A call that freezes the core leaves its rung in the last frame.
+
+The WIN addresses are the words the bus remix leaves free in payload A's half of the shared
+window, from `Claims.dsp_ranges` (`tools/remix/dsp_ranges.py`): BusVerb takes
+`0x30800..0x35800`, the bus scratch `0x36000..0x36200`, stock's staging
+`0x30000..0x30048`, the mailbox `0x37f00`, the LOAD METER's figures
+`0x37f10..0x37f50`; free: `0x30048..0x30800` (1,976 words), `0x35800..0x36000`
+(2,048), `0x36200..0x37f00` (7,424). Payload B's half is BusDelay's LineL
+(`0x38000..0x40000`). The window is one memory for both cores, so both
+instances use the same words: run one core at a time.
+
+Under `dsp_host` every rung passes (the emulator maps P at all of them), so
+`tools/verify/verify_pextprobe.py` proves the instrument, the decoder and the
+routine a WIN rung writes and calls, not the hardware's answer;
+`tools/verify/tests/test_pextprobe.py` covers the outcomes the emulator cannot
+produce (ALIAS, ABSENT, a frozen core, a silent capture). Forms the chip has
+not run: a P store through `(r1)` and `jsr (r5)` (the stock listing has
+absolute P stores and `jsr` to an address).
 
 ## Running it on a unit
 
 1. `make image REMIX=pext-probe BUILD=<n>`, flash it (`docs/guide/BUILDING.md`).
    The remix carries USB audio out, TRACKS PRE (16 channels, the tracks).
-2. On the unit: set FX1 of track 1 (core 1) and of track 5 (core 0) to PEXT
-   PROBE; GO stays OFF. Each instance tests its own core.
-3. Start a capture of the USB audio, all channels, 44.1 kHz, 24-bit or float.
-4. Decode the pairs of tracks 1 and 5 (channels 0, 1 and 8, 9):
-   `python3 modules/pextprobe/decode.py capture.wav --channels 0 1`.
-   Expected: `frames ... with the marker`, GO 0, next rung 0, all rungs
-   `untested`, frames arriving. No marker: the probe is not on that channel
-   pair, or not on the track.
-5. With the capture running, set GO to RUN on track 5, wait 10 s, decode again;
-   then the same on track 1. The ladder takes 7 * 64 + 64 frames, about 0.2 s.
+2. A project with FX1 = PEXT PROBE (EQUALIZER's id, 12) on T1 and T5, GO OFF.
+   Each instance tests its own core.
+3. Start a capture of the USB audio, all channels, 44.1 kHz, sample exact
+   (T1 is channels 0, 1 and T5 is channels 8, 9).
+4. Decode the pairs (`python3 modules/pextprobe/decode.py t1.raw`, `--channels`
+   for a `.wav`). Expected before GO: the marker in every frame, GO 0, next rung 0.
+   No marker: the probe is not on that pair.
+5. With the capture running: set GO to LOW on one track, wait 10 s; set it back
+   to OFF; then WIN on the same track; then OFF; then the other track the same way.
 6. If frames stop arriving, the core froze on the rung the decoder names:
-   power-cycle the unit (no reflash). Decode the capture as it stands.
+   power-cycle the unit (no reflash).
 
-Expected numbers are in the table above, not a prediction. The probe does not
-write anywhere a running payload reads (the base is spare words, a rung is
-above all stock code) except where a rung wraps onto something other than the
-base, which only a non-power-of-two memory size could do.
+The probe writes nowhere a running payload reads except the rungs themselves: a
+LOW rung that wraps onto live code is detected before it writes, and the WIN
+words are free in the bus remix; the probe remix itself keeps no bus.
 
 ## Files
 
-`pextprobe.asm` (generated from seven rungs; the rung block is the same with
-each address), `manifest.py`, `decode.py`, and
-[`remixes/test/pext-probe`](../../remixes/test/pext-probe/README.md).
+`pextprobe.asm` (written by `gen_pextprobe.py`), `manifest.py`, `decode.py`,
+and [`remixes/test/pext-probe`](../../remixes/test/pext-probe/README.md).
