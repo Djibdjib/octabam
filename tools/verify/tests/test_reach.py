@@ -536,6 +536,44 @@ class PlanJsonTests(unittest.TestCase):
         self.assertEqual(d["tier"], "quick")
         self.assertIn("docs/README.md", err.getvalue())
 
+    def items(self):
+        return [("verify_docs", "python3 tools/verify/verify_docs.py", ["a"]),
+                ("test-acceptance", "make test-acceptance", ["b"]),
+                ("refhash", "scripts/refhash.sh check", ["c"]),
+                ("check-shared", 'make check-shared REMIXES="x y"', ["d"]),
+                ("check-remix", 'python3 tools/verify/check_shards.py --jobs 3 --modules "K1,K2" x y', ["e"])]
+
+    def test_entries_group_the_quick_commands_and_split_the_shards_per_remix(self):
+        got = {e["name"]: [c for _, c, _ in e["items"]] for e in reach.entries(self.items(), 3)}
+        self.assertEqual(list(got), ["refhash", "check-shared", "check-remix x", "check-remix y", "light"])
+        self.assertEqual(got["light"], ["python3 tools/verify/verify_docs.py", "make test-acceptance"])
+        self.assertEqual(got["check-remix y"],
+                         ['python3 tools/verify/check_shards.py --jobs 3 --modules "K1,K2" y'])
+
+    def test_entries_name_a_lone_check_and_make_repeated_names_unique(self):
+        items = [("check", "make check REMIX=x", []), ("check", "make check REMIX=x", []),
+                 ("accept", 'make accept REMIXES="x y"', [])]
+        self.assertEqual([e["name"] for e in reach.entries(items, 1)], ["check x", "check x #2", "accept"])
+
+    def test_the_json_matrix_lists_each_units_commands(self):
+        d = reach.plan_json("origin/main", None, True, 3, ["x", "y"], self.items())
+        self.assertEqual(d["matrix"][-1], {"name": "light", "commands": ["python3 tools/verify/verify_docs.py",
+                                                                         "make test-acceptance"]})
+        self.assertEqual(len(d["gates"]), 5)
+
+    def test_only_keeps_one_unit_and_refuses_an_unknown_one(self):
+        import contextlib
+        import io
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            rc = reach.main(["--paths", "docs/README.md", "--only", "light"])
+        self.assertEqual(rc, 0)
+        self.assertIn("verify_docs.py", out.getvalue())
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()), \
+                self.assertRaises(SystemExit) as e:
+            reach.main(["--paths", "docs/README.md", "--only", "nope"])
+        self.assertIn("no such unit", str(e.exception))
+
     def test_json_refuses_run(self):
         import contextlib
         import io

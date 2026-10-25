@@ -15,7 +15,7 @@ make test-acceptance             the runner's, the classifier's and the shard ru
                                  (container corpus, settings, lock file, ot_brain round trip; no firmware)
 make identity                    which remixes' images this branch moved, byte for byte
 scripts/refhash.sh check         a build change produced bit-identical artifacts and reports
-make ci                          the CI jobs that need no firmware; the `gates` job also runs `make reach RUN=1 KEEP=1` on a runner that fetches the 1.40C each run
+make ci                          the CI jobs that need no firmware; the `gates` jobs also run the units of `make reach RUN=1 KEEP=1` (`reach.py --json`, `--only`), one runner each, every runner fetching the 1.40C
 ```
 
 ## 1. The instruments
@@ -681,11 +681,25 @@ PR; a first-time contributor's run waits for maintainer approval:
 | job | target | proves |
 |---|---|---|
 | 🔍 Classify Changes | `tools/verify/ci_paths.py` on the diff | each job below runs only when the diff touches its inputs (the map is `JOB_PREFIXES` there); a skipped job is a grey check, not a pass. No usable diff (a manual run) and workflow, Makefile and `scripts/` changes run everything; `make ci` locally still runs everything |
-| 🧪 Gates — make reach | `make reach RUN=1 KEEP=1` | the gates the diff reaches, on the stock 1.40C fetched into the runner (Ubuntu) |
+| 🗺️ Plan Gates | `reach.py --json --jobs 3` | the units the diff's gates split into; no firmware |
+| 🧪 Gates — `<unit>` | `make reach RUN=1 KEEP=1 JOBS=3 REACHARGS='--only "<unit>"'` | one unit of the plan, on the stock 1.40C fetched into its own runner (Ubuntu) |
+| 🧪 Gates — make reach | `needs` the two above | green when the plan ran and every unit passed (or the plan had none); the one check that stands for all of them |
 | ✅ Acceptance Runner Tests | `make test-acceptance` | the runner refuses skipped, failed, incomplete and over-budget evidence; `reach` routes as documented; the shard runner covers the recipe |
 | 🎛️ DSP Toolchain — dsp56300 | `make ci-dsp` | the vendored DSP emulator at its pin takes our patch, builds, passes upstream's runner; `dsp_asm` emits the one-word displaced move |
 | 🔌 ColdFire Port Unit Tests | `make ci-emu` | `ot_emu` builds on both hosts (the fork unshare has a macOS and a Linux path) and passes `emac` and `periph` |
 | 📚 Docs and Links | `make verify-docs` | the rendered tables are current, every remix has a README, every link between tracked files resolves |
+
+**Units.** `reach.py --json` prints `matrix`, the plan as units (`entries()`):
+`light` (`verify_docs`, `selftest`, `test-acceptance`, last), one `check-remix
+<remix>` per remix (`check_shards.py --jobs 3` on that runner), and every
+other command as its own unit (`check-shared`, `refhash`, `verify-bus`,
+`identity`, `ci`, ...). `--only <unit>` plans again from the same diff and
+keeps that unit, so the plan job and the unit jobs must pass the same
+`--jobs`. A unit's setup is the whole job's (checkout, caches, `make os`,
+`make recon`, `make emu-setup`, ports from the cache): 60 s on a warm run
+(Gates run 40145893338, 25 Oct 2026). The gate cache and the slots are per
+machine, so a unit gets no hits from another. `identity` queues the checks
+of the remixes it names inside its own unit.
 
 **A green CI run says nothing about a remix unless `Gates — make reach` ran.**
 Building, booting and playing one needs 1.40C, which that job fetches into
