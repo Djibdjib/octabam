@@ -948,6 +948,8 @@ def main():
              "vocoder": ("PLATE REV", "DJ EQ"),   # VOCODER runs in PLATE's words; DJ EQ out so the tables sit in X
              "vocoder-usb": ("PLATE REV", "DJ EQ"),   # the vocoder remix + USB MIDI and USB AUDIO (ColdFire, no DSP words)
              "events-empty": ("SPRING REV", "DARK REV"),
+             "events-clients": ("SPATIALIZER", "EQUALIZER", "PHASER", "FLANGER", "CHORUS",
+                                "SPRING REV", "DARK REV", "LO-FI", "DJ EQ", "COMB FILTER"),
              "euclid": ("SPATIALIZER", "FLANGER", "CHORUS", "COMB FILTER"),
              "rig": _rig,
              "character-txtr": _rig,   # octabam-bus with the TXTR station
