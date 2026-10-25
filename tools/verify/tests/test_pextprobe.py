@@ -103,6 +103,12 @@ class Outcomes(unittest.TestCase):
         self.assertIn("ladder WINDOW:", t)
         self.assertIn("WINDOW: 7 of 7 rungs read and wrote", t)
 
+    def test_frames_ending_after_a_finished_ladder_are_not_a_freeze(self):
+        frames = [frame(0x2AAA, 7, 2, i & 1) for i in range(20)] + [([0.0] * 16, [0.0] * 16)] * 12
+        t = "\n".join(decode.summarise(*decode.decode_stream(*stream(frames))))
+        self.assertIn("frames end after the ladder finished", t)
+        self.assertNotIn("FRAMES STOPPED", t)
+
     def test_a_capture_that_goes_silent_is_a_frozen_core(self):
         frames = [frame(0, 0, 2, i & 1) for i in range(20)] + [([0.0] * 16, [0.0] * 16)] * 12
         t = "\n".join(decode.summarise(*decode.decode_stream(*stream(frames))))

@@ -21,9 +21,9 @@ addresses).
   "the register-indirect P store does not work".
 - **This version (image P2), project MXPEXT_03_01:**
   - LOW, core 1, two runs: rung 0 (the control, `P:0x1fe0`) REAL, so the store works; rungs 1..6
-    (`P:0x2000, 0x2100, 0x2400, 0x2800, 0x3000, 0x3800`) ABSENT. P ends at `P:0x1fff`; with
-    the first version's rungs, nothing above it answers on either core. LOW on core 0 was asked
-    for after this run.
+    (`P:0x2000, 0x2100, 0x2400, 0x2800, 0x3000, 0x3800`) ABSENT. Core 0, one clean run:
+    the same, control REAL and the six rungs ABSENT. P ends at `P:0x1fff` on both cores; with
+    the first version's rungs, nothing above it answers on either core.
   - WIN, core 1 and core 0, clean runs: seven of seven rungs read/write and EXECUTE
     (`P:0x30100, 0x35900, 0x36300, 0x36800, 0x37000, 0x37800, 0x37e00`), no freeze. Core 1
     ran code written into payload A's half of the shared window.

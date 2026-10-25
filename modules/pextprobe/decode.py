@@ -80,10 +80,14 @@ def summarise(phase, frames):
     trailing = len(frames) - 1 - last_marker                     # frames after the last one carrying the marker
     parities = {x["parity"] for x in good[-6:]}
     stopped = trailing >= 8 or (len(good) >= 6 and len(parities) == 1)
-    lines.append(f"final: GO {f['go']}, next rung {f['k']}, "
-                 + ("FRAMES STOPPED ARRIVING (" + (f"{trailing} frames without the marker after it" if trailing >= 8
-                                                     else "the parity bit stopped toggling") + ")"
-                    if stopped else "frames still arriving (the parity bit toggles)"))
+    if stopped and f["k"] >= 7:
+        tail = "frames end after the ladder finished (the capture left the probe's track or project)"
+    elif stopped:
+        tail = ("FRAMES STOPPED ARRIVING (" + (f"{trailing} frames without the marker after it" if trailing >= 8
+                                               else "the parity bit stopped toggling") + ")")
+    else:
+        tail = "frames still arriving (the parity bit toggles)"
+    lines.append(f"final: GO {f['go']}, next rung {f['k']}, {tail}")
     name, addrs, codes = LADDERS.get(f["go"], (None, [], {}))
     if name is None:
         lines.append("GO is off: no ladder has run" if f["go"] == 0 else f"unknown GO value {f['go']}")
