@@ -84,7 +84,7 @@ No single-slot run has gone past 98.8 %.
 ## Tests not yet run
 
 1. **The heaviest combinations of the stock effects: slot costs measured, combinations not yet ranked.**
-   `remixes/test/stock-meter-a` and `-b` carry LOAD METER and 13 of the 14 stock effects each (a lacks
+   The test remixes `stock-meter-a` and `-b` (branch `feat/stock-meter-remixes`, not in this tree) carry LOAD METER and 13 of the 14 stock effects each (a lacks
    PHASER, b lacks SPATIALIZER). Runs of 25 Oct 2026 (images S1 and S2, projects MXSTK_a_01 and
    MXSTK_b_01, `def` settings, one effect on all eight tracks in FX1 or FX2, 0 of 23 layouts flagged),
    cost per slot = (layout - BASE) / 4 with BASE 22.5 % on core 0 and 14.9 % on core 1; the same on both
