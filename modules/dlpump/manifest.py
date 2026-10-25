@@ -5,7 +5,7 @@ METER's entry code (docs/proposals/DEMAND_LOAD.md, decision 9).
 import json
 import pathlib
 
-from remix.schema import Category, Kind, Linked, Module, Proof
+from remix.schema import Category, Detour, Kind, Linked, Module, Proof
 
 RECORDS = pathlib.Path("out/dsp/demand_records.json")
 CAPACITY = 3500                 # code words a block may hold; the table is this size on every link
@@ -59,4 +59,10 @@ MODULE = Module(
     proof=Proof.CHECK, proof_note="",
     doc="Host-writes a staged block to a DSP core, a chunk per frame interrupt (demand loader).",
     linked=(Linked("dlpump", "modules/dlpump/pump.s", cpu="5475", include=table_inc, dram=True),),
+    detours=(
+        Detour(0x4005272A, bytes.fromhex("b2806700020c"), "dlpump", "dl_sel_fx1",
+               "FX1 chooser select, the 'same effect' test: refuse a demand effect that cannot be loaded"),
+        Detour(0x400524BA, bytes.fromhex("b2806700021c"), "dlpump", "dl_sel_fx2",
+               "FX2 chooser select, the 'same effect' test: the same"),
+    ),
 )

@@ -134,6 +134,69 @@ arm:    move.l  %d0,dl_loaded
         move.l  %d0,dl_state
         rts
 
+| ---- the choosers: refuse an effect that cannot be loaded ------------------
+| Detours at the FX1 and FX2 select handlers' "same effect?" test (0x4005272a, 0x400524ba): d1 is
+| the id chosen, d0 the track's current id, d7 the track. A chosen effect that is loaded, or whose
+| block is not under a stock reverb, goes on; anything else leaves the handler as if nothing changed.
+        .globl  dl_sel_fx1, dl_sel_fx2
+dl_sel_fx1:
+        cmp.l   %d0,%d1                         | displaced: cmpl %d0,%d1 / beqw (unchanged)
+        beq.w   1f
+        moveq   #0,%d0
+        bsr.w   dl_veto
+        beq.w   1f
+        jmp     0x40052730                      | moveb %d1,%a0@: the Part takes the id
+1:      jmp     0x4005293a                      | the handler's exit
+
+dl_sel_fx2:
+        cmp.l   %d0,%d1
+        beq.w   1f
+        moveq   #1,%d0
+        bsr.w   dl_veto
+        beq.w   1f
+        jmp     0x400524c0
+1:      jmp     0x400526da
+
+| d0 = 1 for the FX2 chooser, 0 for FX1's; d1, d7 as above. Returns Z set to refuse. Every
+| register but d0 is kept.
+dl_veto:
+        lea     %sp@(-40),%sp
+        movem.l %d1-%d7/%a0-%a2,%sp@
+        move.l  %d0,%d5
+        moveq   #1,%d0
+        lea     dl_tab,%a2
+        moveq   #0,%d6
+2:      cmp.l   #DL_N,%d6
+        bcc.w   9f
+        cmp.l   %a2@,%d1
+        bne.w   7f
+        move.l  dl_loaded,%d2
+        btst    %d6,%d2
+        bne.w   9f                              | loaded
+        move.l  %a2@(4),%d2                     | the track whose FX2 slot shares the block
+        tst.l   %d5
+        beq.w   3f
+        cmp.l   %d7,%d2
+        beq.w   9f                              | the FX2 chooser on that track replaces what is there
+3:      lea     LIVE+8,%a0
+        move.b  %a0@(0,%d2:l),%d2
+        cmp.b   #DL_PLATE,%d2
+        beq.w   8f
+        cmp.b   #DL_SPRING,%d2
+        beq.w   8f
+        cmp.b   #DL_DARK,%d2
+        beq.w   8f
+        bra.w   9f
+8:      moveq   #0,%d0
+        bra.w   9f
+7:      lea     %a2@(20),%a2
+        addq.l  #1,%d6
+        bra.w   2b
+9:      movem.l %sp@,%d1-%d7/%a0-%a2
+        lea     %sp@(40),%sp
+        tst.l   %d0
+        rts
+
 | d4 core, d1 X word, d2 words, a0 source halfwords
 dl_xfer:
         move.b  %d4,CSEL

@@ -14,6 +14,8 @@ Remix.window_demand (k):
   unused     no track uses any                          -> none bound
   runs-b / runs-a  T1 (core B) / T5 (core A) uses effect 0 -> its loaded proc is reached on that core (--dsp-pcwatch)
   blocked    effect 0 in use, and the FX2 of the track whose slot shares its block is PLATE REV -> effect 0 not loaded
+  pick / pick-blocked  T2's FX1 chooser (NONE, then DOWN, YES) picks effect 0; with the block's track on PLATE REV
+             the chooser leaves T2's FX1 as it was
 
 Cannot see: the hardware's host-write timing, other projects' use of X:0x2840..0x3fff.
 """
@@ -29,6 +31,7 @@ STAGE = 0x2900
 FX1_LIVE, FX2_LIVE = 0x80000EC4, 0x80000ECC
 FX1_PART, FX2_PART = 0x402A75E0, 0x402A75E8      # Part 1's FX ids of track 1 (bank + 0x8ed80 / 0x8ed88)
 FILTER, PLATE = 0x01, 0x14
+KEYS = dict(no=0x32, fx1=0x25, down=0x20, yes=0x31, t2=0x11)
 FAILS = []
 
 
@@ -88,6 +91,8 @@ def main():
         "withdrawn": (every, [(2000, poke(FX1_LIVE, FX1_PART, 0, FILTER))]),
         "unused": ("", []),
         "blocked": (poke(FX1_LIVE, FX1_PART, 0, mod_id) + ";" + poke(FX2_LIVE, FX2_PART, block_track, PLATE), []),
+        "pick": (poke(FX1_LIVE, FX1_PART, 1, 0), []),
+        "pick-blocked": (poke(FX1_LIVE, FX1_PART, 1, 0) + ";" + poke(FX2_LIVE, FX2_PART, block_track, PLATE), []),
         "runs-b": (poke(FX1_LIVE, FX1_PART, 0, mod_id), []),      # T1 is on core B
         "runs-a": (poke(FX1_LIVE, FX1_PART, 4, mod_id), []),      # T5 is on core A
     }
@@ -100,12 +105,20 @@ def main():
                            capture_output=True, text=True)
         if r.returncode:
             sys.exit(f"verify_dlload: stage_card failed:\n{r.stdout[-800:]}{r.stderr[-800:]}")
-        lines = [f"{ms} poke {p}" for ms, p in later] + [f"{a.ms} quit"]
+        lines = [f"{ms} poke {p}" for ms, p in later]
+        if tag.startswith("pick"):
+            t = 1500
+            for k, gap in (("no", 400), ("t2", 400), ("fx1", 160), ("fx1", 800), ("down", 600), ("yes", 1500)):
+                lines += [f"{t} key {KEYS[k]:#x} down", f"{t + 40} key {KEYS[k]:#x} up"]
+                t += 40 + gap
+        lines.append(f"{a.ms} quit")
         (OUT / f"{tag}.script").write_text("\n".join(lines) + "\n")
+        dump = OUT / f"{tag}_ids.bin"
         peeks = ";".join(f"{c}:X:{STAGE:x},1;{c}:X:{0x33DA3 + 8 * k:x},5;{c}:P:{r['addr']:x},{len(r['words'])}"
                          for c in (0, 1) for k, r in enumerate(recs))
         cmd = [EMU, "--image", image, "--card", card, "--set", a.set_name, "--project", a.name, "--load-ms", "90000",
-               "--mkii", "--dsp", "--frame", "--live-script", OUT / f"{tag}.script", "--dsp-peek", peeks]
+               "--mkii", "--dsp", "--frame", "--live-script", OUT / f"{tag}.script", "--dsp-peek", peeks,
+               "--mem-dump", f"{FX1_LIVE:#x},16={dump}"]
         if first:
             cmd += ["--step", "-:poke:" + first]
         if tag in watch:
@@ -145,6 +158,11 @@ def main():
         check(f"{r['key']} was never bound", peek("unused", 1, "X", 0x33DA3 + 8 * k)[:1] == [0])
     print("blocked:")
     check(f"{recs[0]['key']} is not loaded over a stock reverb's block", peek("blocked", 1, "X", 0x33DA3)[:1] == [0])
+    print("pick:")
+    ids = {t: (OUT / f"{t}_ids.bin").read_bytes() for t in ("pick", "pick-blocked")}
+    check(f"T2's FX1 chooser picks {recs[0]['key']} when it can be loaded", ids["pick"][1] == mod_id, f"FX1 of T2 = 0x{ids['pick'][1]:02x}")
+    check("and leaves T2's FX1 as it was when the block is under a stock reverb", ids["pick-blocked"][1] == 0,
+          f"FX1 of T2 = 0x{ids['pick-blocked'][1]:02x}")
     print("runs:")
     for tag, core in (("runs-b", 1), ("runs-a", 0)):
         m = re.search(r"dsp pcwatch:[^\n]*\n((?: +\d+ [^\n]*\n)*)", texts[tag])
