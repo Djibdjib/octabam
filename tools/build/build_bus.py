@@ -2468,6 +2468,7 @@ mkgo:""",
     tail_records = {}           # {payload: [P start, words]}: the tail's record
     window_records = {}         # {module key: (P start, words)}: Remix.window's records, payload A's upload
     demand_syms = {}            # {module key: (init, proc)}: entries of the Remix.window_demand records
+    pathlib.Path("out/dsp/demand_records.json").unlink(missing_ok=True)   # DLPUMP's table reads it after this stage
     for tag, va, ln in PAYLOADS:
         pp = PP[tag]
         mods, _ = modules(bytes(img), va, ln)
@@ -3907,7 +3908,7 @@ hostquit:
     if demand_records:
         _df.parent.mkdir(parents=True, exist_ok=True)
         _df.write_text(json.dumps({k: {"addr": a, "words": list(w), "init": demand_syms[k][0],
-                                       "proc": demand_syms[k][1]}
+                                       "proc": demand_syms[k][1], "id": NEW_IDS[k]}
                                    for k, (a, w) in demand_records.items()}))
     else:
         _df.unlink(missing_ok=True)
