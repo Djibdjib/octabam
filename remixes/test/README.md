@@ -26,6 +26,7 @@ Each carries one module, or one combination, for that module's gates: `make chec
 | [`erase-empty-trigless-locks`](erase-empty-trigless-locks/README.md) | stock effects with ERASE_EMPTY_TRIGLESS_LOCKS: an emptied trigless lock disappears. | `make check` |
 | [`euclid`](euclid/README.md) | Euclid rhythmic modulation: 12 dB LP/BP/HP or AMP, both FX slots. | port-gated: Shared event migration: firmware/render validation; shared EVENTS migration is software-only, not hardware-tested |
 | [`euclid-fill`](euclid-fill/README.md) | stock effects with EUCLID FILL: TRACK+PAGE Euclidean trig-fill page. | `make check` |
+| [`events-clients`](events-clients/README.md) | EVENTS with EUCLID in both FX slots, PLOCKS P2, USB MAIN/CUE and LOAD METER. | `make check`: EUCLID and PLOCKS shared EVENTS fixture; hardware pending |
 | [`events-empty`](events-empty/README.md) | EVENTS with no clients: no event hooks or dispatcher code. | `make check`: Empty EVENTS selection: stock boundaries checked in the built image. |
 | [`gateverb`](gateverb/README.md) | GATE VERB alone: the fixture of its render gate. | local render: `verify_gateverb`; not flashed |
 | [`kits`](kits/README.md) | KITS (255 Kits per project) on the stock effects. | port-gated: verify_kits under the port |

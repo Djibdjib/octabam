@@ -7,7 +7,8 @@ resets its phase.
 ## Access
 
 An effect on a track: select the track, press FX1 or FX2, and pick EUCLID
-from the chooser. In Octabam Inserts only.
+from the chooser. Select a remix carrying EUCLID, such as the `euclid` or
+`events-clients` test remix; standard Octabam Inserts no longer includes it.
 
 ## Operation
 
@@ -62,3 +63,7 @@ normally. EUCLID uses only the transport callbacks.
 
 Ordinary and arpeggiated MIDI start/resume/stop also passed on optimized
 `EUCL EVENTS 99` the same day.
+
+For shared EVENTS integration testing, `events-clients` combines EUCLID and
+PLOCKS P2 with USB MAIN/CUE and LOAD METER. It is a dedicated test selection;
+hardware qualification is pending.

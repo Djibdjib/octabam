@@ -159,6 +159,8 @@ invalid registrations and the registry's bound real-client selections. A
 `verify_event_clients.py` checks executable callbacks, exclusive installed hook
 ownership and stock bytes at every unused boundary in each built image.
 
+The [events-clients fixture](../../remixes/test/events-clients/README.md) selects
+both clients with USB MAIN/CUE and LOAD METER for focused integration checks.
 EUCLID and PLOCKS retain their own behavior gates. No hardware run has tested
 this combined implementation. Earlier SEQUENCER EVENTS/EUCLID and EDIT EVENTS/
 PLOCKS MKII reports remain historical evidence for those earlier images only.
