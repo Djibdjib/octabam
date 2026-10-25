@@ -15,6 +15,12 @@ Requires SCENES P2: its page-2 dial hooks show a held step's lock.
 """
 
 from remix.schema import Category, Claims, Detour, Gate, Kind, Linked, Module, Proof
+import idspace
+
+
+def ids_inc(modules, remix):
+    """DESC2, the FX2 descriptor table: it moves in a 64-id image."""
+    return f"        .set    DESC2, {idspace.fx2_ids(remix):#x}\n"
 
 H = bytes.fromhex
 
@@ -25,7 +31,7 @@ MODULE = Module(
     category=Category.MACHINES, author="sambanks", author_url="https://github.com/sambanks",
     proof=Proof.HARDWARE, proof_note="cursory testing on Sam's MKII (owner report, 16 Oct 2026); Core P4 on radiohagen's MKII (17 Oct); EDIT EVENTS held-edit/copy paths on radiohagen's MKII, Core PLK858 (22 Oct); scoped operator report; shared EVENTS migration is software-only, not hardware-tested",
     doc="Parameter locks on FX1/FX2 page 2 (hold trigs, turn a knob on the SETUP page).",
-    linked=(Linked("p2locks", "modules/plocks-p2/p2locks.s", dram=True),),
+    linked=(Linked("p2locks", "modules/plocks-p2/p2locks.s", dram=True, include=ids_inc),),
     detours=(
         Detour(0x40060B38, H("4eb94004d948"), "p2locks", "plk_page_draw",
                "trig release: refresh the native page and active FX SETUP popup", kind="jsr"),

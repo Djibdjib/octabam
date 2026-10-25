@@ -29,7 +29,7 @@ project), each with OCTABAM_MATRIX.json beside the project files.
 
   Layout 0 of every project is BASE: no effect of ours, the baseline every
   other layout's level, high band and click count are compared with.
-  octabam-core / octabam-inserts: each FX2 effect on all eight tracks
+  octabam / octabam-bus: each FX2 effect on all eight tracks
     alone, then each FX1 effect on all eight alone, each at its manifest
     defaults, at its `dear` settings, and in each MODE (with and without
     `dear`). --pairs adds every FX1 x FX2 pair on all eight tracks at `dear`.

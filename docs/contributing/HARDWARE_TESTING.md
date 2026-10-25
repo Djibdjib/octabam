@@ -132,6 +132,17 @@ replays sequences under the ColdFire port with no unit.
   run on the same load starts from the first run's state. The unit also writes
   its state back to the card when the project is replaced: copy the pristine
   project folder over the card's copy (step 3) before loading it again.
+- A project with no samples is silent: `--no-silence-check` skips the -80 dB check.
+- MIDI SCENES: `python3 tools/hw/ot_scenes.py stamp <project> [--all-scenes]` writes MIDI track 1 (channel 11,
+  CC1..CC10 on, scene A = 1, scene B = 9), MIDI trigs, CC 1 locks and the run settings (clock and transport receive
+  on) into a copy of a fresh project; `show` prints the locks. Use profile `scenes` (scene select over 0..15, the
+  range the unit takes) with `--all-scenes`. Record the track output with
+  `python3 tools/hw/ot_midi.py -p "Elektron Octatrack DPS-1" listen <seconds>` alongside the run.
+  `python3 tools/hw/ot_xflag.py` times a crossfader step to the lock CC (stopped, playing, with a CC flood).
+- DIRECT_JUMP_KYOTI: stamp with `--pattern-steps 2=1,2,4,7,8,11,13`, turn the toggle on by hand ([PTN] + [YES]; OFF
+  at every power-on, so after any restart), then `python3 tools/hw/ot_djump.py` prints the landing step and the
+  position pattern 2 plays from for each of a series of program changes. Run it once with the toggle off for the
+  control (landing at the pattern end).
 - The audio check needs at least three unmuted tracks, counted from the
   sequence's own mute operations, and assumes every track starts unmuted.
 - A 56-minute run crosses the 50.7-minute mark after power-up, which is where

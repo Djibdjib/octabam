@@ -42,6 +42,7 @@ import mode_names  # noqa: E402
 import wide_dial  # noqa: E402
 from remix import dsp_ranges, ledger  # noqa: E402
 from remix import ybase as ybase_lit  # noqa: E402
+import idspace  # noqa: E402
 
 OUT = pathlib.Path("out/mainos_bus.bin")
 DIS = pathlib.Path("vendor/dsp56300/build/source/dsp_host/dsp_asm")
@@ -126,6 +127,14 @@ NONE_ID = 0x00                  # a fresh part's FX2 id -- aliased to SEND below
 # itself against (scripts/refhash.sh); there is no default. A module with no menu entry (a ColdFire patch) takes no chooser row,
 # so ORDER is the menu modules alone, in the remix's declared order.
 REMIX = remix_registry.remix(os.environ.get("REMIX"))
+# 32: stock's id space; 64: tools/build/idspace.py converts the finished image. A 64-id
+# build writes its id tables to a virtual window (idspace.VIRT) and the DSP dispatch
+# entries at idspace.PROC_OFF + id instead of 32 + id.
+ID_SPACE = REMIX.id_space
+PROC_OFF = idspace.PROC_OFF if ID_SPACE == 64 else 32
+if ID_SPACE == 64:
+    FX2_IDS = idspace.V_FX2_IDS
+    ID2POS = idspace.V_ID2POS
 # Every module, the selected ones bound to the remix's build-time settings
 # (schema.Module.bind): the build reads a module's code from here only.
 _BOUND = remix_registry.bound(REMIX)
@@ -133,8 +142,9 @@ _BOUND = remix_registry.bound(REMIX)
 # module is assembled once at that address, written as a record of payload A's upload,
 # and both payloads' dispatch entries for its id point at it.
 WINDOW = dict(REMIX.window)
+WINDOW_KEYS = {_k.removesuffix(":B") for _k in WINDOW}   # modules with window code; "KEY:B" is payload B's own copy
 for _wk, _wa in WINDOW.items():
-    if _wk not in REMIX.modules:
+    if _wk.removesuffix(":B") not in REMIX.modules:
         sys.exit(f"Remix.window names {_wk!r}, which the remix does not carry")
     if not 0x30000 <= _wa < 0x40000:
         sys.exit(f"Remix.window: {_wk} at P:0x{_wa:05x} is outside the shared window "
@@ -497,7 +507,7 @@ ASM_SRC = {k: v for k, v in {**_DEF_ASM,
                             else "dsp/silence_stub.asm" if os.environ.get("XBUS") == "1"
                             else "dsp/alias_probe.asm" if os.environ.get("BURN") == "1"
                             else os.environ.get("DLSRC") or _DEF_ASM.get("DELAY SERVER")),
-           "REVERB SERVER": ("dsp/xmem_probe.asm" if os.environ.get("XPROBE") == "1"
+           "REVERB SERVER": ((os.environ.get("XPROBE_SRC") or "dsp/xmem_probe.asm") if os.environ.get("XPROBE") == "1"
                              else "dsp/page2_probe.asm" if os.environ.get("PROBE") == "1"
                              else "dsp/tempoprobe.asm" if os.environ.get("TPROBE") == "1"
                              else os.environ.get("RVSRC") or _DEF_ASM.get("REVERB SERVER")),
@@ -511,6 +521,9 @@ PP = {
     "B": dict(chorus=0x00c77, plate=0x00dc0, spring=0x01012, dark=0x01439,
               nul_i=0x00588, nul_p=0x00589, xtab=0x400f5a10, ybase=0x38000),
 }
+if ID_SPACE == 64:
+    for _t in PP:
+        PP[_t]["xtab"] = idspace.V_XTAB[_t]
 # DEV only: where the DELAY SERVER's code lives when it is NOT packed into
 # the donor region. The hatch region capped
 # the delay at ~583 words (24 free after stage 1) vs payload B's ~1,953 --
@@ -759,13 +772,24 @@ def main():
     if _kept:
         sys.exit("not 1.40C where a module keeps stock bytes:\n  " + "\n  ".join(_kept))
 
+    _virt = idspace.new_virt(img) if ID_SPACE == 64 else None
+
     def rd32(a):
+        if _virt is not None and a >= idspace.VIRT:
+            return int.from_bytes(_virt[a - idspace.VIRT:a - idspace.VIRT + 4], "big")
         return int.from_bytes(img[a - BASE:a - BASE + 4], "big")
 
     def wr32(a, v):
+        if _virt is not None and a >= idspace.VIRT:
+            _virt[a - idspace.VIRT:a - idspace.VIRT + 4] = v.to_bytes(4, "big")
+            return
         img[a - BASE:a - BASE + 4] = v.to_bytes(4, "big")
 
     def wrw_p(a, v):
+        if _virt is not None and a >= idspace.VIRT:
+            i = a - idspace.VIRT
+            _virt[i], _virt[i + 1], _virt[i + 2] = v & 0xff, (v >> 8) & 0xff, (v >> 16) & 0xff
+            return
         i = a - BASE
         img[i], img[i + 1], img[i + 2] = v & 0xff, (v >> 8) & 0xff, (v >> 16) & 0xff
 
@@ -989,6 +1013,12 @@ def main():
         if cave_end > LONG_LIST:
             sys.exit(f"{len(CLONED_ORDER)} descriptor clones run into the "
                      f"long chooser list at 0x{LONG_LIST:08x}")
+    if ID_SPACE == 64:
+        # the SRAM-init cave and the two FX2 id tables sit just below the long list
+        cave_limit = min(cave_limit, idspace.CAVE)
+        if cave_end > cave_limit:
+            sys.exit(f"{len(CLONED_ORDER)} descriptor clones run into the 64-id reserve "
+                     f"at 0x{idspace.CAVE:08x}")
     for i, v in enumerate(entries):
         wr32(list_addr + i * 4, v)
 
@@ -2057,7 +2087,8 @@ def main():
     # FX1 (which shares the dispatch tables) whole.
     _omitted = [m for m in remix_modules().values()
                 if m.menu is not None and m.key not in REMIX.modules
-                and not m.is_stock]
+                and not m.is_stock
+                and m.menu.fx2_id not in {c.menu.fx2_id for c in _SEL}]   # an id a carried module holds is not aliased
     # ⚠️ A REPLACEMENT THAT IS NOT IN THIS REMIX LEAVES STOCK ALONE. Aliasing
     # its id to the fallback would take the stock effect away from BOTH menus
     # -- which is exactly what happened for four days when Rungs sat on
@@ -2476,8 +2507,10 @@ mkgo:""",
             _zl = 0x30000 + _zn
             from remix import dsp_ranges as _dr2
             for _o in _dr2.owners(remix_registry.selected(REMIX)):
-                if (_o.domain == "shared" and _o.owner not in WINDOW and _o.end > _zl
-                        and _o.start < 0x37F00):
+                # the bus scratch is exempt: the servers' position-0 housekeeping clears the rotating
+                # buffers every frame (reverb_server.asm, delay_server.asm), and their warm-up zeroes the rest
+                if (_o.domain == "shared" and _o.owner not in WINDOW_KEYS and _o.owner != "the bus"
+                        and _o.end > _zl and _o.start < 0x37F00):
                     sys.exit(f"Remix.window: payload A's boot zero loop would stop at "
                              f"0x{_zl:05x}, and {_o.owner}'s {_o.what} "
                              f"(0x{_o.start:05x}..0x{_o.end:05x}) needs zeroing")
@@ -2537,7 +2570,7 @@ mkgo:""",
             # payload's code in a record of its own (_tail_plan).
             _need = [m for m in ([m for m in _SEL if m.dsp is not None]
                                  + [_MODS[k] for k in HOOKED])
-                     if not m.dsp.pins and not m.dsp.tail and m.key not in WINDOW]
+                     if not m.dsp.pins and not m.dsp.tail and m.key not in WINDOW_KEYS]
             if _need:
                 sys.exit(f"payload {tag}: nothing is harvested, so there is "
                          f"nowhere to place "
@@ -2987,7 +3020,7 @@ hostquit:
             # fb_init/fb_proc when the fallback is not a module.
             fb_init, fb_proc = pp["nul_i"], pp["nul_p"]
             wrw_p(pp["xtab"] + NONE_ID * 3, fb_init)
-            wrw_p(pp["xtab"] + (32 + NONE_ID) * 3, fb_proc)
+            wrw_p(pp["xtab"] + (PROC_OFF + NONE_ID) * 3, fb_proc)
         cursor = base_a
         # LFO roll table: reverb_server.asm's rolled lines 2-7
         # read per-line [rate const, phase slot, int slot, frac slot] from a
@@ -3128,32 +3161,40 @@ hostquit:
             return "\n".join(out), n
 
         for name, src in plan:
-            if name in WINDOW:
+            if name in WINDOW_KEYS and (name in WINDOW or tag == "B"):
                 # ---- IN THE SHARED WINDOW (schema.Remix.window): assembled once at its
                 # address, table behind the code, a record of payload A's upload; this
                 # payload's dispatch entries point at it. Takes no harvested words.
-                _wa = WINDOW[name]
                 _wm = remix_modules()[name]
                 _wd = _wm.dsp
-                if _wd.tail or _wd.hooks or _wd.ptable2 or _wd.pins or "$facade" in src:
-                    sys.exit(f"{name}: placed in the shared window, so it has no tail, hooks, "
-                             f"second table, pins or LFO table")
+                # a module whose two payloads assemble to different words (a hooked one: the stock
+                # addresses it replays into differ; a server: per-core code) has "KEY:B" for payload B's copy
+                _wk = name + ":B" if (tag == "B" and name + ":B" in WINDOW) else name
+                _wa = WINDOW[_wk]
+                if _wd.tail or _wd.ptable2 or _wd.pins:
+                    sys.exit(f"{name}: placed in the shared window, so it has no tail, "
+                             f"second table or pins")
                 _wt = list(_wd.ptable)
                 if _wt and (PTABLE_MARK not in src or src.count(PTABLE_MARK) != 1):
                     sys.exit(f"payload {tag}: {name}: a DspSection.ptable and exactly one "
                              f"{PTABLE_MARK} literal in the source go together")
+                # the LFO roll table (the source's $facade literal) goes behind the code, before the ptable
+                _wl = ((LFO01 + LFOTAB) if LFO01_MARK in src else LFOTAB) if "$facade" in src else []
+                if _wl and src.count("$facade") != 1:
+                    sys.exit(f"payload {tag}: {name} has multiple $facade LFOTAB literals -- expected exactly one")
                 _ws = src
-                if _wt:
-                    _w0, _ = assemble_syms(src.replace(PTABLE_MARK, "$0"), _wa, label=name)
-                    _ws = src.replace(PTABLE_MARK, f"${_wa + len(_w0):x}")
+                if _wt or _wl:
+                    _w0, _ = assemble_syms(src.replace(PTABLE_MARK, "$0").replace("$facade", "$0"), _wa, label=name)
+                    _tb = _wa + len(_w0)
+                    _ws = src.replace("$facade", f"${_tb:x}").replace(PTABLE_MARK, f"${_tb + len(_wl):x}")
                 _ww, _wsyms = assemble_syms(_ws, _wa, label=name)
-                if _wt and len(_ww) != len(_w0):
+                if (_wt or _wl) and len(_ww) != len(_w0):
                     sys.exit(f"{name}: the code changed length with its table's address")
-                _ww = list(_ww) + _wt
-                if name in window_records and window_records[name][1] != _ww:
+                _ww = list(_ww) + _wl + _wt
+                if _wk in window_records and window_records[_wk][1] != _ww:
                     sys.exit(f"{name}: placed in the shared window as one copy, but its payload "
                              f"A and payload B sources assemble to different words")
-                if name not in window_records:
+                if _wk not in window_records:
                     from remix import dsp_ranges as _dr
                     for _o in _dr.owners(remix_registry.selected(REMIX)):
                         if (_o.domain == "shared" and _o.start < _wa + len(_ww)
@@ -3164,15 +3205,34 @@ hostquit:
                     for _on, (_oa, _ow) in window_records.items():
                         if _oa < _wa + len(_ww) and _wa < _oa + len(_ow):
                             sys.exit(f"{name} and {_on} overlap in the shared window")
-                    window_records[name] = (_wa, _ww)
+                    window_records[_wk] = (_wa, _ww)
+                for _h in _wd.hooks:
+                    # the two stock words become `jsr >label`, a 24-bit address (schema.DspHook)
+                    if not _h.on(tag):
+                        continue
+                    _hs = _h.site_on(tag)
+                    _got = (rdw_p_at(_hs), rdw_p_at(_hs + 1))
+                    _want = _h.stock_on(tag)
+                    if _got != _want:
+                        sys.exit(f"payload {tag}: {name}'s hook site P:0x{_hs:05x} holds "
+                                 f"{_got[0]:06x} {_got[1]:06x}, not stock "
+                                 f"{_want[0]:06x} {_want[1]:06x}; refusing")
+                    wrw_p_at(_hs, 0x0BF080)
+                    wrw_p_at(_hs + 1, _wsyms[_h.label])
+                    print(f"  {'HOOK':13} P:0x{_hs:05x} -> {name} {_h.label} "
+                          f"P:0x{_wsyms[_h.label]:05x}  {_h.note}")
+                if _wd.hooks:
+                    print(f"  {name:13} P:0x{_wa:05x}..0x{_wa + len(_ww):05x} ({len(_ww):4} words)  "
+                          f"no dispatch entry: reached by its hook(s)  IN THE SHARED WINDOW")
+                    continue
                 init_a, proc_a = _wsyms.get("init"), _wsyms.get("proc")
                 if init_a is None or proc_a is None:
                     sys.exit(f"payload {tag}: {name} has no init/proc labels")
                 wrw_p(pp["xtab"] + NEW_IDS[name] * 3, init_a)
-                wrw_p(pp["xtab"] + (32 + NEW_IDS[name]) * 3, proc_a)
+                wrw_p(pp["xtab"] + (PROC_OFF + NEW_IDS[name]) * 3, proc_a)
                 if name == REMIX.fallback:
                     wrw_p(pp["xtab"] + NONE_ID * 3, init_a)
-                    wrw_p(pp["xtab"] + (32 + NONE_ID) * 3, proc_a)
+                    wrw_p(pp["xtab"] + (PROC_OFF + NONE_ID) * 3, proc_a)
                     fb_init, fb_proc = init_a, proc_a
                 print(f"  {name:13} P:0x{_wa:05x}..0x{_wa + len(_ww):05x} ({len(_ww):4} words)  "
                       f"id 0x{NEW_IDS[name]:02x}  IN THE SHARED WINDOW (one copy, both cores, "
@@ -3241,7 +3301,7 @@ hostquit:
                              f"entry-point plausibility bound "
                              f"(0x{_at + len(words):05x} >= 0x20000)")
                 wrw_p(pp["xtab"] + NEW_IDS[name] * 3, init_a)
-                wrw_p(pp["xtab"] + (32 + NEW_IDS[name]) * 3, proc_a)
+                wrw_p(pp["xtab"] + (PROC_OFF + NEW_IDS[name]) * 3, proc_a)
                 if tag == "A":
                     dev_delay = _lead + list(words)
                 print(f"  {name:13} P:0x{_at:05x}..0x"
@@ -3541,10 +3601,10 @@ hostquit:
                 cursor += len(words)
                 continue
             wrw_p(pp["xtab"] + NEW_IDS[name] * 3, init_a)
-            wrw_p(pp["xtab"] + (32 + NEW_IDS[name]) * 3, proc_a)
+            wrw_p(pp["xtab"] + (PROC_OFF + NEW_IDS[name]) * 3, proc_a)
             if name == REMIX.fallback:
                 wrw_p(pp["xtab"] + NONE_ID * 3, init_a)          # id 0 alias,
-                wrw_p(pp["xtab"] + (32 + NONE_ID) * 3, proc_a)   # fresh = send
+                wrw_p(pp["xtab"] + (PROC_OFF + NONE_ID) * 3, proc_a)   # fresh = send
                 fb_init, fb_proc = init_a, proc_a
             extra = (f"  Y base 0x{0x38000 if DEV else pp['ybase']:x}"
                      + ("  (shipping payload-B address, see plan above)"
@@ -3558,7 +3618,7 @@ hostquit:
             # Same fail-safe on the DSP side: the id resolves to the fallback's
             # entry points rather than to whatever occupies its dispatch slot.
             wrw_p(pp["xtab"] + _m.menu.fx2_id * 3, fb_init)
-            wrw_p(pp["xtab"] + (32 + _m.menu.fx2_id) * 3, fb_proc)
+            wrw_p(pp["xtab"] + (PROC_OFF + _m.menu.fx2_id) * 3, fb_proc)
 
         for _abs in absent:
             # The absent engine's id must still dispatch to something on this
@@ -3567,7 +3627,7 @@ hostquit:
             # already placed above: same fail-safe id 0 uses, and a track that
             # selects the "wrong" server becomes a send to the right one.
             wrw_p(pp["xtab"] + NEW_IDS[_abs] * 3, fb_init)
-            wrw_p(pp["xtab"] + (32 + NEW_IDS[_abs]) * 3, fb_proc)
+            wrw_p(pp["xtab"] + (PROC_OFF + NEW_IDS[_abs]) * 3, fb_proc)
             print(f"  {_abs:13} NOT PLACED on this core -- id "
                   f"0x{NEW_IDS[_abs]:02x} aliased to SEND P:0x{fb_init:05x} "
                   f"(selecting it here makes the track a send, not silence)")
@@ -3580,7 +3640,7 @@ hostquit:
                 sys.exit("silence stub does not fit the region's free tail")
             place(words, cursor)
             wrw_p(pp["xtab"] + STOCK_DELAY_ID * 3, init_a)
-            wrw_p(pp["xtab"] + (32 + STOCK_DELAY_ID) * 3, proc_a)
+            wrw_p(pp["xtab"] + (PROC_OFF + STOCK_DELAY_ID) * 3, proc_a)
             print(f"  {'SILENCE STUB':13} P:0x{cursor:05x}..0x{cursor + len(words):05x} "
                   f"({len(words):4} words)  id 0x{STOCK_DELAY_ID:02x} "
                   f"*** DELAY now writes silence, NOT passthrough ***")
@@ -3606,7 +3666,7 @@ hostquit:
             # answers is only "does the delay survive our code in its slot",
             # not "is the send level right".
             wrw_p(pp["xtab"] + STOCK_DELAY_ID * 3, fb_init)
-            wrw_p(pp["xtab"] + (32 + STOCK_DELAY_ID) * 3, fb_proc)
+            wrw_p(pp["xtab"] + (PROC_OFF + STOCK_DELAY_ID) * 3, fb_proc)
             print(f"  {'SEND @ 0x08':13} P:0x{fb_init:05x} "
                   f"(reuses the SEND client)  id 0x{STOCK_DELAY_ID:02x} "
                   f"*** DELAY's slot now runs SEND; audio passes through ***")
@@ -3669,7 +3729,7 @@ hostquit:
                 continue
             eid = _MODS[donor].menu.fx2_id
             wrw_p(pp["xtab"] + eid * 3, pp["nul_i"])
-            wrw_p(pp["xtab"] + (32 + eid) * 3, pp["nul_p"])
+            wrw_p(pp["xtab"] + (PROC_OFF + eid) * 3, pp["nul_p"])
         if not kept:
             # ⚠️ WORDING FROZEN for the default harvest: the build report is
             # API (refhash hashes it, and verify_* parse it). Every shipping
@@ -3772,7 +3832,13 @@ hostquit:
             _repoint(_cb, 0, len(_cb))
             _rt_patch[_dmap[_ci]] = bytes(_cb)
         del img[_img_len:]
-        _refs = _repoint(img, 0, len(img))
+        # the scan skips the DSP payloads (payload A's start to the stock image's end): their 3-byte
+        # words can spell a staged address (P:0x1140 then 0x00 reads 0x401100xx)
+        _dsp_lo, _dsp_hi = 0x400e2324 - BASE, _img_len
+        _refs = _repoint(img, 0, _dsp_lo) + _repoint(img, _dsp_hi, len(img))
+        if _virt is not None:
+            # a 64-id build keeps FX2_IDS in the virtual window until idspace.convert runs
+            _refs += _repoint(_virt, idspace.V_FX2_IDS - idspace.VIRT, idspace.V_FX2_IDS - idspace.VIRT + 4 * 64)
         print("\n=== ColdFire: the descriptor clones in the DRAM runtime ===")
         for _ci, _n in enumerate(CLONED_ORDER):
             _nref = sum(1 for _v in _refs if (_v - _lo) // CLONE_STRIDE == _ci)
@@ -3920,6 +3986,14 @@ hostquit:
             sys.exit(f"{_pwho}: the platform runtime linked differently the second time")
         _appends[_platform_at] = (
             "octabam loader + payloads (" + ", ".join(_pnames) + ")", _pappend)
+
+    if ID_SPACE == 64:
+        try:
+            _id_report = idspace.convert(img, _virt, pathlib.Path("out/idspace"))
+        except idspace.Refusal as _e:
+            sys.exit(f"remix {REMIX.name!r}: id_space=64 cannot be applied: {_e}")
+        for _l in _id_report:
+            print(_l)
 
     # ... and after everything is written but the appends.
     _kept = _keep.violations(img, BASE, [remix_modules()[k] for k in REMIX.modules])

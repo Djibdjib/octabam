@@ -2,7 +2,7 @@
 """Seeded stress sequences for the unit, driven over USB MIDI, with the health checks of the one-cable rig.
 
     python3 tools/hw/ot_fuzz.py gen SEED OUT.json [--profile mix] [--minutes 5] [--layouts 28]
-    python3 tools/hw/ot_fuzz.py run SEQ.json LABEL [--until N] [--audio Octatrack] [--midi NAME]
+    python3 tools/hw/ot_fuzz.py run SEQ.json LABEL [--until N] [--audio Octatrack] [--midi NAME] [--no-silence-check]
     python3 tools/hw/ot_fuzz.py show SEQ.json [--from N --to M]
     python3 tools/hw/ot_fuzz.py port REMIX PROJECT LABEL [--seeds 1-8] [--seconds 30] [--profile pc]   # no unit: the ColdFire port
 
@@ -18,7 +18,8 @@ with the operation index, the last 40 operations and the unit's state, so `run S
 --until INDEX` replays up to it. The unit has to be power-cycled after a failure.
 
 Profiles: pc (program changes only, bursts included), transport (START / STOP / tempo), xf (crossfader
-and scene select), mix (all of them, program changes weighted most).
+and scene select), scenes (the same with scene select drawn over 0..15, the range the unit takes; pair it with
+`ot_scenes.py stamp --all-scenes`), mix (all of them, program changes weighted most).
 
 What it does not do: the panel (LOAD KIT, SAVE KIT, setting a scene lock, the direct-jump toggle) has
 to be set up by hand before a run, and it cannot see inside the unit beyond LOAD METER, the audio
@@ -40,6 +41,7 @@ PROFILES = {
     "pc": {"pc": 10, "pc_burst": 4, "pc_back": 3},
     "transport": {"start": 5, "stop": 5, "tempo": 4, "pc": 2},
     "xf": {"xf_sweep": 5, "xf_jump": 4, "scene": 4, "pc": 1},
+    "scenes": {"xf_sweep": 5, "xf_jump": 4, "scene": 6, "pc": 1},
     "mix": {"pc": 10, "pc_burst": 4, "pc_back": 3, "start": 3, "stop": 3, "tempo": 2, "xf_sweep": 3, "xf_jump": 3,
             "scene": 2, "mute": 3, "level": 2, "knob": 4},
 }
@@ -98,7 +100,8 @@ def gen(seed, minutes, layouts, profile):
         elif kind == "xf_jump":
             add(t, "cc", [0xB0, 48, rng.choice([0, 127, rng.randrange(128)])], "crossfader jump")
         elif kind == "scene":
-            add(t, "cc", [0xB0, rng.choice([55, 56]), rng.randrange(128)], "scene select")
+            # The unit clamps the value to 0..15 (MIDI.md Appendix A): drawn over 0..127, 7 in 8 select scene 15.
+            add(t, "cc", [0xB0, rng.choice([55, 56]), rng.randrange(16 if profile == "scenes" else 128)], "scene select")
         elif kind == "mute":
             tr = rng.randrange(8)
             add(t, "cc", [0xB0 | tr, 49, rng.choice([0, 127])], f"mute T{tr + 1}")
@@ -202,12 +205,13 @@ def cmd_run(a):
             r = load_meter.read_fast(usb)
             if state["bad0"] is None:
                 state["bad0"] = r["dsp"]["bad"]
-            state["samples"].append((round(time.monotonic() - t_start, 2), round(r["cf"]["longest_us"]), r["dsp"]["bad"] - state["bad0"]))
+            state["samples"].append((round(time.monotonic() - t_start, 2), round(r["cf"]["longest_us"]), r["dsp"]["bad"] - state["bad0"],
+                                     round(r["cf"]["mean_us"], 1), round(r["cf"]["share"], 4)))
             if r["dsp"]["bad"] - state["bad0"] > 200:
                 return f"{r['dsp']['bad'] - state['bad0']} bad records since the start (frames are being skipped)"
         if not any(n == "Elektron Octatrack DPS-1" for n, _ in ot_midi.endpoints("dst")):
             return "the MIDI destination is gone"
-        if (8 - len(state["muted"]) >= MIN_AUDIBLE_TRACKS and state["played_at"] is not None
+        if (not a.no_silence_check and 8 - len(state["muted"]) >= MIN_AUDIBLE_TRACKS and state["played_at"] is not None
                 and time.monotonic() - state["played_at"] > DEAD_AUDIO_S and window_db() < -80.0):
             return f"the audio has been below -80 dB (rms over {DEAD_AUDIO_S:.0f} s) while the transport plays"
         return None
@@ -217,16 +221,26 @@ def cmd_run(a):
     try:
         with sd.InputStream(device=dev, channels=nch, samplerate=44100, dtype="float32", callback=cb):
             clock.start()
-            nxt_check = t_start
-            for i, o in enumerate(ops):
-                while time.monotonic() - t_start < o["t"]:
-                    if time.monotonic() >= nxt_check:
-                        why = check()
-                        nxt_check += HEALTH_EVERY_S
+            health_stop = threading.Event()
+
+            def health():
+                # check() takes 0.4 s (load_meter.healthy waits for the frame counter to move); inline in the
+                # sender it delayed every operation up to 0.4 s and sent them in bursts (25 Oct 2026)
+                nxt = time.monotonic()
+                while not health_stop.is_set() and not state["fail"]:
+                    if time.monotonic() >= nxt:
+                        nxt += HEALTH_EVERY_S
+                        try:
+                            why = check()
+                        except Exception as e:  # noqa: BLE001
+                            why = f"the health check raised {e!r}"
                         if why:
                             state["fail"] = why
-                            break
                     time.sleep(0.01)
+            threading.Thread(target=health, daemon=True).start()
+            for i, o in enumerate(ops):
+                while time.monotonic() - t_start < o["t"] and not state["fail"]:
+                    time.sleep(0.002)
                 if state["fail"]:
                     break
                 state["idx"] = i
@@ -240,6 +254,7 @@ def cmd_run(a):
                     state["played_at"] = time.monotonic(); last_audio["t"] = time.monotonic()
                 elif o["op"] == "stop":
                     state["played_at"] = None
+            health_stop.set()
             if not state["fail"]:
                 # a final look after the last operation
                 time.sleep(1.0)
@@ -432,6 +447,7 @@ def main():
     p = sub.add_parser("run"); p.add_argument("seq"); p.add_argument("label")
     p.add_argument("--until", type=int, default=None, help="stop after this operation index (a replay)")
     p.add_argument("--audio", default="Octatrack"); p.add_argument("--midi", default="Elektron Octatrack DPS-1")
+    p.add_argument("--no-silence-check", action="store_true", help="skip the -80 dB check (a project with no samples is silent)")
     p = sub.add_parser("port", help="replay sequences under the ColdFire port, no unit")
     p.add_argument("remix"); p.add_argument("project"); p.add_argument("label")
     p.add_argument("--bank", type=int, default=1); p.add_argument("--seqs", nargs="*", help="sequence files; else --seeds")
