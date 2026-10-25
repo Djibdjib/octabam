@@ -4,7 +4,7 @@ CORE with LOAD METER, MODULATION and the stock effects except CHORUS (MODULATION
 
 ## What is in it
 
-- CORE and LOAD METER, as in `octabam-inserts`.
+- CORE and LOAD METER, as in `octabam`.
 - MODULATION at P:0x36300 (`Remix.window`).
 - FILTER, EQUALIZER, DJ EQ, PHASER, FLANGER, SPATIALIZER, COMB FILTER, COMPRESSOR, LO-FI, DELAY.
 

@@ -239,7 +239,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("import"); p.add_argument("reports", nargs="+")
-    p = sub.add_parser("table"); p.add_argument("--remix", default="octabam-inserts")
+    p = sub.add_parser("table"); p.add_argument("--remix", default="octabam")
     p = sub.add_parser("check"); p.add_argument("remix"); p.add_argument("--limit", type=float)
     p.add_argument("--without", nargs="*", default=[], help="effects left out of the bound")
     a = ap.parse_args(argv)

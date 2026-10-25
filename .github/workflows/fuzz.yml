@@ -13,7 +13,7 @@ on:
     inputs:
       remix:
         description: 'remix to build and replay on'
-        default: 'octabam-inserts'
+        default: 'octabam'
       kits:
         description: 'Kits: none (the template library, empty), identity (migrated), or rotated (each pattern plays the next Kit)'
         type: choice

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """A fresh, empty Octatrack project made by the firmware itself under the ColdFire port, with no file from a unit.
 
-    python3 tools/hw/ot_fresh.py [--remix octabam-inserts] [--image out/mainos_bus.bin] [--out out/fresh]
+    python3 tools/hw/ot_fresh.py [--remix octabam] [--image out/mainos_bus.bin] [--out out/fresh]
 
 The port boots the image on a card with no project, a panel script does what a person does (PROJECT > CHANGE >
 CREATE EMPTY PROJECT, then SAVE PROJECT: the keys verify_kits.py's `newsave` scenario uses), and the card the firmware

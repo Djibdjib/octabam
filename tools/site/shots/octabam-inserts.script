@@ -1,4 +1,4 @@
-# octabam-inserts: one track per effect, assigned in the project file
+# octabam: one track per effect, assigned in the project file
 # (OCTABAM89_shots bank 3): T1 SPECTRUM 0x04, T2 CHARACTER 0x1c,
 # T3 MODULATION 0x12, T4 TRANSIENT 0x0f (FX1);
 # T5 GATE VERB 0x14, T6 DELAY 0x06 (FX2).
