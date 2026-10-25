@@ -163,6 +163,13 @@ def cmd_run(a):
     for stale in ("failure.json", "run.json"):
         (out_dir / stale).unlink(missing_ok=True)            # a previous run's verdict must not outlive it
     usb = load_meter.libusb_device()
+    try:
+        load_meter.read_fast(usb)
+    except Exception as e:  # noqa: BLE001
+        if getattr(e, "errno", None) != 32:
+            raise
+        print("The image has no LOAD METER (0xc0/0x57 STALLs): health is the MIDI destination and the audio only.")
+        usb = None
     dev, nch = U.find_input(a.audio)
     out = ot_midi.Out(a.midi)
     clock = ClockGen(out)
@@ -174,15 +181,16 @@ def cmd_run(a):
 
     def check():
         """-> a reason string, or None."""
-        ok, why = load_meter.healthy(usb)
-        if not ok:
-            return why
-        r = load_meter.read_fast(usb)
-        if state["bad0"] is None:
-            state["bad0"] = r["dsp"]["bad"]
-        state["samples"].append((round(time.monotonic() - t_start, 2), round(r["cf"]["longest_us"]), r["dsp"]["bad"] - state["bad0"]))
-        if r["dsp"]["bad"] - state["bad0"] > 200:
-            return f"{r['dsp']['bad'] - state['bad0']} bad records since the start (frames are being skipped)"
+        if usb is not None:
+            ok, why = load_meter.healthy(usb)
+            if not ok:
+                return why
+            r = load_meter.read_fast(usb)
+            if state["bad0"] is None:
+                state["bad0"] = r["dsp"]["bad"]
+            state["samples"].append((round(time.monotonic() - t_start, 2), round(r["cf"]["longest_us"]), r["dsp"]["bad"] - state["bad0"]))
+            if r["dsp"]["bad"] - state["bad0"] > 200:
+                return f"{r['dsp']['bad'] - state['bad0']} bad records since the start (frames are being skipped)"
         if not any(n == "Elektron Octatrack DPS-1" for n, _ in ot_midi.endpoints("dst")):
             return "the MIDI destination is gone"
         if state["db"] > -80.0:

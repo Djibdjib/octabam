@@ -610,6 +610,13 @@ Entries from here to the end of the file (5 Oct 2026) were recorded in other doc
 - **Fix:** none. `ot_matrix.py` flags OVERLOAD (the frame interrupt under 80 % of 2,756 a second) and stops the run; `predict` leaves layouts predicted at 100 % or more out unless `--include-overload` is given.
 - **To find out:** whether a power-cycle clears it (expected); what BRAIN > LOG > EVENTS recorded; whether the unit recovers when the load drops below the budget without a power-cycle; where between 98.8 and 105 % it starts.
 
+## A Kit's MODULATION FX2 mode2 + dear plays digital silence while the DSP runs it 🔴 open
+
+- **Seen:** Sam's MKII, image I4 (`octabam-inserts` with MODULATION 26520d6e and the frame-count fix), 25 Oct 2026, project `MXKIT_ROT1` (Kits migrated from the Parts, then every pattern pointed one Kit along, `ot_kits.py rotate 1`). A 56-minute `ot_fuzz.py` `mix` sequence (seed 21) stopped at 719.5 s: the audio silent for 3 s while the transport played. The replay stopped at 719.0 s. Layout 21 played alone (`ot_matrix.py run --only 20-23`): rms -138.5 dB with FREEZE, DSP busy 58.3 / 50.7 % (the figure of MODULATION mode2); layouts 20, 22 and 23 had audio. Pattern 21 plays Kit 22 there (mode2 + dear).
+- **Not seen:** the same layouts in `MXKIT_IDENT` (each pattern plays its own Kit), same image: layout 21 -41.6 dB, layout 22 -39.0 dB; and in `MXMOD01` (no Kits), mode2 -41.8 dB.
+- **Not established:** whether the Kit load alone causes it or the transition from the previous Kit's state (layout 20 played mode2 content immediately before).
+- **Cause:** open. **Check:** `ot_matrix.py run MXKIT_ROT1 LABEL --only 21` (layout 21 after BASE only), then 20-21.
+
 ## The DSP's frame count stops while the ColdFire and USB keep running 🟡 idle stop fixed in LOAD METER; the stops under overload are open (a power-cycle cleared each so far)
 
 - **Seen:** Sam's MKII, `octabam-inserts` image I1, 24 Oct 2026, three times through LOAD METER over USB: 10:40 after the fourth run of EUCLID FX1 + LOFI2 FX2 `dear` (the frame count `lm_dsp[0]` constant at 4,189,348; the frame interrupt still ran 2,756 a second but with a mean of 0.6 µs; `bad` 14,701); 11:03 after `ot_matrix.py switch` had sent program changes during play between layouts of MXEUC_01 (frame count constant at 7,090,409; the ColdFire share 69 %); and after the 10:0x overloads. Each time the panel and USB answered.
