@@ -88,5 +88,54 @@ check("bound: the output equals MODULATION's direct render, sample for sample", 
 with_words(mem, TMP / "wrongmagic.mem", [MAGIC ^ 1, init_m, proc_m])
 check("wrong magic: still dry", run(TMP / "wrongmagic.mem", init_s, proc_s, "wrongmagic") == dry)
 
+# ---- the copier: a staged block moves the code into the window and binds it ----
+CODE_AT, STAGE = 0x35000, 0x2900
+
+
+def records(path):
+    """[(space, address, [words])] of a dump, without the terminator."""
+    blob, pos, out = pathlib.Path(path).read_bytes(), 0, []
+    while pos + 9 <= len(blob):
+        sp, addr, cnt = struct.unpack_from("<BII", blob, pos)
+        pos += 9
+        if sp == 0xFF:
+            break
+        out.append((sp, addr, list(struct.unpack_from(f"<{cnt}I", blob, pos))))
+        pos += 4 * cnt
+    return out
+
+
+def write_records(path, recs):
+    path.write_bytes(b"".join(struct.pack("<BII", sp, a, len(w)) + struct.pack(f"<{len(w)}I", *w) for sp, a, w in recs)
+                     + struct.pack("<BII", 0xFF, 0, 0))
+
+
+recs = records(mem)
+code = next(w for sp, a, w in recs if sp == 0 and a == CODE_AT)
+N = len(code)
+check("the dump holds MODULATION's code at P:0x35000", init_m == CODE_AT and N > 1000, f"{N} words")
+gone = [(sp, a, [0] * len(w) if (sp == 0 and a == CODE_AT) else w) for sp, a, w in recs]      # the code is not resident at boot
+halves = []
+for w in code:
+    halves += [w >> 8, w & 0xFF]
+staged = [0xA55A, CODE_AT, N, init_m, proc_m] + halves
+
+
+def variant(name, doorbell=True, stage=True):
+    words = list(staged)
+    if not doorbell:
+        words[0] = 0
+    write_records(TMP / f"{name}.mem", gone + ([(1, STAGE, words)] if stage else []))
+    return TMP / f"{name}.mem"
+
+
+cold = run(variant("cold", stage=False), init_s, proc_s, "cold")
+check("not staged, code absent: the stub stays dry", cold == dry)
+half = run(variant("nobell", doorbell=False), init_s, proc_s, "nobell")
+check("staged without the doorbell: still dry", half == dry)
+loaded = run(variant("loaded"), init_s, proc_s, "loaded")
+check("staged with the doorbell: the stub runs the real code from block 0, as a bound render does",
+      loaded == direct, f"{sum(x != y for x, y in zip(loaded, direct))} of {len(direct)} samples differ")
+
 print("PASS" if not fails else f"{fails} FAIL")
 sys.exit(1 if fails else 0)
