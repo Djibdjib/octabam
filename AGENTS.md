@@ -58,7 +58,7 @@ make render REMIX=<name>        # hear the bus locally, ~6x real time
 make reverb IN=loop.wav ARGS='--wet --mode all'
 ```
 
-Never claim something works because it assembled or linked. `make check` is
+Never claim something works because it assembled or linked. `make check` (run by CI) is
 the floor; `docs/contributing/TESTING.md` says what each gate proves and what
 none of them can see.
 
@@ -68,9 +68,12 @@ on every push to `main` and every PR, fork PRs included, on a runner that
 downloads the 1.40C for that run
 (`CONTRIBUTING.md` "Before you open a PR" is the rule and the reason); the
 PR body links the run and lists each gate's result from its log. A first-time
-contributor's run waits for maintainer approval. Locally,
-iterate with `make check REMIX=<name>` and the one gate script for the change
-(`python3 tools/verify/verify_<name>.py <remix>`). A change to
+contributor's run waits for maintainer approval. **Do not run `make check
+REMIX=<name>`, `make reach RUN=1` or `scripts/refhash.sh check` locally
+before a PR: they take hours and CI runs them.** Locally, run only the one
+gate script for the change (`python3 tools/verify/verify_<name>.py <remix>`),
+push, and read `gh pr checks`; a local whole-remix run is for a failure CI
+has reported that the one script cannot reproduce. A change to
 `.github/`, `scripts/` or the Makefile runs every CI job. Passes whose image
 and inputs did not move are reported `cached`.
 
