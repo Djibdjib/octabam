@@ -14,7 +14,7 @@ Remix.window_demand (k):
   unused     no track uses any                          -> none bound
   runs-b / runs-a  T1 (core B) / T5 (core A) uses effect 0 -> its loaded proc is reached on that core (--dsp-pcwatch)
   blocked    effect 0 in use, and the FX2 of the track whose slot shares its block is PLATE REV -> effect 0 not loaded
-  pick / pick-blocked  T2's FX1 chooser (NONE, then DOWN, YES) picks effect 0; with the block's track on PLATE REV
+  pick / pick-blocked  T2's chooser (FX1, else FX2; NONE, DOWN to its row, YES) picks effect 0; with the block's track on PLATE REV
              the chooser leaves T2's FX1 as it was
 
 Cannot see: the hardware's host-write timing, other projects' use of X:0x2840..0x3fff.
@@ -31,7 +31,7 @@ STAGE = 0x2900
 FX1_LIVE, FX2_LIVE = 0x80000EC4, 0x80000ECC
 FX1_PART, FX2_PART = 0x402A75E0, 0x402A75E8      # Part 1's FX ids of track 1 (bank + 0x8ed80 / 0x8ed88)
 FILTER, PLATE = 0x01, 0x14
-KEYS = dict(no=0x32, fx1=0x25, down=0x20, yes=0x31, t2=0x11)
+KEYS = dict(no=0x32, fx1=0x25, fx2=0x26, down=0x20, yes=0x31, t2=0x11)
 FAILS = []
 
 
@@ -86,13 +86,20 @@ def main():
 
     every = ";".join(poke(FX1_LIVE, FX1_PART, t, r["id"]) for t, r in enumerate(recs))
     block_track = {0: 6, 1: 7, 2: 2, 3: 3}[(rec["addr"] - 0x30000) >> 14 & 3]       # modules/dlpump/manifest.py
+    # the chooser that lists effect 0 (FX1 when it has a row there) and its row, from the image's id -> row tables
+    img = image.read_bytes()
+    row1, row2 = (int.from_bytes(img[addr + 4 * mod_id - 0x40000400:][:4], "big") for addr in (0x400D60D0, 0x400D6150))
+    chooser, row = ("fx1", row1) if row1 else ("fx2", row2)
+    if not row:
+        sys.exit(f"verify_dlload: {rec['key']} (id 0x{mod_id:02x}) is on neither chooser")
+    live, part, slot = (FX1_LIVE, FX1_PART, 0) if chooser == "fx1" else (FX2_LIVE, FX2_PART, 8)
     scenarios = {
         "used": (every, []),
         "withdrawn": (every, [(2000, poke(FX1_LIVE, FX1_PART, 0, FILTER))]),
         "unused": ("", []),
         "blocked": (poke(FX1_LIVE, FX1_PART, 0, mod_id) + ";" + poke(FX2_LIVE, FX2_PART, block_track, PLATE), []),
-        "pick": (poke(FX1_LIVE, FX1_PART, 1, 0), []),
-        "pick-blocked": (poke(FX1_LIVE, FX1_PART, 1, 0) + ";" + poke(FX2_LIVE, FX2_PART, block_track, PLATE), []),
+        "pick": (poke(live, part, 1, 0), []),
+        "pick-blocked": (poke(live, part, 1, 0) + ";" + poke(FX2_LIVE, FX2_PART, block_track, PLATE), []),
         "runs-b": (poke(FX1_LIVE, FX1_PART, 0, mod_id), []),      # T1 is on core B
         "runs-a": (poke(FX1_LIVE, FX1_PART, 4, mod_id), []),      # T5 is on core A
     }
@@ -108,7 +115,7 @@ def main():
         lines = [f"{ms} poke {p}" for ms, p in later]
         if tag.startswith("pick"):
             t = 1500
-            for k, gap in (("no", 400), ("t2", 400), ("fx1", 160), ("fx1", 800), ("down", 600), ("yes", 1500)):
+            for k, gap in (("no", 400), ("t2", 400), (chooser, 160), (chooser, 800)) + (("down", 500),) * row + (("yes", 1500),):
                 lines += [f"{t} key {KEYS[k]:#x} down", f"{t + 40} key {KEYS[k]:#x} up"]
                 t += 40 + gap
         lines.append(f"{a.ms} quit")
@@ -160,9 +167,9 @@ def main():
     check(f"{recs[0]['key']} is not loaded over a stock reverb's block", peek("blocked", 1, "X", 0x33DA3)[:1] == [0])
     print("pick:")
     ids = {t: (OUT / f"{t}_ids.bin").read_bytes() for t in ("pick", "pick-blocked")}
-    check(f"T2's FX1 chooser picks {recs[0]['key']} when it can be loaded", ids["pick"][1] == mod_id, f"FX1 of T2 = 0x{ids['pick'][1]:02x}")
-    check("and leaves T2's FX1 as it was when the block is under a stock reverb", ids["pick-blocked"][1] == 0,
-          f"FX1 of T2 = 0x{ids['pick-blocked'][1]:02x}")
+    check(f"T2's {chooser.upper()} chooser picks {recs[0]['key']} when it can be loaded", ids["pick"][slot + 1] == mod_id, f"{chooser} of T2 = 0x{ids['pick'][slot + 1]:02x}")
+    check("and leaves T2's effect as it was when the block is under a stock reverb", ids["pick-blocked"][slot + 1] == 0,
+          f"{chooser} of T2 = 0x{ids['pick-blocked'][slot + 1]:02x}")
     print("runs:")
     for tag, core in (("runs-b", 1), ("runs-a", 0)):
         m = re.search(r"dsp pcwatch:[^\n]*\n((?: +\d+ [^\n]*\n)*)", texts[tag])

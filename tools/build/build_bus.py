@@ -3966,6 +3966,10 @@ hostquit:
         _gf.write_text(json.dumps(guard_records))
     else:
         _gf.unlink(missing_ok=True)
+    for _wk, (_wa, _ww) in window_records.items():
+        if _wa + len(_ww) > 0x37F00:
+            sys.exit(f"{_wk}: P:0x{_wa:05x}..0x{_wa + len(_ww):05x} is uploaded above 0x37f00, where payload B's boot "
+                     f"zero loop clears the window after the upload (docs/contributing/TRAPS.md, trap-window-zero)")
     _wf = pathlib.Path("out/dsp/window_records.json")
     if window_records:
         _wf.parent.mkdir(parents=True, exist_ok=True)

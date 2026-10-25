@@ -1,131 +1,92 @@
-# Demand loading of window effects: plan and state
+# Demand loading of window effects
 
-25-26 Oct 2026. ✅ measured (port or unit, as stated), 🟡 inferred, ⬜ not looked at. Nothing here has run on a unit.
+25-26 Oct 2026. ✅ measured (port, or unit where stated), 🟡 inferred, ⬜ not looked at. Nothing here has run on a unit.
 Addresses are `P:` / `X:` / `Y:` DSP words, or ColdFire virtual addresses where they start `0x4`.
 
-## Goal
+## What it does
 
-Every stock effect stays and works as stock; our new effects are in the effect list and are loaded into the
-DSP's shared window only while a track uses them. No stock effect is removed, replaced or shrunk. The window
-is stock's buffer memory, so the code goes only where no running stock effect writes.
+Every stock effect stays and works as stock. SPECTRUM, CHARACTER, MODULATION and TRANSIENT are in the effect list and are
+copied into the DSP's shared window while a track uses them, and withdrawn when no track does. Nothing of stock is removed,
+replaced or shrunk. The window is stock's buffer memory, so the code goes only where no running stock effect writes.
 
-## Constraints that fix the design
+`remixes/octabam` is built this way. `remixes/test/dlspike` is the same with one effect, for the gates.
+
+## Constraints
 
 | fact | status |
 |---|---|
 | P is 8K per core and full with the 13 stock DSP effects; P above `0x1fff` is absent | ✅ unit (`modules/pextprobe`) |
-| Code written into the window at 7 addresses ran from both cores | ✅ unit |
-| The window `0x30000..0x3ffff` is one memory; P, X and Y alias there | ✅ unit |
-| FX2 buffer slots per core: `Y:0x4000`, `Y:0x8000`, then two in the window (core A `0x30000`, `0x34000`; core B `0x38000`, `0x3c000`) | ✅ (`CHIP.md`, `stock.SLOT_BASES`) |
-| Highest word each stock effect writes above its slot base: FLANGER `0x7ff`, SPRING REV `0xfff`, CHORUS `0xbfd`, COMB `0xbff`, SPATIALIZER `0xa5f`, PLATE REV `0x37ff`, DARK REV `0x3da2` | ✅ port, default knobs (`stock.SLOT_EXTENT`); 🟡 other settings, the unit |
-| So code at offset `0x1000` or higher in a block is clear of every stock effect except PLATE REV and DARK REV (SPRING REV stops on the line); the top 605 words of each block (`0x33da3`, `0x37da3`, `0x3bda3`, `0x3fda3`) are clear of all | derived |
-| The dispatcher calls `INIT_TABLE[id]` when an id changes and `PROCESS_TABLE[id]` every frame, through `jsr (r2)`; both tables are in X | ✅ (`DSP.md` section 5) |
-| `proc` is entered with `a` = 0 or 1; `init` must keep `r1`; the instance state is the `r7` block | ✅ stock listings, `verify_init_regs` |
-| `x:$213` at `init` holds the address of the slot's entry in the allocator table; the buffer base is the word there. PLATE REV reads it at `P:0x1018`, DARK REV at `P:0x1692` | ✅ stock listing, port |
-| The ColdFire writes DSP X by host command `$08`, reaching `X:0x0000..0x3fff` only; 16 data bits per word | ✅ port (`docs/proposals/HOT_RELOAD.md` on `feat/hotreload-poc`) |
-| `X:0x2840..0x3fff` was written by nothing in one project at two fill seeds | 🟡 one project, one setting |
-| Core A's destination mapping for X words of `0x2000` and above | ⬜ |
-| The frame interrupt's entry (`0x4000aad0`) is the one point a ColdFire transfer can start without upsetting the stock chain; LOAD METER detours the same site | ✅ port |
-| The FX1 and FX2 choosers' select handlers are `0x400526e4` and `0x40052474` | ✅ (`modules/fx2-lock/README.md`) |
-
-## Decisions, 26 Oct 2026
-
-1. **Demand set:** SPECTRUM, CHARACTER, MODULATION, TRANSIENT, loaded when a track uses them. GATE VERB is out of this plan.
-   LOAD METER is the only resident effect; the stubs and guards are resident with it.
-2. **Guards** keep PLATE REV, DARK REV and SPRING REV off loaded code (the other four buffered effects stay clear by placement
-   at offset `0x1000` or higher).
-3. **Unload:** an effect is unloaded when no track uses it. The ColdFire watches the live effect assignments.
-4. **No free block:** the selection is refused. **Scope: the FX1 and FX2 choosers only.** Every other route that puts one of
-   our effects on a track (Part, pattern, project load, paste) takes the load-on-use path with no hook, and passes the audio
-   through if nothing is free.
-5. **Placement:** each effect picks its own block. The ColdFire reads the live assignments and avoids any block whose track
-   runs PLATE REV, DARK REV or SPRING REV. The guards check a table of loaded spans, one per effect.
-6. **Staging area:** `X:0x2840..0x3fff` is claimed in the ledger, and measured on the unit by a probe before any image relies on it.
-7. **Core A:** its X mapping is measured in the port first. The loader sends to whichever core is waiting; the "wanted" word says which.
-8. **Unit checks, as probes first:** (a) the host write reaches the staging area, (b) the DSP's P stores into the window and the
-   execution of copied code, (c) the stock extents at non-default knob settings. No image depends on them until they are read.
-9. **Frame entry:** LOAD METER's entry code calls a named pump hook when the pump unit is present. The pump is its own module.
-
-## Port findings, 26 Oct 2026
-
-Measured with `tools/verify/verify_dlpump.py` (test/dlspike, a 3,126-halfword block, 100 per chunk).
-
-- The pump delivers the whole block to core B's `X:0x2900..` when it sends on frames whose ping word (`0x800000e0`) is 0, and loses the
-  chunks sent on ping-1 frames (zero of 1,563 differ against 1,178 of 3,126 when sending every frame).
-- Payload B's frame loop rewrites the host handlers' address masks every frame from the bank word: `P:0x70` stores `0x3fff` or `0x5fff`
-  to `p:$371` / `p:$380` (`P:0x5f..0x72`). The destination word `0x4000 | 0x2901` lands at `X:0x2901` under `0x3fff`; under `0x5fff` it
-  is `0x4901`, outside the staging area. 🟡 the lost chunks are the `0x5fff` frames (not located at `X:0x4901`; X was searched `0..0x3fff` only).
-- Sending to core A (`dl_core` 0) loses every second chunk whatever the gate, and after the first send the ping words stop alternating
-  (`0x800000e0` and `e4` both 0 from the third call on): the stock frame chain on core A stalls. Polling HC (CVR bit 7, `HOST+5`) before
-  and after each command, and a 4,000-iteration settle after each chunk, did not change it. 🟡 cause not found; A receives the stock
-  `0x8c` frame command, B does not.
-- Staged addresses are window offsets (`dest - 0x30000`): a host word carries 16 bits.
-
-Consequence for decision 7: no pump send to core A is used. The window is one memory, so a copy made by core B's code is resident for
-core A's tracks too (`pextprobe`: code written to the window ran from both cores). The copy therefore has to run on core B whether or not a
-core B track uses the effect, which means the copier is a frame hook on payload B, not part of each stub. The ColdFire knows which effect
-every track uses, so the stub's "wanted" word is not needed either. Pending Sam's decision; the work below assumes it.
+| Code written into the window ran from both cores; the window `0x30000..0x3ffff` is one memory, P, X and Y alias | ✅ unit |
+| FX2 instance *k* of a core has its buffer at `Y:0x4000`, `Y:0x8000`, then two window slots: core A (tracks 7, 8) `0x30000`, `0x34000`; core B (tracks 3, 4) `0x38000`, `0x3c000` | ✅ (`DSP.md` section 7) |
+| Highest word each stock effect writes above its slot base: FLANGER `0x7ff`, SPRING REV `0xfff`, CHORUS `0xbfd`, COMB `0xbff`, SPATIALIZER `0xa5f`, PLATE REV `0x37ff`, DARK REV `0x3da2` | ✅ port, default knobs (`stock.SLOT_EXTENT`); other settings ⬜ |
+| So offset `0x1000` or higher in a slot is clear of every stock effect except PLATE REV and DARK REV (SPRING REV stops on the line); offset `0x3da3` or higher is clear of all | derived |
+| Payload B's boot zero loop clears `Y:0x37f00..0x3ffff` after the pre-boot upload, so an uploaded record there is gone at boot | ✅ port (both cores faulted at boot with resident code at `0x3bda3`) |
+| The dispatcher calls `INIT[id]` when an id changes and `PROCESS[id]` every frame through `jsr (r2)`; `proc` is entered with `a` = 0 or 1; `init` keeps `r1`; `x:$213` at `init` is the address of the slot's allocator entry | ✅ |
+| The ColdFire writes DSP X by host command `$08` (`HOST+4` = `0x88`), reaching `X:0..0x3fff` only, 16 data bits a word | ✅ port |
+| Payload B's frame loop stores `0x3fff` or `0x5fff` into the host handlers' address masks every frame (`P:0x70`, `0x72`, from the bank word); a chunk sent on a frame whose ping word (`0x800000e0`) is 1 is lost, one sent at ping 0 arrives whole | ✅ port: 0 of 3,126 halfwords differ at ping 0, 1,178 differ sending every frame. Why the lost chunks do not appear at `X:0x4901` is ⬜ |
+| Sending to core A at the frame interrupt's entry stops the stock ping words alternating: core A's chain stalls. HC polling and a settle loop did not change it | ✅ port; cause ⬜ |
+| `X:0x2840..0x3fff` was written by nothing in one project at two fill seeds | 🟡 |
+| The live FX ids are `0x80000ec4[8]` (FX1) and `0x80000ecc[8]` (FX2), tracks 1-8 | ✅ |
+| The FX1 and FX2 choosers' select handlers are `0x400526e4` and `0x40052474`; the "same effect" test is `0x4005272a` / `0x400524ba` | ✅ |
 
 ## Design
 
-Three DSP pieces and one ColdFire piece.
+Core B loads for both cores. The window is one memory, so code copied by B's hook is resident for A's tracks, and the pump
+never writes to core A.
 
-1. **DLSTUB, one per demand effect.** The effect's id points at the stub in both dispatch tables.
-   - Not bound: the audio passes through (the stock null stub's loop) and the effect's "wanted" word is set.
-   - A complete staged block and the code absent: the stub copies it into the window, writes the real init and proc and the
-     occupied span, writes BOUND last, clears the doorbell, and runs the real code in that same call.
-   - Bound: each instance runs the real `init` once (keeping `r0 n0 r6 r7 n7 m0 m1` and the entry `a`), then jumps to the
-     real `proc`.
-2. **DLWRAP, one each for PLATE REV, DARK REV and SPRING REV, per payload** (the stock entries differ between payloads). It
-   answers the dispatcher for the stock id. At `init` it reads the buffer base through `x:$213`, and runs the stock init and proc
-   only while `[base, base + extent]` misses every loaded span; otherwise the instance passes the audio through. The check is
-   repeated every frame; an instance that went dry stays dry until it is selected again.
-3. **Unload.** The ColdFire clears the effect's BOUND word (the stub then passes through again), then clears its span; the
-   window words are free. A guard that went dry stays dry until the reverb is selected again.
-4. **The ColdFire loader.**
-   - Pump: when armed, sends a chunk of the staged block to the waiting core's X at each frame interrupt's entry (called from
-     LOAD METER's entry code), then the doorbell word last, one frame later.
-   - Policy: reads the "wanted" words, picks a block (decision 5), sets the destination, arms the pump; unloads (decision 3).
-   - Chooser refusal: a hook at `0x400526e4` and `0x40052474` that refuses the selection of one of our effects when it is not
-     loaded and no block is free.
+- **DLPUMP** (ColdFire, `modules/dlpump`), called from LOAD METER's entry code (`lm_in`, weak symbol) every frame interrupt.
+  Idle: on ping-0 frames it compares the ids on the 16 live FX slots with the effects loaded and arms one message. A load is
+  armed when an effect is used, not loaded, and the FX2 slot that shares its block is not PLATE REV, SPRING REV or DARK REV; a
+  withdrawal when it is loaded and no slot uses it. Sending: 100 halfwords per ping-0 frame to core B's `X:0x2901..`, then the
+  doorbell `0xa55a` to `X:0x2900` two frames later. The table of effects and their blocks are generated per remix
+  (`remix.inc`, `Linked.include`) from `out/dsp/demand_records.json`; the unit reserves 2,600 code words a block on every link.
+  The FX1 and FX2 choosers' "same effect" test is detoured: choosing an effect that is not loaded and whose block is under a
+  stock reverb leaves the track as it was. Part, pattern, project load and paste are not hooked.
+- **DLCOPY** (DSP, `modules/dlcopy/dlcopy.asm`), a hook on payload B at `P:0x76` (the frame head, after the masks are set), in
+  the window. When the doorbell is set it clears the effect's BOUND word, copies the block to the window, writes the effect's
+  init, proc and span, writes BOUND last, and clears the doorbell. A message with N = 0 only clears BOUND and the span.
+- **The stub** (`modules/dlcopy/dlstub.asm`), assembled once by the build with a trampoline per effect. The effect's id
+  dispatches to it. BOUND clear: the audio passes through (the stock null stub's loop). BOUND set: each instance runs the real
+  init once, with `r0 n0 r6 r7 n7 m0 m1` kept, then jumps to the real proc.
+- **The reverb guard** (`modules/dlcopy/dlwrap.asm`), assembled once per payload with a trampoline pair per guarded reverb;
+  the reverbs' ids dispatch to it. At init it reads the buffer base through `x:$213`, and runs the stock init and proc only
+  while `[base, base + extent)` misses the span of every loaded effect; otherwise the instance passes the audio through. The
+  check is repeated every frame and an instance that went dry stays dry until it is selected again.
 
-Shared window words (below the lowest window code, so payload A's boot zero loop clears them), a table of four effects at
-`x:$33d80 + 8 * k`: BOUND (`$b0a5ed`), real init, real proc, first occupied word, the word after, and three reserved.
-Staging, private to the core the ColdFire writes, one effect at a time: `x:$2900` doorbell (`$a55a`), `x:$2901` destination,
-`x:$2902` N, `x:$2903` init, `x:$2904` proc, `x:$2905..` 2 N words (each 24-bit code word as its high 16 bits, then its low 8);
-`x:$2910 + k` wanted by effect k. Per-core private tables: `x:$3f00..$3f4b` (DLSTUB), `x:$3e00..$3ee0` (DLWRAP).
-The spike in `feat/dlspike` uses one effect at `x:$33d9e..$33da2` and `x:$2910`; the table above is the shape it grows to.
+Layout (words are `X:` or `P:` as in the window, which aliases):
 
-## Built and checked
+| where | what |
+|---|---|
+| `x:$33da3 + 8 k` (k = 0..3, in the clear gap) | effect k's entry: +0 BOUND (`$b0a5ed`), +1 real init, +2 real proc, +3 first window word, +4 the word after |
+| `x:$2900` | staging: doorbell, k, destination offset, N, init offset, proc offset, then 2 N halfwords (code word as high 16 bits, then low 8). Addresses are offsets into the window |
+| `x:$3f00..$3f4c` | the stub's per-instance flags and saved registers; `x:$3f50..$3fd2` the guard's |
+| `P:0x33dc3..0x33e17` | DLCOPY; the stub follows at `window_loader`, then the guard for payload A, then for B (`0x33e20..0x33fd8` in octabam) |
+| `P:0x37da3..0x37eff` | LOAD METER's DSP half (A and B) |
+| slot offset `0x1000` | the effects: SPECTRUM `0x31000`, MODULATION `0x35000`, CHARACTER `0x39000`, TRANSIENT `0x3d000`, not uploaded |
 
-Branch `feat/dlspike` (worktree `.claude/worktrees/dlspike`), `dsp_host` only.
+The clear gaps are `0x33da3..0x33fff` (605 words) and `0x37da3..0x37eff` (349 words); resident code above `0x37f00` is wiped at
+boot. octabam uses 565 and 340.
 
-| commit | what | gate |
+Builder: `Remix.window_demand` (keys), `Remix.window_guard` (stock keys), `Remix.window_loader` (address). The demand effects'
+records are left out of payload A's upload and written to `out/dsp/demand_records.json`; the guards' addresses to
+`out/dsp/guard_records.json`. The boot zero loop count ignores demand addresses.
+
+## Checked
+
+| gate | what | where |
 |---|---|---|
-| `1f057947` | DLSTUB: dry until bound, lazy init, real proc | `verify_dlstub`: unbound equals the null stub; bound equals MODULATION's direct render, 0 of 6,400 samples differ; a wrong magic stays dry |
-| `1bfc93cc` | the copier and publish step | code absent at boot, a staged block gives the direct render over 200 blocks (1,561 words copied); no doorbell stays dry |
-| `2b9272cf` | DLWRAP for PLATE REV on payload A | `verify_dlwrap`: on the four slots the wrapper equals the stock render and its Y writes where clear; dry and no Y writes where it covers the code |
+| `verify_dlstub` | for each effect: the stub unbound equals the null stub, bound equals the effect's own render (0 of 6,400 samples differ), a wrong magic or a missing doorbell stays dry; DLCOPY binds a staged block and the stub runs it; a withdraw message makes it dry again | `dsp_host`, test/dlspike and octabam |
+| `verify_dlwrap` | for each reverb, payload and published span: the guard equals the stock render and Y writes where the buffer is clear, passes the audio through and writes nothing where it covers the code | `dsp_host`, same |
+| `verify_dlload` | with live ids poked: the four effects load (entry and every code word, read from both cores), one is withdrawn while the others stay, none loads unused, none loads over a reverb's block, the FX1 chooser picks an effect that can load and refuses one that cannot, the loaded proc is reached on core B and on core A (`--dsp-pcwatch`) | port, test/dlspike and octabam |
 
-`dsp_host` keeps P and Y apart, so the wrapper is shown to decide correctly, not to prevent an overwrite on the chip.
+`dsp_host` keeps P and Y apart, so the guard is shown to decide correctly, not to prevent an overwrite on the chip.
 
-## Not built, in order
+## Open
 
-1. `Remix.window_demand`: assemble and place, leave out of the upload, write `out/dsp/demand_records.json` (address, words, entries).
-2. The ColdFire pump as a linked unit, called from LOAD METER's entry code, and the blob it sends (built from the sidecar).
-3. A port test: stub on a track, code absent at boot, pump armed, `pcwatch` arrivals at the real proc, `P:` and `X:` peeks.
-4. Core A's destination mapping in the port, and a copier test on core A.
-5. The per-effect shared table, then the "wanted" path DSP to ColdFire, the block policy and the unload.
-6. DLWRAP for DARK REV and SPRING REV, and all three on payload B; DLSTUB for SPECTRUM, CHARACTER and TRANSIENT; the stubs taking each
-   effect's own id in `octabam`.
-7. The chooser refusal.
-8. Ledger declarations: the X staging region, the private tables, the shared table, the resident words in the clear gaps.
-9. Gates in `make check`; `verify_dirty_state` over the stubs; the PEXT PROBE additions for the unit checks (decision 8).
-10. The unit probes, then the unit run.
-
-## Acceptance
-
-- Every stock effect renders bit-identically to stock in `octabam` with the loader present and nothing loaded.
-- An effect loaded on demand renders bit-identically to the same effect built into the window.
-- A guard never lets a stock reverb write a loaded word; a load never lands on a running reverb's buffer.
-- After an unload the window words are free and the effect, selected again, loads again.
-- Nothing in the loader changes a stock effect's code, tables or descriptors.
+- The unit: host write reaching `X:0x2900..0x3d55`, which frames of the unit deliver (the port's ping-0 rule), P stores into the
+  window and execution of copied code, and the stock extents at other knob settings.
+- Core A's stall when sent to, and the mask at the frames that lose their chunk.
+- A track using an effect when its block's FX2 slot is then set to a stock reverb by a route the choosers do not hook: the effect
+  stays loaded and the reverb runs dry (the guard).
+- Audio at a load: the stub is dry until the code arrives, about 70 frames (25 ms) for MODULATION.
+- Load cost on the ColdFire frame interrupt: LOAD METER figures.
