@@ -250,9 +250,19 @@ note-ons are put on a step grid and fitted against the landing step and two posi
 - The notes before the program change fell on steps 4, 8, 12, 16 in every trial (the trig encoding of
   `ot_project.set_pattern_trig`).
 - LOAD METER bad records 0 after both runs.
-- Not done: Kits in play, MIDI tracks other than 1, tempo changes, scale and length differences between the patterns,
-  program changes in bursts with the toggle on (`ot_fuzz.py` with the toggle set by hand), `switch` load and gaps at
-  the jump.
+- **Program-change bursts with the toggle on** (`ot_fuzz.py` profile `pc`, seed 2601, 8 layouts of banks 1-2, 582
+  program changes in 603 s, no failure, bad records 0). Against the model (each program change takes over on the
+  first step after it arrives, the last in a step wins, position kept since START; the unit started on pattern 2,
+  left there by the previous probe), 56 of 4,144 steps differ (20 notes missing, 36 extra): 47 within 2 steps of a
+  landing, 9 at a program change that arrived within 0.03 s of a step boundary. No multi-step disorder. Note times
+  within -0.06 to +0.18 steps of the 125 ms grid. ColdFire: mean 104.9 us (median), longest run 145 us median, 204
+  p95, 253 max; share 28.9 % median, 29.4 % max.
+- **Observed, not measured** (Sam, 25 Oct 2026, during that run): the trig indicator on the sequencer page lagged
+  and jumped on some program changes in the burst, not continuously. The MIDI track 1 notes show no corresponding
+  stall or shift. The LCD was not captured; the toggle-off run with the same sequence has not been done.
+- Not done: Kits in play, MIDI tracks other than 1, tempo changes, scale and length differences between the
+  patterns, `switch` load and gaps at the jump, the toggle-off run of seed 2601, the trig indicator column of the
+  LCD under the port.
 
 ## Flags
 
