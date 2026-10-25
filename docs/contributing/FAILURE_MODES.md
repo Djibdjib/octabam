@@ -102,6 +102,40 @@ a mode is seen on hardware.
   `shared-events-hardware-E2/hardware/continuous-120/result.json`, `run.json`
   and `combined-transport.log`.
 
+### Post-restart workload comparison does not isolate an EVENTS regression
+
+- **Setup:** same saved EVT871D1_ED project after the physical persistence
+  check, 90 seconds each at 120 BPM: A01 BASE, A02 EUCLID FX2 default, C03
+  both-slot EUCLID. C03 retains the operator's MIX lock and is not the pristine
+  RN endurance fixture. E2 was selected before the power cycle, but the image
+  was not independently reidentified afterward. BASE still has both EVENTS
+  subscribers installed; this is not a zero-client firmware comparison.
+- **Measured:** using the matrix's two-second load-settling exclusion:
+
+  | Layout | Mean CF frame-IRQ share | Longest frame IRQ | Peak DSP core 0 / 1 |
+  | --- | ---: | ---: | ---: |
+  | BASE | 61.0% | 363.2 us | 22.5% / 14.9% |
+  | EUCLID FX2 | 67.4% | 398.5 us | 47.0% / 39.4% |
+  | EUCLID both slots, edited C03 | 71.4% | 417.3 us | 71.4% / 63.8% |
+
+  Including startup, sampled peaks were 421.1, 482.5 and 484.4 us respectively.
+  Median frame rates remained about 2,756.24/s; DSP bad-record increases, USB
+  overrun/underrun/duplicate-bank deltas and host callback warnings were zero.
+  Repeated published maxima cluster around eight-second pattern boundaries;
+  this temporal association does not establish a cause.
+- **Audio:** BASE and single-slot passed the matrix detectors. Edited C03
+  flagged LEVEL (about +3.9 dB relative to BASE) and CLICKS (14 threshold hits).
+  Reanalysis of the retained capture groups all 14 hits into one brief stereo
+  transient near 87.26 seconds, not 14 distinct audible clicks. No listening
+  acceptance or attribution to EVENTS is claimed. The three captures had zero
+  clipped samples.
+- **Limit:** no old/private-hook or zero-client image was run in this physical
+  comparison, and C03 was edited. It demonstrates workload-sensitive timing
+  excursions, not their origin or a new EVENTS regression. Firmware fixes to
+  unrelated subsystems remain outside this PR. Evidence:
+  `shared-events-hardware-E2/hardware/timing-comparison/` (`report.json`,
+  `result.json`, `click-times.json`, and the full recording).
+
 ## Warm restarts and emulator boots can miss cold-start failures
 
 - **Seen:** on radiohagen's MKII, an early-startup code change passed emulator

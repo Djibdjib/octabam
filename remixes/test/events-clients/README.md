@@ -74,3 +74,13 @@ also completed with no sustained silence, clipping or USB faults. ColdFire's
 longest observed frame interrupt was 424 microseconds, above the approximately
 363-microsecond frame budget; frame-budget acceptance remains open. Neither
 run reproduces the E1 mixed-transport sequence or proves total CPU headroom.
+
+After the physical persistence check, 90-second BASE / single-slot / edited
+both-slot comparisons measured longest frame interrupts of 363.2 / 398.5 /
+417.3 microseconds after the two-second startup exclusion. USB faults, bad DSP
+records and host warnings remained zero. BASE and single-slot had no audio
+flags; edited C03 had a +3.9 dB level difference and 14 click-detector threshold
+hits clustered into one stereo transient near 87.26 seconds. This comparison
+kept EVENTS installed in every layout and did not independently reidentify the
+post-restart image; it cannot attribute the observations to the migration.
+See the [workload comparison](../../../docs/contributing/FAILURE_MODES.md#post-restart-workload-comparison-does-not-isolate-an-events-regression).
