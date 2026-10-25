@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The reverb guard (modules/dlcopy/dlwrap.asm) under dsp_host: a stock reverb runs unchanged where its buffer is clear of loaded code, and stays off it where not.
 
-    python3 tools/verify/verify_dlwrap.py
+    python3 tools/verify/verify_dlwrap.py [REMIX]       (default test/dlspike)
 
 PLATE REV is rendered directly and through the wrapper, on each payload, on the allocator slots that put its buffer
 at Y:0x4000, 0x8000 and the two window slots, with and without code published inside one window slot (BOUND and
@@ -17,7 +17,9 @@ import subprocess
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1])); import toolpath  # noqa: E402,F401
+import dlbuild  # noqa: E402
 import send_probe  # noqa: E402
+from remix import registry  # noqa: E402
 
 MAGIC = 0xB0A5ED
 HOST = "vendor/dsp56300/build/source/dsp_host/dsp_host"
@@ -33,7 +35,12 @@ def check(label, ok, detail=""):
     fails += 0 if ok else 1
 
 
+REMIX = sys.argv[1] if len(sys.argv) > 1 else "test/dlspike"
+R = registry.remix(REMIX)
+IMAGE = dlbuild.build(REMIX, "dlwrap")
 g_all = json.loads(pathlib.Path("out/dsp/guard_records.json").read_text())
+d_all = json.loads(pathlib.Path("out/dsp/demand_records.json").read_text())
+SPANS = [(k, d_all[key]["addr"], d_all[key]["addr"] + len(d_all[key]["words"])) for k, key in enumerate(R.window_demand)]
 samples = []
 for i in range(FRAMES * BLOCKS):
     v = int(0.4 * 8388607 * math.sin(2 * math.pi * 220 * i / 44100))
@@ -41,11 +48,12 @@ for i in range(FRAMES * BLOCKS):
 (TMP / "in.raw").write_bytes(b"".join(struct.pack("<i", v) for v in samples))
 
 
-def published(mem, name, lo, hi):
-    """A copy of the dump with the shared words DLCOPY would have written for effect 0: BOUND, the span."""
+def published(mem, name, lo, hi, k=0):
+    """A copy of the dump with the shared words DLCOPY would have written for effect k: BOUND, the span."""
     blob = mem.read_bytes()
     end = blob.rindex(b"\xff")
-    words = {0x33DA6: lo, 0x33DA7: hi, 0x33DA3: MAGIC}      # effect 0's entry (modules/dlcopy/dlcopy.asm)
+    e = 0x33DA3 + 8 * k                                     # the effect's entry (modules/dlcopy/dlcopy.asm)
+    words = {e + 3: lo, e + 4: hi, e: MAGIC}
     rec = b"".join(struct.pack("<BII", 1, a, 1) + struct.pack("<I", w) for a, w in words.items())
     (TMP / f"{name}.mem").write_bytes(blob[:end] + rec + blob[end:])
     return TMP / f"{name}.mem"
@@ -74,25 +82,31 @@ for key, sid, tag, bases, (lo, hi) in [(k, i, t, b, w) for k, i in (("PLATE REV"
                                        for t, b, w in (("A", (0x4000, 0x8000, 0x30000, 0x34000), (0x35000, 0x35619)),
                                                        ("B", (0x4000, 0x8000, 0x38000, 0x3C000), (0x39000, 0x39619)))]:
     print(f"{key}, payload {tag}:")
-    mem = send_probe.dump_mem("out/mainos_bus.bin", TMP / f"{tag}.mem", tag)
+    mem = send_probe.dump_mem(str(IMAGE), TMP / f"{tag}.mem", tag)
     g = g_all[f"{key}:{tag}"]
     init_p, proc_p = g["stock_init"], g["stock_proc"]             # the stock reverb
     init_w, proc_w = send_probe.entry_points(mem, sid)            # its id now dispatches to the wrapper
     init_n, proc_n = send_probe.entry_points(mem, 0x08)           # the null stub
-    loaded = published(mem, f"loaded{key[:2]}{tag}", lo, hi)
+    # the published spans to try: each demand effect's own, and a synthetic one inside this payload's window slot
+    cases = [(f"{k}", lo_k, hi_k, k) for k, lo_k, hi_k in SPANS] + [("syn", lo, hi, 0)]
     dry_out, _ = run(mem, init_n, proc_n, 1, f"null{tag}")
     for alloc, base in zip((1, 3, 5, 7), bases):
         d_out, d_y = run(mem, init_p, proc_p, alloc, f"direct{key[:2]}{tag}{alloc}")
         w_out, w_y = run(mem, init_w, proc_w, alloc, f"clear{key[:2]}{tag}{alloc}")
         check(f"no code loaded, buffer at Y:0x{base:05x}: the wrapper equals the stock render", w_out == d_out and w_y == d_y)
         check(f"no code loaded, buffer at Y:0x{base:05x}: the reverb really wrote its buffer", wrote(d_y, base, base + 0x400) > 0)
-        w_out, w_y = run(loaded, init_w, proc_w, alloc, f"loaded{key[:2]}{tag}{alloc}")
-        covers = base < hi and base + g["extent"] > lo
-        if covers:
-            check(f"code loaded, buffer at Y:0x{base:05x} covers it: the instance passes the audio through", w_out == dry_out)
-            check(f"code loaded, buffer at Y:0x{base:05x} covers it: nothing is written to the buffer", wrote(w_y, base, base + g["extent"]) == 0)
-        else:
-            check(f"code loaded, buffer at Y:0x{base:05x} clear of it: the wrapper equals the stock render", w_out == d_out and w_y == d_y)
+        for cname, c_lo, c_hi, c_k in cases:
+            loaded = published(mem, f"loaded{key[:2]}{tag}{cname}", c_lo, c_hi, c_k)
+            w_out, w_y = run(loaded, init_w, proc_w, alloc, f"loaded{key[:2]}{tag}{alloc}{cname}")
+            covers = base < c_hi and base + g["extent"] > c_lo
+            what = f"span {cname} (P:0x{c_lo:05x}..0x{c_hi:05x})"
+            if covers:
+                check(f"{what} loaded, buffer at Y:0x{base:05x} covers it: the instance passes the audio through", w_out == dry_out)
+                check(f"{what} loaded, buffer at Y:0x{base:05x} covers it: nothing is written to the buffer",
+                      wrote(w_y, base, base + g["extent"]) == 0)
+            else:
+                check(f"{what} loaded, buffer at Y:0x{base:05x} clear of it: the wrapper equals the stock render",
+                      w_out == d_out and w_y == d_y)
 
 print("PASS" if not fails else f"{fails} FAIL")
 sys.exit(1 if fails else 0)

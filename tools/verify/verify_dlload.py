@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The demand loader under the port: DLPUMP loads and withdraws an effect as the tracks use it, DLCOPY publishes it.
 
-    python3 tools/verify/verify_dlload.py [--remix test/dlspike] [--project DIR]
+    python3 tools/verify/verify_dlload.py [REMIX] [--project DIR]       (default test/dlspike)
 
 Builds the remix (default test/dlspike: MODULATION on demand; octabam: four effects) and runs scenarios on the
 staged project, each on its own boot, setting track effect ids by poking the live arrays
@@ -47,7 +47,7 @@ def poke(live, part, track, value):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--remix", default="test/dlspike")
+    ap.add_argument("remix", nargs="?", default="test/dlspike")
     ap.add_argument("--project", default=os.environ.get("OT_PROJECT", ""))
     ap.add_argument("--set-name", default="BRAINSET")
     ap.add_argument("--name", default="BRAINPRJ")

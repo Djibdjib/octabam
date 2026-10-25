@@ -5,7 +5,7 @@ METER's entry code (docs/proposals/DEMAND_LOAD.md, decision 9).
 import json
 import pathlib
 
-from remix.schema import Category, Detour, Kind, Linked, Module, Proof
+from remix.schema import Category, Detour, Gate, Kind, Linked, Module, Proof
 
 RECORDS = pathlib.Path("out/dsp/demand_records.json")
 CAPACITY = 2600                 # code words a block may hold: the staging area X:0x2906..0x3d55 takes 2 per word; the table is this size on every link
@@ -65,4 +65,5 @@ MODULE = Module(
         Detour(0x400524BA, bytes.fromhex("b2806700021c"), "dlpump", "dl_sel_fx2",
                "FX2 chooser select, the 'same effect' test: the same"),
     ),
+    gates=(Gate("tools/verify/verify_dlload.py", venv=True),),
 )

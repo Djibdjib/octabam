@@ -1,7 +1,7 @@
 """DLCOPY -- the demand loader's copier: a frame hook on payload B that moves a block the ColdFire has
 staged into the shared window and publishes it (docs/proposals/DEMAND_LOAD.md).
 """
-from remix.schema import Category, Claims, DspHook, DspRange, DspSection, Kind, Module, Proof
+from remix.schema import Category, Claims, DspHook, DspRange, DspSection, Gate, Kind, Module, Proof
 
 MODULE = Module(
     name="dlcopy",
@@ -22,4 +22,5 @@ MODULE = Module(
         hooks=(DspHook({"B": 0x76}, (0x667000, 0x000207), "dlc_start",
                        "frame head, after the host handlers' masks are set: the staged block is copied"),),
     ),
+    gates=(Gate("tools/verify/verify_dlstub.py"), Gate("tools/verify/verify_dlwrap.py")),
 )
