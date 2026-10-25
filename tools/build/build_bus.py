@@ -146,6 +146,37 @@ WINDOW_KEYS = {_k.removesuffix(":B") for _k in WINDOW}   # modules with window c
 DEMAND = {_dk: (_i, _da) for _i, (_dk, _da) in enumerate(REMIX.window_demand)}   # key -> (index k, stub address)
 if len(DEMAND) > 4:
     sys.exit(f"Remix.window_demand: {len(DEMAND)} effects; the entry table at x:$33da3 holds 4")
+# One effect's overlap test in the wrapper template: x:$33da3 + 8 k is its BOUND, +3 and +4 its span.
+_GUARD_ENTRY = """        move    x:>$33da3,a
+        move    #>$b0a5ed,x0
+        cmp     x0,a
+        bne     dwk0
+        move    x1,a
+        move    x:>$33da7,x0
+        cmp     x0,a
+        bge     dwk0                     ; the range starts at or after the end of the code
+        move    #>EXTENT,x0
+        add     x0,a
+        move    x:>$33da6,x0
+        cmp     x0,a
+        bgt     dw_yes                   ; the range ends after the start of the code
+dwk0:
+"""
+
+
+def _guard_entry(k):
+    base = 0x33DA3 + 8 * k
+    return (_GUARD_ENTRY.replace("$33da7", f"${base + 4:x}").replace("$33da6", f"${base + 3:x}")
+            .replace("$33da3", f"${base:x}").replace("dwk0", f"dwk{k}"))
+
+
+GUARD = {_gk: {"A": _ga, "B": _gb} for _gk, _ga, _gb in REMIX.window_guard}
+for _gk, _gp in GUARD.items():
+    if _gk not in stock_mod.SLOT_EXTENT or _gk not in REMIX.modules:
+        sys.exit(f"Remix.window_guard names {_gk!r}, which is not a stock buffered reverb the remix carries")
+    for _gt, _ga in _gp.items():
+        if not 0x30000 <= _ga < 0x40000:
+            sys.exit(f"Remix.window_guard: {_gk}'s payload {_gt} wrapper at P:0x{_ga:05x} is outside the shared window")
 for _dk, (_di, _da) in DEMAND.items():
     if _dk not in WINDOW:
         sys.exit(f"Remix.window_demand names {_dk!r}, which Remix.window does not place")
@@ -2468,6 +2499,7 @@ mkgo:""",
     tail_records = {}           # {payload: [P start, words]}: the tail's record
     window_records = {}         # {module key: (P start, words)}: Remix.window's records, payload A's upload
     demand_syms = {}            # {module key: (init, proc)}: entries of the Remix.window_demand records
+    guard_records = {}          # {"KEY:payload": addresses}: the wrappers of Remix.window_guard
     pathlib.Path("out/dsp/demand_records.json").unlink(missing_ok=True)   # DLPUMP's table reads it after this stage
     for tag, va, ln in PAYLOADS:
         pp = PP[tag]
@@ -3170,6 +3202,36 @@ hostquit:
                 sys.exit(f"XTABLE: {name} has a table but no p:( read of it")
             return "\n".join(out), n
 
+        for _gk, _gp in GUARD.items():
+            # a stock reverb kept off loaded code: its id's entries point at a wrapper (modules/dlcopy/dlwrap.asm)
+            _gid = stock_mod.BY_KEY[_gk].menu.fx2_id
+
+            def _rdx(a):
+                buf, i = (_virt, a - idspace.VIRT) if (_virt is not None and a >= idspace.VIRT) else (img, a - BASE)
+                return buf[i] | (buf[i + 1] << 8) | (buf[i + 2] << 16)
+
+            _gi, _gq = _rdx(pp["xtab"] + _gid * 3), _rdx(pp["xtab"] + (PROC_OFF + _gid) * 3)
+            _gsrc = pathlib.Path("modules/dlcopy/dlwrap.asm").read_text()
+            _gblk = "".join(_guard_entry(k) for k in range(len(DEMAND)))
+            _gsrc = (_gsrc.replace("; ENTRIES\n", _gblk).replace("STOCKINIT", f"${_gi:x}")
+                     .replace("STOCKPROC", f"${_gq:x}").replace("EXTENT", f"${stock_mod.SLOT_EXTENT[_gk] + 1:x}"))
+            _gw, _gsyms = assemble_syms(_gsrc, _gp[tag], label=f"{_gk} guard {tag}")
+            _gkey = f"{_gk} guard {tag}"
+            if _gkey not in window_records:
+                for _o in dsp_ranges.owners(remix_registry.selected(REMIX)):
+                    if _o.domain == "shared" and _o.start < _gp[tag] + len(_gw) and _gp[tag] < _o.end:
+                        sys.exit(f"{_gkey}: P:0x{_gp[tag]:05x}..0x{_gp[tag] + len(_gw):05x} overlaps "
+                                 f"{_o.owner}'s {_o.what}")
+                for _on, (_oa, _ow) in window_records.items():
+                    if _oa < _gp[tag] + len(_gw) and _gp[tag] < _oa + len(_ow):
+                        sys.exit(f"{_gkey} and {_on} overlap in the shared window")
+                window_records[_gkey] = (_gp[tag], list(_gw))
+            wrw_p(pp["xtab"] + _gid * 3, _gsyms["init"])
+            wrw_p(pp["xtab"] + (PROC_OFF + _gid) * 3, _gsyms["proc"])
+            guard_records[f"{_gk}:{tag}"] = {"addr": _gp[tag], "init": _gsyms["init"], "proc": _gsyms["proc"],
+                                             "stock_init": _gi, "stock_proc": _gq,
+                                             "extent": stock_mod.SLOT_EXTENT[_gk] + 1}
+            print(f"  {_gk:13} guard  P:0x{_gp[tag]:05x} ({len(_gw):3} words)  stock init P:0x{_gi:05x} proc P:0x{_gq:05x}  extent 0x{stock_mod.SLOT_EXTENT[_gk] + 1:x}")
         for name, src in plan:
             if name in WINDOW_KEYS and (name in WINDOW or tag == "B"):
                 # ---- IN THE SHARED WINDOW (schema.Remix.window): assembled once at its
@@ -3912,6 +3974,12 @@ hostquit:
                                    for k, (a, w) in demand_records.items()}))
     else:
         _df.unlink(missing_ok=True)
+    _gf = pathlib.Path("out/dsp/guard_records.json")
+    if guard_records:
+        _gf.parent.mkdir(parents=True, exist_ok=True)
+        _gf.write_text(json.dumps(guard_records))
+    else:
+        _gf.unlink(missing_ok=True)
     _wf = pathlib.Path("out/dsp/window_records.json")
     if window_records:
         _wf.parent.mkdir(parents=True, exist_ok=True)

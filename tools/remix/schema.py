@@ -2047,6 +2047,11 @@ class Remix:
     # address and uploaded) that passes the audio through until DLCOPY has published the code. The
     # position in this tuple is the effect's index k, 0..3 (the entry at x:$33da3 + 8 k).
     window_demand: tuple[tuple[str, int], ...] = ()
+    # STOCK REVERBS KEPT OFF LOADED CODE (docs/proposals/DEMAND_LOAD.md): (stock key, payload A address,
+    # payload B address). The build assembles modules/dlcopy/dlwrap.asm for each, one copy per payload at
+    # that address in the window (the stock entries differ), and points the reverb's id at it: the reverb
+    # then runs only while its buffer range misses every loaded `window_demand` effect.
+    window_guard: tuple[tuple[str, int, int], ...] = ()
     # THE HOST PAGE DRAWS ITS FIRST SLOTS ONLY (26 Sep 2026, Sam: "want
     # all the tracks to look the same"): (key, n) pairs. The hidden
     # module's page draws slots 0..n-1 under their manifest names (the rig:

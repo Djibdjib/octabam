@@ -1,22 +1,26 @@
 ; ---------------------------------------------------------------------------
-; DLWRAP -- keeps a stock reverb off demand-loaded code (modules/dlwrap/README.md).
+; DLWRAP -- keeps a stock buffered reverb off demand-loaded code
+; (docs/proposals/DEMAND_LOAD.md). A template: the build assembles one copy per
+; guarded reverb and payload, with the three stock-specific words below filled in,
+; and points the reverb's id at it.
 ;
-; PLATE REV writes its instance buffer from the base the allocator hands the slot
-; (the entry whose address is in x:$213 at init) up to a measured extent. When that range covers the window words
-; DLSTUB published as occupied, the reverb must not run there: this wrapper answers
-; the dispatcher for the stock id and runs the stock init and proc only while the
-; range is clear; otherwise the instance passes the audio through. The decision is
-; taken at init and re-checked every frame, so code that arrives later is never
-; written over. An instance that went dry stays dry until it is selected again.
+; The reverb writes its instance buffer from the base the allocator hands the slot
+; (the entry whose address is in x:$213 at init) up to a measured extent. When that
+; range covers words a loaded effect occupies, the reverb must not run there: the
+; wrapper answers the dispatcher for the stock id and runs the stock init and proc
+; only while the range is clear of every loaded effect's span; otherwise the instance
+; passes the audio through. The decision is taken at init and re-checked every frame,
+; so code that arrives later is never written over. An instance that went dry stays
+; dry until it is selected again.
 ;
-; This copy fronts PLATE REV on payload A: its entries (P:$1000, P:$1055) and its
-; extent (the highest word it writes, $37ff above the base) are the three literals
-; below.
+; Three words are filled in by the build: the reverb's own init and proc entries on this
+; payload, and its extent (one more than the highest word it writes above the base).
 ;
 ; Per core (X, private), one word per instance at idx = (r7 >> 8) & $3f:
 ;   x:$3e00+idx  0 never initialised, 1 running the stock code, 2 dry
 ;   x:$3e40+idx  the buffer base the instance was given
-; Shared (written by DLCOPY: the entry of effect 0, x:$33da3 + 8 k): x:$33da3 BOUND, x:$33da6 / x:$33da7 the span.
+; Shared (DLCOPY writes the entry of each loaded effect, x:$33da3 + 8 k): +0 BOUND,
+; +3 and +4 the span [first word, word after the last).
 ; ---------------------------------------------------------------------------
 
 init:
@@ -39,7 +43,7 @@ init:
         bne     dw_off
         move    #>$1,x0
         move    x0,x:(r4)                ; running
-        move    #>$1000,r2               ; the stock init
+        move    #>STOCKINIT,r2
         jmp     (r2)
 dw_off:
         move    #>$2,x0
@@ -67,7 +71,7 @@ proc:
         tst     a
         bne     dw_now
         move    x:>$3ee0,a
-        move    #>$1055,r2               ; the stock proc
+        move    #>STOCKPROC,r2
         jmp     (r2)
 dw_now:
         move    #>$2,x0
@@ -82,23 +86,11 @@ dw_pass:
 dw_end:
         rts
 
-; a = 1 when the range [x1, x1 + $3800) covers any word of the loaded code, else 0.
+; a = 1 when the range [x1, x1 + EXTENT) covers any word of any loaded effect's code, else 0.
 dw_over:
-        move    x:>$33da3,a
-        move    #>$b0a5ed,x0
-        cmp     x0,a
-        bne     dw_none
-        move    x1,a
-        move    x:>$33da7,x0
-        cmp     x0,a
-        bge     dw_none                  ; the range starts at or after the end of the code
-        move    #>$3800,x0
-        add     x0,a
-        move    x:>$33da6,x0
-        cmp     x0,a
-        ble     dw_none                  ; the range ends at or before the start of the code
-        move    #>$1,a
-        rts
-dw_none:
+; ENTRIES
         clr     a
+        rts
+dw_yes:
+        move    #>$1,a
         rts
