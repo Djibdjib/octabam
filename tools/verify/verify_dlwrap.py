@@ -47,7 +47,7 @@ def published(name):
     """A copy of the dump with the shared words DLSTUB's copier would have written: BOUND, the span."""
     blob = mem.read_bytes()
     end = blob.rindex(b"\xff")
-    words = {0x33D9E: CODE_LO, 0x33D9F: CODE_HI, 0x33DA0: MAGIC}
+    words = {0x33D83: CODE_LO, 0x33D84: CODE_HI, 0x33D80: MAGIC}      # effect 0's entry (modules/dlcopy/dlcopy.asm)
     rec = b"".join(struct.pack("<BII", 1, a, 1) + struct.pack("<I", w) for a, w in words.items())
     (TMP / f"{name}.mem").write_bytes(blob[:end] + rec + blob[end:])
     return TMP / f"{name}.mem"

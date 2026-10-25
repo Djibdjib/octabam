@@ -16,7 +16,7 @@
 ; Per core (X, private), one word per instance at idx = (r7 >> 8) & $3f:
 ;   x:$3e00+idx  0 never initialised, 1 running the stock code, 2 dry
 ;   x:$3e40+idx  the buffer base the instance was given
-; Shared (written by DLSTUB's copier): x:$33da0 BOUND, x:$33d9e / x:$33d9f the span.
+; Shared (written by DLCOPY: the entry of effect 0, x:$33d80 + 8 k): x:$33d80 BOUND, x:$33d83 / x:$33d84 the span.
 ; ---------------------------------------------------------------------------
 
 init:
@@ -84,17 +84,17 @@ dw_end:
 
 ; a = 1 when the range [x1, x1 + $3800) covers any word of the loaded code, else 0.
 dw_over:
-        move    x:>$33da0,a
+        move    x:>$33d80,a
         move    #>$b0a5ed,x0
         cmp     x0,a
         bne     dw_none
         move    x1,a
-        move    x:>$33d9f,x0
+        move    x:>$33d84,x0
         cmp     x0,a
         bge     dw_none                  ; the range starts at or after the end of the code
         move    #>$3800,x0
         add     x0,a
-        move    x:>$33d9e,x0
+        move    x:>$33d83,x0
         cmp     x0,a
         ble     dw_none                  ; the range ends at or before the start of the code
         move    #>$1,a

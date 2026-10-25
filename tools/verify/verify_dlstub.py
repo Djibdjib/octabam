@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""DLSTUB under dsp_host: dry until the demand-loaded code is bound, then the real code, bit for bit.
+"""DLSTUB and DLCOPY under dsp_host: dry until the demand-loaded code is bound, then the real code, bit for bit.
 
     python3 tools/verify/verify_dlstub.py
 
@@ -19,7 +19,8 @@ import send_probe  # noqa: E402
 from remix import registry  # noqa: E402
 
 MAGIC = 0xB0A5ED
-SHARED = 0x33DA0                         # BOUND, real init, real proc (modules/dlstub/dlstub.asm)
+SHARED = 0x33D80                         # effect 0's entry: BOUND, real init, real proc (modules/dlcopy/dlcopy.asm)
+DLC = 0x33DA3                            # DLCOPY's hook entry, called as an init
 HOST = "vendor/dsp56300/build/source/dsp_host/dsp_host"
 FRAMES, BLOCKS = 16, 200
 TMP = pathlib.Path("out/_dlstub")
@@ -119,7 +120,7 @@ halves = []
 for w in code:
     halves += [w >> 8, w & 0xFF]
 WIN = 0x30000                      # staged addresses are window offsets: the host write delivers 16 bits
-staged = [0xA55A, CODE_AT - WIN, N, init_m - WIN, proc_m - WIN] + halves
+staged = [0xA55A, 0, CODE_AT - WIN, N, init_m - WIN, proc_m - WIN] + halves
 
 
 def variant(name, doorbell=True, stage=True):
@@ -134,9 +135,18 @@ cold = run(variant("cold", stage=False), init_s, proc_s, "cold")
 check("not staged, code absent: the stub stays dry", cold == dry)
 half = run(variant("nobell", doorbell=False), init_s, proc_s, "nobell")
 check("staged without the doorbell: still dry", half == dry)
-loaded = run(variant("loaded"), init_s, proc_s, "loaded")
-check("staged with the doorbell: the stub runs the real code from block 0, as a bound render does",
+half_c = run(variant("nobell", doorbell=False), DLC, proc_s, "nobell_copy")
+loaded = run(variant("loaded"), DLC, proc_s, "loaded")
+check("staged with the doorbell: the copier binds it and the stub runs the real code from block 0, as a bound render does",
       loaded == direct, f"{sum(x != y for x, y in zip(loaded, direct))} of {len(direct)} samples differ")
+check("staged without the doorbell: the copier leaves the stub dry", half_c == dry)
+
+# ---- withdrawn: N = 0 clears BOUND and the span ----
+off_words = [0xA55A, 0, 0, 0, 0, 0]
+bound_recs = records(TMP / "bound.mem")
+write_records(TMP / "withdraw.mem", bound_recs + [(1, STAGE, off_words)])
+check("withdrawn after a bind: the stub is dry again",
+      run(TMP / "withdraw.mem", DLC, proc_s, "withdraw") == dry)
 
 print("PASS" if not fails else f"{fails} FAIL")
 sys.exit(1 if fails else 0)
