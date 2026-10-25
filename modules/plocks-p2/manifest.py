@@ -29,7 +29,7 @@ MODULE = Module(
     key="PLOCKS P2",
     kind=Kind.CF_PATCH,
     category=Category.MACHINES, author="sambanks", author_url="https://github.com/sambanks",
-    proof=Proof.HARDWARE, proof_note="cursory testing on Sam's MKII (owner report, 16 Oct 2026); Core P4 on radiohagen's MKII (17 Oct); EDIT EVENTS held-edit/copy paths on radiohagen's MKII, Core PLK858 (22 Oct); scoped operator report; EVENTS: MKII EVT871E2 (25 Oct), scoped results in events-clients",
+    proof=Proof.HARDWARE, proof_note="Tested on Sam's MKII (16 Oct 2026) and radiohagen's MKII (17, 22 and 25 Oct 2026): held edits, copy operations and controlled trig-paste undo.",
     doc="Parameter locks on FX1/FX2 page 2 (hold trigs, turn a knob on the SETUP page).",
     linked=(Linked("p2locks", "modules/plocks-p2/p2locks.s", dram=True, include=ids_inc),),
     detours=(

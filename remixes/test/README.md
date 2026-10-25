@@ -26,7 +26,7 @@ Each carries one module, or one combination, for that module's gates: `make chec
 | [`erase-empty-trigless-locks`](erase-empty-trigless-locks/README.md) | stock effects with ERASE_EMPTY_TRIGLESS_LOCKS: an emptied trigless lock disappears. | `make check` |
 | [`euclid`](euclid/README.md) | Euclid rhythmic modulation: 12 dB LP/BP/HP or AMP, both FX slots. | port-gated: EVENTS: firmware/render gates |
 | [`euclid-fill`](euclid-fill/README.md) | stock effects with EUCLID FILL: TRACK+PAGE Euclidean trig-fill page. | `make check` |
-| [`events-clients`](events-clients/README.md) | EVENTS with EUCLID in both FX slots, PLOCKS P2, USB MAIN/CUE and LOAD METER. | `make check`: MKII EVT871E2 (25 Oct 2026): controlled trig undo, CONTINUE and 600-second audio capture; see scoped results |
+| [`events-clients`](events-clients/README.md) | EVENTS with EUCLID in both FX slots, PLOCKS P2, USB MAIN/CUE and LOAD METER. | `make check`: Tested on radiohagen's MKII (25 Oct 2026): controlled trig undo, CONTINUE and 600-second audio capture. |
 | [`events-empty`](events-empty/README.md) | EVENTS with no clients: no event hooks or dispatcher code. | `make check`: Empty EVENTS selection: stock boundaries checked in the built image. |
 | [`gateverb`](gateverb/README.md) | GATE VERB alone: the fixture of its render gate. | local render: `verify_gateverb`; not flashed |
 | [`ids64`](ids64/README.md) | BBD on FX2 id 0x25 in a 64-id image (DSP dispatch and ColdFire tables grown). | `make check`: port only; not flashed |
