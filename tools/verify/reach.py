@@ -1053,6 +1053,16 @@ def replan(queue, extra, stress, jobs, keys_of=None):
     return sharded(items, jobs) if jobs > 1 else items
 
 
+def plan_json(base, merge_base, quick, jobs, remixes, items):
+    """The plan as data, for a caller that fans the gates out (a CI matrix):
+    one entry per command, in run order, with the paths that put it there.
+    `${STRESS_SOURCE}` and `${BASE}` are left in the command as printed;
+    --run substitutes them."""
+    return {"base": base, "merge_base": merge_base, "tier": "quick" if quick else "full", "jobs": jobs,
+            "remixes": remixes,
+            "gates": [{"kind": k, "command": c, "paths": list(ps)} for k, c, ps in items]}
+
+
 def git(*args):
     return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True)
 
@@ -1087,9 +1097,13 @@ def main(argv=None):
                     help="the floor is every remix instead of the cover (the remixes that between them carry every module)")
     ap.add_argument("--no-cache", action="store_true",
                     help="with --run: run every gate job (check_shards' cache of passes, tools/verify/gate_cache.py)")
+    ap.add_argument("--json", action="store_true",
+                    help="print the plan as one JSON object on stdout (the report goes to stderr) and exit; not with --run")
     ap.add_argument("--stamp-port", action="store_true",
                     help=f"record the port sources' digest at {PORT_STAMP} (make emu-cf, after its build) and exit")
     a = ap.parse_args(argv)
+    if a.json and a.run:
+        ap.error("--json prints the plan and runs nothing: not with --run")
     if a.stamp_port:
         stamp_port()
         return 0
@@ -1098,6 +1112,9 @@ def main(argv=None):
     else:
         merge_base, paths = changed_paths(a.base)
     quick = not a.full
+    report_to = sys.stdout
+    if a.json:
+        sys.stdout = sys.stderr
     if quick and a.jobs == 1:
         # the machine's gate slots no other session holds now, at least two
         # (a fixed 2 until 11 Oct 2026, with 60-70% of the CPU idle while
@@ -1111,6 +1128,9 @@ def main(argv=None):
         print(f"  {path}" + (f"   [{note}]" if note else ""))
     if not rows:
         print("  (nothing changed)")
+        if a.json:
+            sys.stdout = report_to
+            print(json.dumps(plan_json(a.base, merge_base, quick, a.jobs, [], []), indent=2))
         return 0
     print("\nremixes reached: " + (", ".join(remixes_reached(rows)) or "none"))
     print("\ngates, in order:")
@@ -1132,6 +1152,10 @@ def main(argv=None):
     if any(k == "accept" for k, _, _ in items) and not stress:
         print("\nSTRESS_SOURCE is unset: point it at a local project (never committed) for the accept line"
               " (it then runs the accepted remixes' checks itself).")
+    if a.json:
+        sys.stdout = report_to
+        print(json.dumps(plan_json(a.base, merge_base, quick, a.jobs, remixes_reached(rows), items), indent=2))
+        return 0
     if not a.run:
         return 0
     print()
