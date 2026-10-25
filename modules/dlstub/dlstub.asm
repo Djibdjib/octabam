@@ -14,8 +14,9 @@
 ; so payload A's boot zero loop clears them):
 ;   x:$33da0  BOUND    $b0a5ed when the code is resident, anything else if not
 ;   x:$33da1  the real init   x:$33da2  the real proc
+;   x:$33d9e  the first window word the code occupies   x:$33d9f  the word after its last
 ; Per core (X, private): x:$3f00..$3f3f one word per instance, 1 once its init
-; has run; x:$3f40..$3f4a the registers kept across the init.
+; has run; x:$3f40..$3f4b the registers kept across the init and the entry a.
 ;
 ; Staging (X, private to the core the ColdFire writes it on), written by the
 ; ColdFire's host transfer, whose words carry 16 bits each:
@@ -42,6 +43,7 @@ init:
         rts
 
 proc:
+        move    a1,x:>$3f4b              ; proc is called with a = 0 or 1 in a: kept for the real code
         move    x:>$33da0,a
         move    #>$b0a5ed,x0
         cmp     x0,a
@@ -82,6 +84,7 @@ dl_bound:
         move    #>$1,x0
         move    x0,x:(r2)
 dl_run:
+        move    x:>$3f4b,a
         move    x:>$33da2,r2
         jmp     (r2)
 dl_pass:
@@ -110,6 +113,11 @@ dl_copy:
         move    a1,x0
         move    x0,p:(r1)+
 dl_cpy:
+        move    x:>$2901,a
+        move    a1,x:>$33d9e             ; the span the code occupies
+        move    x:>$2902,x0
+        add     x0,a
+        move    a1,x:>$33d9f
         move    x:>$2903,x0
         move    x0,x:>$33da1
         move    x:>$2904,x0
