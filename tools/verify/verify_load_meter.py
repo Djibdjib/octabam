@@ -126,6 +126,14 @@ def main():
         if f.is_file() and f.suffix.lower() == ".work":
             shutil.copy2(f, copy / f.name)
 
+    # The per-slot cost assertions below require the bus hosts on T1/T5.
+    # Establish that diagnostic layout in the private copy; a fresh matrix
+    # starts with NONE, and a user's other FX1 effects could dominate a core.
+    import ot_project
+    for track in range(1, 9):
+        ot_project.set_fx(copy, "fx1", track, 0, page=[0] * 6, page2=[0] * 6, guard=False)
+    ot_project.host_rig(copy, a.remix, guard=False)
+
     into = [(0x1c, 500)] + [(0x20, 500)] * 4 + [(0x21, 500)]                 # PROJ, BRAIN's pane
     open_load = [(0x32, 500)] + into + [(0x20, 500)] * 3 + [(0x31, 500)]      # BRAIN > PERFORMANCE (the fourth row)
 
