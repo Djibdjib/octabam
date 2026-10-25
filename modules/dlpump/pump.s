@@ -9,6 +9,12 @@
 | DSP copier reassembles the 24-bit code words). The chip-select goes back to
 | core A on exit: the frame interrupt sends 0x8c to whichever core is selected.
 |
+| Under the port a transfer started at the entry of a frame whose ping word
+| (0x800000e0, flipped once per frame) is 1 is lost, and one started at ping 0
+| arrives whole (tools/verify/verify_dlpump.py, a chunk of 100 words on each
+| frame of both phases, core B). The pump therefore sends on ping-0 frames only.
+| Whether the unit loses the same frames is open.
+|
 | State, set by whoever arms the pump (dl_state last):
 |   dl_core  0 = core A, 1 = core B
 |   dl_dest  X word address of the first halfword (0x0000..0x3fff)
@@ -21,12 +27,16 @@
         .equ    CHUNK,  100
         .equ    BELL,   0x2900                  | X staging word the DSP polls
         .equ    RING,   0xa55a
+        .equ    PING,   0                       | the frames whose host writes the port delivers (below)
 
         .text
         .globl  dl_pump
 dl_pump:
         move.l  dl_state,%d0
-        beq.s   9f
+        beq.w   9f
+        moveq   #PING,%d1
+        cmp.l   0x800000e0,%d1                  | the frame's ping word
+        bne.w   9f
         move.l  dl_core,%d4
         subq.l  #1,%d0
         bne.s   2f
