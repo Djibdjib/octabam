@@ -65,7 +65,7 @@ credited to its author:
 | Resource | Stock OS | Octabam Inserts |
 |---|---|---|
 | Sample and recorder memory | 14,602 pages | 12,895 pages (platform reserve) |
-| Free DSP words (payload A / B) | — | 363 / 363 |
+| Free DSP words (payload A / B) | — | 1,558 / 1,587 |
 
 ## Where it has run
 

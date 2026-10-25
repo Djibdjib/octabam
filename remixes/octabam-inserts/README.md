@@ -53,7 +53,7 @@ The same set is in [`octabam-bus`](../octabam-bus/README.md).
 | | stock | octabam-inserts |
 |---|---|---|
 | sample and recorder memory | 14,602 pages | 12,895 pages (the platform reserve) |
-| DSP words free, payload A / B | | 363 / 363 |
+| DSP words free, payload A / B | | 1,558 / 1,587 |
 
 ## Where it has run
 
