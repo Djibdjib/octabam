@@ -3,13 +3,14 @@
 
     python3 tools/hw/ot_scenes.py show PROJECT_DIR
     python3 tools/hw/ot_scenes.py stamp PROJECT_DIR [--channel 11] [--trigs none|grid4|every]
-                                        [--lock SCENE:TRACK:FLAT=VALUE ...] [--all-scenes] [--banks 1-16]
+                                        [--lock SCENE:TRACK:FLAT=VALUE ...] [--all-scenes] [--pattern-steps N=S,S,...] [--banks 1-16]
 
 `stamp` edits PROJECT_DIR in place (copy a pristine project first). project.work and project.strd get
 ot_matrix's run settings (clock and transport receive on, program change receive, per-track trig channels, project
 opens on A01 unmuted). In every Part of the chosen banks: MIDI track 1
 on --channel, its CC1..CC10 enabled, scene A = scene 1, scene B = scene 9. In every pattern of those banks, MIDI
-track 1 gets --trigs (grid4: steps 1, 5, 9, 13 of 16; every: all 64). Every Part's lock table in scenes.work (and
+track 1 gets --trigs (grid4: steps 4, 8, 12, 16; every: all 64; step s is bit s - 1 of the 64-bit mask,
+the encoding of ot_project.set_pattern_trig). --pattern-steps N=S,S,... gives pattern N (1-16) exactly those steps. Every Part's lock table in scenes.work (and
 scenes.strd) gets the --lock entries; the default is CC 1 on track 1 (flat 21): 40 in scene A, 100 in scene B.
 --all-scenes locks that knob in all 16 scenes, scene s at 8 + 7 * s.
 
@@ -70,16 +71,19 @@ def cmd_show(a):
                   " ".join(f"s{i >> 8}.t{(i >> 5) & 7}.f{i & 31}={v}" for i, v in ents))
 
 
-def stamp_bank(path, channel, trigs):
+def stamp_bank(path, channel, trigs, pattern_steps):
     d = bytearray(path.read_bytes())
     for part in range(NPARTS_FILE):
         o = FILE_PART + part * FILE_PSTRIDE + 9
         d[o + MIDI_SETUP] = channel
         d[o + MIDI_PARAMS + 30], d[o + MIDI_PARAMS + 31] = 0x3c, 0x3f
         d[o + SCENE_A], d[o + SCENE_B] = 0, 8
-    bits = {"none": 0, "grid4": 0x8888, "every": (1 << 64) - 1}[trigs]
+    default = {"none": 0, "grid4": 0x8888, "every": (1 << 64) - 1}[trigs]
     for pat in range(16):
+        bits = default
         m = PTRN0 + pat * PTRN_FSTRIDE + MIDI_MASK + 9
+        if pat + 1 in pattern_steps:
+            bits = sum(1 << (s - 1) for s in pattern_steps[pat + 1])
         d[m:m + 8] = bits.to_bytes(8, "big")
     d[-2:] = (sum(d[0x10:-2]) & 0xffff).to_bytes(2, "big")
     path.write_bytes(bytes(d))
@@ -96,12 +100,16 @@ def cmd_stamp(a):
             locks[(scene, track, flat)] = int(val)
     if a.all_scenes:
         locks = {(s, 0, 21): 8 + 7 * s for s in range(16)}
+    steps = {}
+    for spec in a.pattern_steps or []:
+        n, _, lst = spec.partition("=")
+        steps[int(n)] = [int(x) for x in lst.split(",")]
     banks = parse_banks(a.banks)
     for b in banks:
         for suffix in ("work", "strd"):
             p = pdir / f"bank{b:02d}.{suffix}"
             if p.is_file():
-                stamp_bank(p, a.channel, a.trigs)
+                stamp_bank(p, a.channel, a.trigs, steps)
     payload = bytearray(b"\xff" * (NSLOTS * SLOT))
     for b in banks:
         for part in range(4):
@@ -126,6 +134,7 @@ def main():
     s.add_argument("--trigs", choices=("none", "grid4", "every"), default="grid4")
     s.add_argument("--lock", action="append", metavar="SCENE:TRACK:FLAT=VALUE")
     s.add_argument("--all-scenes", action="store_true")
+    s.add_argument("--pattern-steps", action="append", metavar="N=S,S,...")
     s.add_argument("--banks", default="1-16")
     s.set_defaults(fn=cmd_stamp)
     a = ap.parse_args()

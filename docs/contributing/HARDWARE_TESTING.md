@@ -139,6 +139,10 @@ replays sequences under the ColdFire port with no unit.
   range the unit takes) with `--all-scenes`. Record the track output with
   `python3 tools/hw/ot_midi.py -p "Elektron Octatrack DPS-1" listen <seconds>` alongside the run.
   `python3 tools/hw/ot_xflag.py` times a crossfader step to the lock CC (stopped, playing, with a CC flood).
+- DIRECT_JUMP_KYOTI: stamp with `--pattern-steps 2=1,2,4,7,8,11,13`, turn the toggle on by hand ([PTN] + [YES]; OFF
+  at every power-on, so after any restart), then `python3 tools/hw/ot_djump.py` prints the landing step and the
+  position pattern 2 plays from for each of a series of program changes. Run it once with the toggle off for the
+  control (landing at the pattern end).
 - The audio check needs at least three unmuted tracks, counted from the
   sequence's own mute operations, and assumes every track starts unmuted.
 - A 56-minute run crosses the 50.7-minute mark after power-up, which is where

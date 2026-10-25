@@ -124,7 +124,7 @@ No single-slot run has gone past 98.8 %.
    |---|---|---|---|
    | KITS | a pattern change by program change loads the pattern's Kit into the Part slot; the per-slot costs in LOAD METER fingerprint which effects a Kit put on which slot; audio and load around the change (`switch`) | LOAD KIT, SAVE KIT, the list copy / paste / clear / undo, assigning a Kit to a pattern | `modules/kits/README.md` "On the unit": not run unattended with the BCR2000 |
    | MIDI SCENES | scene A / B select and the crossfader are CCs (55 / 56, 48), so the morph can be swept over USB MIDI with the locks stamped in `scenes.work` (MSC, 4,096 B); a MIDI track's note-ons and the lock CC reach the host over USB (measured 25 Oct 2026), so the output is the observable; `ot_scenes.py stamp` writes the locks | setting a lock (hold a scene, turn a knob), copy / paste a scene | the MIDISC 2.1 reimplementation: stress, lag and load on Sam's MKII, 25 Oct 2026 ("MIDI SCENES on a unit" below); the original ran on its author's unit, 14 Sep 2026 |
-   | DIRECT_JUMP_KYOTI | after the toggle ([PTN] + [YES], OFF at every power-on) a program change cues a jump at the next step; the stimuli (impulse and hit trains of known spacing) make the landing step and the phase checkable, and `switch` gives the load and gaps at the jump | the toggle | the author's MKI, 27-28 Sep and 1 Oct 2026; program change on fast re-cues, MIDI tracks and START SILENT only under the author's emulator |
+   | DIRECT_JUMP_KYOTI | after the toggle ([PTN] + [YES], OFF at every power-on) a program change cues a jump at the next step; the stimuli (impulse and hit trains of known spacing) make the landing step and the phase checkable, and `switch` gives the load and gaps at the jump | the toggle | the author's MKI, 27-28 Sep and 1 Oct 2026; program change on fast re-cues, MIDI tracks and START SILENT only under the author's emulator; landing step and position on Sam's MKII, 25 Oct 2026 ("DIRECT_JUMP_KYOTI on a unit" below) |
 
    Open: what Sam has seen go wrong (symptoms, patterns, the project), which tracks and Kits are in play. Candidate runs: `switch` with the toggle on, many
    program changes at random times and in bursts; a Kits project with a distinct effect set per Kit and a
@@ -178,7 +178,7 @@ GitHub; not yet run: it needs the branch pushed, and nothing here has measured h
 
 25 Oct 2026, `octabam-inserts` tag J1 (the `octabam-core` set plus LOAD METER), Sam's MKII, one cable. Projects: a fresh
 project from `ot_fresh.py --remix octabam-inserts`, then `ot_scenes.py stamp` (banks 1-2: MIDI track 1 on channel 11,
-CC1..CC10 enabled, scene A = scene 1, scene B = scene 9, MIDI trigs on steps 1, 5, 9 and 13, CC 1 locks in
+CC1..CC10 enabled, scene A = scene 1, scene B = scene 9, MIDI trigs on steps 4, 8, 12 and 16, CC 1 locks in
 `scenes.work`, `ot_matrix.py`'s run settings in `project.work`).
 
 - **MIDI track output over USB.** Measured with host clock at 120 BPM plus START: `9a 30 64` then `9a 30 00` every
@@ -229,6 +229,30 @@ CC1..CC10 enabled, scene A = scene 1, scene B = scene 9, MIDI trigs on steps 1, 
   not cover. No image without MIDI SCENES was measured.
 - **Not done.** Setting a lock by hand, copy / paste scene, scene locks inside Kits, a per-event comparison of the
   unit's CC values with the port's.
+
+## DIRECT_JUMP_KYOTI on a unit
+
+25 Oct 2026, `octabam-inserts` tag J1, Sam's MKII, one cable, `ot_djump.py`. Project: a fresh project stamped with
+`ot_scenes.py stamp --banks 1-2 --pattern-steps 2=1,2,4,7,8,11,13` (MIDI track 1 on channel 11; pattern 1 notes on
+steps 4, 8, 12, 16, pattern 2 on steps 1, 2, 4, 7, 8, 11, 13; both 16 steps). The host sends START with a clock at
+120 BPM (125 ms a step) and a program change to pattern 2 at a different point in the pattern each trial; the
+note-ons are put on a step grid and fitted against the landing step and two positions pattern 2 may play from
+(`since-start`: step mod 16, the module's claim; `restart`: from the landing step).
+
+| toggle ([PTN] + [YES]) | trials | landing | position |
+|---|---|---|---|
+| off (power-up state) | 7 | step 16 or 32, the pattern end | coincide at a multiple of 16 |
+| on | 12 | the first step after the program change arrived, in every trial | `since-start` in 11; the 12th (landing 16) cannot tell the two apart |
+
+- The landing is a range where the steps between the program change and the first differing note play the same in
+  both patterns (ranges up to 5 steps wide); every range contains the first step boundary after the program change.
+  Tightest: a program change at step 16.33 landed on step 17, one at 15.83 on step 16.
+- The notes before the program change fell on steps 4, 8, 12, 16 in every trial (the trig encoding of
+  `ot_project.set_pattern_trig`).
+- LOAD METER bad records 0 after both runs.
+- Not done: Kits in play, MIDI tracks other than 1, tempo changes, scale and length differences between the patterns,
+  program changes in bursts with the toggle on (`ot_fuzz.py` with the toggle set by hand), `switch` load and gaps at
+  the jump.
 
 ## Flags
 
