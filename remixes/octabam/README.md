@@ -13,9 +13,11 @@ upload: while a track uses one, the ColdFire copies it into the shared P window
 (`P:0x30000..0x3ffff`), at offset `0x1000` of one of the four FX2 buffer slots, and
 withdraws it when no track does. Until it arrives, about 25 ms, the effect passes
 the audio through. Stock PLATE REV, DARK REV and SPRING REV are fronted by a guard
-that runs them only while their buffer does not cover loaded code. Choosing one of
-the four effects on the FX1 or FX2 chooser is refused while the FX2 slot that shares
-its memory is on a stock reverb. The design and what has been measured:
+that runs them only while their buffer does not cover loaded code. A block is held by whoever has it first. Choosing one of
+the four effects on a chooser is refused, with a toast, while the FX2 slot that shares
+its memory is on a stock reverb, and choosing a stock reverb on that slot is refused while
+the effect is loaded. A song that sets both by another route leaves the reverb or the
+effect dry, and says which at the next page key. The design and what has been measured:
 [`DEMAND_LOAD.md`](../../docs/proposals/DEMAND_LOAD.md).
 
 | effect | FX1 | FX2 | id | what it is | module |

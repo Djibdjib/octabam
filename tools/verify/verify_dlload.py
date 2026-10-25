@@ -13,7 +13,7 @@ Remix.window_demand (k):
   withdrawn  the same, T1's FX1 back to FILTER at 2 s  -> effect 0 unbound, its span empty, the rest bound
   unused     no track uses any                          -> none bound
   runs-b / runs-a  T1 (core B) / T5 (core A) uses effect 0 -> its loaded proc is reached on that core (--dsp-pcwatch)
-  evicted    effect 0 in use and loaded, then at 2 s the FX2 of its block's track becomes PLATE REV -> effect 0 withdrawn
+  reverb-late effect 0 in use and loaded, then at 2 s the FX2 of its block's track becomes PLATE REV (a route the choosers do not guard) -> effect 0 stays loaded, the reverb is dry
   blocked    effect 0 in use, and the FX2 of the track whose slot shares its block is PLATE REV -> effect 0 not loaded
   pick / pick-blocked  T2's chooser (FX1, else FX2; NONE, DOWN to its row, YES) picks effect 0; with the block's track on PLATE REV
              the chooser leaves T2's FX1 as it was
@@ -32,7 +32,8 @@ STAGE = 0x2900
 FX1_LIVE, FX2_LIVE = 0x80000EC4, 0x80000ECC
 FX1_PART, FX2_PART = 0x402A75E0, 0x402A75E8      # Part 1's FX ids of track 1 (bank + 0x8ed80 / 0x8ed88)
 FILTER, PLATE = 0x01, 0x14
-KEYS = dict(no=0x32, fx1=0x25, fx2=0x26, down=0x20, yes=0x31, t2=0x11)
+KEYS = dict(no=0x32, fx1=0x25, fx2=0x26, down=0x20, yes=0x31, t2=0x11, t8=0x17)
+TOAST = 0x4005A2B8          # the firmware's message popup: every decision the loader makes on a chooser ends here
 FAILS = []
 
 
@@ -94,14 +95,17 @@ def main():
     if not row:
         sys.exit(f"verify_dlload: {rec['key']} (id 0x{mod_id:02x}) is on neither chooser")
     live, part, slot = (FX1_LIVE, FX1_PART, 0) if chooser == "fx1" else (FX2_LIVE, FX2_PART, 8)
+    every_first = poke(FX1_LIVE, FX1_PART, 0, mod_id)
+    reverb_row = int.from_bytes(img[0x400D6150 + 4 * PLATE - 0x40000400:][:4], "big")     # PLATE REV's row on the FX2 chooser
     scenarios = {
         "used": (every, []),
         "withdrawn": (every, [(2000, poke(FX1_LIVE, FX1_PART, 0, FILTER))]),
         "unused": ("", []),
-        "evicted": (poke(FX1_LIVE, FX1_PART, 0, mod_id), [(2000, poke(FX2_LIVE, FX2_PART, block_track, PLATE))]),
+        "reverb-late": (poke(FX1_LIVE, FX1_PART, 0, mod_id), [(2000, poke(FX2_LIVE, FX2_PART, block_track, PLATE))]),
         "blocked": (poke(FX1_LIVE, FX1_PART, 0, mod_id) + ";" + poke(FX2_LIVE, FX2_PART, block_track, PLATE), []),
         "pick": (poke(live, part, 1, 0), []),
         "pick-blocked": (poke(live, part, 1, 0) + ";" + poke(FX2_LIVE, FX2_PART, block_track, PLATE), []),
+        "pick-reverb": (every_first + ";" + poke(FX2_LIVE, FX2_PART, block_track, 0), []),
         "runs-b": (poke(FX1_LIVE, FX1_PART, 0, mod_id), []),      # T1 is on core B
         "runs-a": (poke(FX1_LIVE, FX1_PART, 4, mod_id), []),      # T5 is on core A
     }
@@ -116,10 +120,18 @@ def main():
             sys.exit(f"verify_dlload: stage_card failed:\n{r.stdout[-800:]}{r.stderr[-800:]}")
         lines = [f"{ms} poke {p}" for ms, p in later]
         if tag.startswith("pick"):
-            t = 1500
-            for k, gap in (("no", 400), ("t2", 400), (chooser, 160), (chooser, 800)) + (("down", 500),) * row + (("yes", 1500),):
+            t = 1500 if tag != "pick-reverb" else 3500               # after the load has landed
+            if tag == "pick-reverb":
+                keys = (("t8", 400), ("fx2", 160), ("fx2", 800)) + (("down", 500),) * reverb_row + (("yes", 1500),)
+            else:
+                keys = (("no", 400), ("t2", 400), (chooser, 160), (chooser, 800)) + (("down", 500),) * row + (("yes", 1500),)
+            if tag == "pick-reverb":
+                lines += [f"1500 key {KEYS['no']:#x} down", f"1540 key {KEYS['no']:#x} up"]
+            for k, gap in keys:
                 lines += [f"{t} key {KEYS[k]:#x} down", f"{t + 40} key {KEYS[k]:#x} up"]
                 t += 40 + gap
+        if tag in ("used", "blocked", "reverb-late"):               # a page key after the decision: where a deferred toast shows
+            lines += [f"{a.ms - 800} key {KEYS['fx1']:#x} down", f"{a.ms - 760} key {KEYS['fx1']:#x} up"]
         lines.append(f"{a.ms} quit")
         (OUT / f"{tag}.script").write_text("\n".join(lines) + "\n")
         dump = OUT / f"{tag}_ids.bin"
@@ -132,6 +144,8 @@ def main():
             cmd += ["--step", "-:poke:" + first]
         if tag in watch:
             cmd += ["--dsp-pcwatch", watch[tag]]
+        if tag.startswith("pick") or tag in ("used", "blocked", "reverb-late"):
+            cmd += ["--watch-pc", f"{TOAST:#x}"]
         fh = open(OUT / f"{tag}.txt", "w")
         procs[tag] = (subprocess.Popen(list(map(str, cmd)), cwd=ROOT, stdout=fh, stderr=subprocess.STDOUT), fh)
     texts = {}
@@ -165,10 +179,10 @@ def main():
     print("unused:")
     for k, r in enumerate(recs):
         check(f"{r['key']} was never bound", peek("unused", 1, "X", 0x33DA3 + 8 * k)[:1] == [0])
-    print("evicted:")
-    entry = peek("evicted", 1, "X", 0x33DA3)
-    check(f"{recs[0]['key']} is withdrawn when a stock reverb takes its block", entry[:1] == [0] and entry[3:5] == [0, 0],
-          f"{[hex(w) for w in entry]}")
+    print("reverb-late:")
+    entry = peek("reverb-late", 1, "X", 0x33DA3)
+    check(f"{recs[0]['key']} stays loaded when a stock reverb arrives on its block by a route the choosers do not guard "
+          f"(whoever holds the block keeps it)", entry[:1] == [0xB0A5ED], f"{[hex(w) for w in entry]}")
     print("blocked:")
     check(f"{recs[0]['key']} is not loaded over a stock reverb's block", peek("blocked", 1, "X", 0x33DA3)[:1] == [0])
     print("pick:")
@@ -176,6 +190,22 @@ def main():
     check(f"T2's {chooser.upper()} chooser picks {recs[0]['key']} when it can be loaded", ids["pick"][slot + 1] == mod_id, f"{chooser} of T2 = 0x{ids['pick'][slot + 1]:02x}")
     check("and leaves T2's effect as it was when the block is under a stock reverb", ids["pick-blocked"][slot + 1] == 0,
           f"{chooser} of T2 = 0x{ids['pick-blocked'][slot + 1]:02x}")
+    def toasts(tag):
+        m = re.search(r"watch-pc[^\n]*?(\d+) hit", texts[tag])
+        return int(m.group(1)) if m else -1
+
+    check("a refused pick shows a toast, an allowed one does not",
+          toasts("pick-blocked") >= 1 and toasts("pick") == 0, f"toast calls: pick {toasts('pick')}, pick-blocked {toasts('pick-blocked')}")
+    check("an effect that cannot load because its block is under a reverb says so at the next page key",
+          toasts("blocked") >= 1, f"toast calls: {toasts('blocked')}")
+    check("a reverb that arrives on a loaded effect's block (and runs dry) says so at the next page key",
+          toasts("reverb-late") >= 1, f"toast calls: {toasts('reverb-late')}")
+    check("no toast when nothing collides", toasts("used") == 0, f"toast calls: {toasts('used')}")
+    print("pick-reverb:")
+    rv = (OUT / "pick-reverb_ids.bin").read_bytes()
+    check(f"a stock reverb chosen on the FX2 slot of {recs[0]['key']}'s block is refused while it is loaded",
+          rv[8 + block_track] == 0, f"FX2 of track {block_track + 1} = 0x{rv[8 + block_track]:02x}")
+    check("and the refusal shows a toast", toasts("pick-reverb") >= 1, f"toast calls: {toasts('pick-reverb')}")
     print("runs:")
     for tag, core in (("runs-b", 1), ("runs-a", 0)):
         m = re.search(r"dsp pcwatch:[^\n]*\n((?: +\d+ [^\n]*\n)*)", texts[tag])

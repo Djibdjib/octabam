@@ -29,8 +29,8 @@ def table_inc(modules, remix):
     for k, key in enumerate(keys):
         addr = dict(remix.window)[key]
         track = BLOCK_TRACK[(addr - WIN) >> 14 & 3]
-        n = 5 + 2 * len(recs[key]["words"]) if key in recs else 0
-        rows.append(f"        .long   0x{modules[key].menu.fx2_id:02x}, {track}, dl_blk{k}, {n}, dl_off{k}")
+        n = 7 + 2 * len(recs[key]["words"]) if key in recs else 0
+        rows.append(f"        .long   0x{modules[key].menu.fx2_id:02x}, {track}, dl_blk{k}, {n}, dl_off{k}, dl_need{k}, dl_hold{k}")
     for k, key in enumerate(keys):
         rec = recs.get(key)
         halves = []
@@ -41,13 +41,18 @@ def table_inc(modules, remix):
             halves = [k, rec["addr"] - WIN, len(words), rec["init"] - WIN, rec["proc"] - WIN]
             for w in words:
                 halves += [w >> 8, w & 0xFF]
+            total = sum(words) & 0xFFFFFF                   # the copier checks this before it publishes
+            halves += [total >> 8, total & 0xFF]
         used = len(halves)
         rows.append(f"dl_blk{k}:")
         for i in range(0, used, 8):
             rows.append("        .word   " + ", ".join(str(h) for h in halves[i:i + 8]))
-        rows.append(f"        .space  {2 * (2 * CAPACITY + 5) - 2 * used}")
+        rows.append(f"        .space  {2 * (2 * CAPACITY + 7) - 2 * used}")
         rows.append(f"dl_blk{k}_end:")
         rows.append(f"dl_off{k}:  .word   {k}, 0, 0, 0, 0")
+        rows.append(f'dl_need{k}: .asciz "NEEDS T{track + 1} FX2 FREE"')
+        rows.append(f'dl_hold{k}: .asciz "T{track + 1} HOLDS {key}"')
+        rows.append("        .balign 2")
     return "\n".join(rows) + "\n"
 
 
@@ -60,6 +65,8 @@ MODULE = Module(
     doc="Host-writes a staged block to a DSP core, a chunk per frame interrupt (demand loader).",
     linked=(Linked("dlpump", "modules/dlpump/pump.s", cpu="5475", include=table_inc, dram=True),),
     detours=(
+        Detour(0x4005578C, bytes.fromhex("2f032f02226f000c"), "dlpump", "dl_key",
+               "the UI task's page-key handler: a toast the idle loop owes is shown at the next press", pad_to=8),
         Detour(0x4005272A, bytes.fromhex("b2806700020c"), "dlpump", "dl_sel_fx1",
                "FX1 chooser select, the 'same effect' test: refuse a demand effect that cannot be loaded"),
         Detour(0x400524BA, bytes.fromhex("b2806700021c"), "dlpump", "dl_sel_fx2",

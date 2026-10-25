@@ -22,6 +22,7 @@ import send_probe  # noqa: E402
 from remix import registry  # noqa: E402
 
 MAGIC = 0xB0A5ED
+IDX = (0x6100 >> 8) & 0x3F               # the instance dsp_host runs (-r7 1): r7 = X:0x6100, the guard's per-instance index
 HOST = "vendor/dsp56300/build/source/dsp_host/dsp_host"
 FRAMES, BLOCKS = 16, 120
 TMP = pathlib.Path("out/_dlwrap")
@@ -95,6 +96,16 @@ for key, sid, tag, bases, (lo, hi) in [(k, i, t, b, w) for k, i in (("PLATE REV"
         w_out, w_y = run(mem, init_w, proc_w, alloc, f"clear{key[:2]}{tag}{alloc}")
         check(f"no code loaded, buffer at Y:0x{base:05x}: the wrapper equals the stock render", w_out == d_out and w_y == d_y)
         check(f"no code loaded, buffer at Y:0x{base:05x}: the reverb really wrote its buffer", wrote(d_y, base, base + 0x400) > 0)
+        # a dry instance whose init never ran resumes when the range is clear: seed state 2 and the base,
+        # skip the init (the null stub's), and the proc must run the stock init itself, then the stock proc
+        seeded = TMP / f"seed{key[:2]}{tag}{alloc}.mem"
+        blob = mem.read_bytes()
+        end = blob.rindex(b"\xff")
+        rec = b"".join(struct.pack("<BII", 1, a_, 1) + struct.pack("<I", v_) for a_, v_ in ((0x3F50 + IDX, 2), (0x3F90 + IDX, base)))
+        seeded.write_bytes(blob[:end] + rec + blob[end:])
+        r_out, r_y = run(seeded, init_n, proc_w, alloc, f"resume{key[:2]}{tag}{alloc}")
+        check(f"dry before its init, range clear, buffer at Y:0x{base:05x}: the proc runs the stock init and then equals the stock render",
+              r_out == d_out and r_y == d_y)
         for cname, c_lo, c_hi, c_k in cases:
             loaded = published(mem, f"loaded{key[:2]}{tag}{cname}", c_lo, c_hi, c_k)
             w_out, w_y = run(loaded, init_w, proc_w, alloc, f"loaded{key[:2]}{tag}{alloc}{cname}")

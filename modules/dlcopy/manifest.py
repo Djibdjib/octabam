@@ -13,7 +13,7 @@ MODULE = Module(
     claims=Claims(dsp_ranges=(
         DspRange("x", 0x2900, 0x1456, "the staging area the ColdFire's host write fills: doorbell, header, 2 words per code word"),
         DspRange("x", 0x3F00, 0x50, "the stub's per-instance flags and saved registers"),
-        DspRange("x", 0x3F50, 0x83, "the reverb guard's per-instance flags, bases and scratch"),
+        DspRange("x", 0x3F50, 0x9B, "the reverb guard's per-instance flags, bases and scratch"),
     )),
     dsp=DspSection(
         asm="modules/dlcopy/dlcopy.asm",

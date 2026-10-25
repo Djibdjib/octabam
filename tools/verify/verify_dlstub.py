@@ -8,7 +8,7 @@ through the stock null stub (the dry reference: dsp_host shapes its input, so a 
 for bit), through its stub unbound (must equal the null stub) and bound (must equal the reference, from the first
 block); with the entry's words written into a copy of the dump. Then the copier (modules/dlcopy/dlcopy.asm) is run as
 an init over a staged block: with the doorbell it publishes the code and the stub runs it, without the doorbell it
-leaves the stub dry, and a withdraw message (N = 0) makes the stub dry again. dsp_host maps P and X separately outside
+leaves the stub dry, and a block with a wrong sum is not published, and a withdraw message (N = 0) makes the stub dry again. dsp_host maps P and X separately outside
 the window's alias, so this proves the stub's and the copier's logic and register handling, not the hardware.
 """
 import json
@@ -123,7 +123,8 @@ for k, key in enumerate(R.window_demand):
     halves = []
     for w in code:
         halves += [w >> 8, w & 0xFF]
-    staged = [0xA55A, k, code_at - WIN, n, init_m - WIN, proc_m - WIN] + halves
+    total = sum(code) & 0xFFFFFF
+    staged = [0xA55A, k, code_at - WIN, n, init_m - WIN, proc_m - WIN] + halves + [total >> 8, total & 0xFF]
 
     def variant(name, doorbell=True, stage=True, extra=()):
         words = list(staged)
@@ -139,6 +140,11 @@ for k, key in enumerate(R.window_demand):
     loaded = run(variant(f"loaded{k}"), DLC, proc_s, f"loaded{k}", vals)
     check("staged with the doorbell: the copier binds it and the stub runs the real code from block 0",
           loaded == direct, f"{sum(x != y for x, y in zip(loaded, direct))} of {len(direct)} samples differ")
+    bad = list(staged)
+    bad[6 + n] ^= 1                                                    # one bit of one code word
+    write_records(TMP / f"badsum{k}.mem", gone + [(1, STAGE, bad)])
+    check("staged with one bit wrong: the copier does not publish it, the stub stays dry",
+          run(TMP / f"badsum{k}.mem", DLC, proc_s, f"badsum{k}", vals) == dry)
     others = [(1, ENTRY + 8 * j, [MAGIC, 1, 2, 3, 4]) for j in range(len(R.window_demand)) if j != k]
     write_records(TMP / f"withdraw{k}.mem", base_recs + [(1, entry, [MAGIC, init_m, proc_m, code_at, code_at + n])]
                   + others + [(1, STAGE, [0xA55A, k, 0, 0, 0, 0])])

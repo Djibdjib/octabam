@@ -36,7 +36,7 @@ REMIX = Remix(
             ("SPECTRUM", 0x31000), ("MODULATION", 0x35000), ("CHARACTER", 0x39000), ("TRANSIENT", 0x3D000)),
     window_demand=("MODULATION", "SPECTRUM", "CHARACTER", "TRANSIENT"),
     window_guard=("PLATE REV", "DARK REV", "SPRING REV"),
-    window_loader=0x33E20,
+    window_loader=0x33E40,
     fallback="NONE",
     settings={("octabam.usb", "TRACKS"): "PRE", ("octabam.usb", "MAIN"): 1,
               ("octabam.usb", "CUE"): 1, ("octabam.usb", "MASTER"): 0,

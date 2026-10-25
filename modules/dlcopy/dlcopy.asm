@@ -13,8 +13,10 @@
 ;   x:$2902  destination, as an offset into the window (the host carries 16 bits)
 ;   x:$2903  the number of code words N; 0 withdraws the effect
 ;   x:$2904  the real init, as an offset   x:$2905  the real proc, as an offset
-;   x:$2906.. 2 N words: each 24-bit code word as its high 16 bits, then its low 8
-; The doorbell is cleared when the block is consumed.
+;   x:$2906.. 2 N + 2 words: each 24-bit code word as its high 16 bits, then its low 8; the last
+;   pair is the sum of the N code words, modulo 2^24, in the same form
+; The doorbell is cleared when the block is consumed. A block whose sum does not match is
+; not published (BOUND stays clear); the ColdFire sends every block twice.
 ;
 ; The effect's entry in the window, x:$33da3 + 8 k (five words used):
 ;   +0 BOUND  $b0a5ed while the code is resident   +1 the real init   +2 the real proc
@@ -22,8 +24,8 @@
 ; BOUND is cleared before any other word of the entry or the code changes and set
 ; last, so a stub on either core sees the code whole or not at all.
 ;
-; Registers: a, x0, x1, r0, r1 only; the stock code after the hook site (P:$7a)
-; writes them before it reads them.
+; Registers: a, x0, x1, r0, r1 only, and b, kept in x:$3fe8..$3fea; the stock code after the hook
+; site (P:$7a) writes the others before it reads them.
 ; ---------------------------------------------------------------------------
 
 dlc_start:
@@ -52,6 +54,10 @@ dlc_start:
         move    x:>$2902,a
         add     x1,a
         move    a1,r1                    ; the destination
+        move    b2,x:>$3fe8              ; b is the running sum
+        move    b1,x:>$3fe9
+        move    b0,x:>$3fea
+        clr     b
         move    #>$2906,r0
         do      x0,>dlc_cpy
         move    x:(r0)+,a
@@ -62,9 +68,23 @@ dlc_start:
         and     #>$ff,a
         move    x1,x0
         add     x0,a
+        add     a,b
         move    a1,x0
         move    x0,p:(r1)+
 dlc_cpy:
+        move    x:(r0)+,a                ; the staged sum
+        and     #>$ffff,a
+        asl     #$8,a,a
+        move    a1,x1
+        move    x:(r0)+,a
+        and     #>$ff,a
+        move    x1,x0
+        add     x0,a
+        move    b1,x0
+        sub     x0,a
+        move    a1,a
+        tst     a
+        bne     dlc_bad                  ; not published
         move    #>$30000,x1
         move    x:>$2901,a
         asl     #$3,a,a
@@ -81,6 +101,10 @@ dlc_cpy:
         lua     (r1-2),r1
         move    #>$b0a5ed,x0
         move    x0,x:(r1)                ; BOUND, after the code and both entries
+dlc_bad:
+        move    x:>$3fe8,b2
+        move    x:>$3fe9,b1
+        move    x:>$3fea,b0
         bra     dlc_done
 dlc_off:
         lua     (r1+3),r1                ; withdrawn: the span is empty too

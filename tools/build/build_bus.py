@@ -2472,6 +2472,7 @@ mkgo:""",
     tail_records = {}           # {payload: [P start, words]}: the tail's record
     window_records = {}         # {module key: (P start, words)}: Remix.window's records, payload A's upload
     demand_syms = {}            # {module key: (init, proc)}: entries of the Remix.window_demand records
+    guard_records = {}          # {"KEY:payload": addresses}: the wrappers of Remix.window_guard
     loader_next = REMIX.window_loader    # where the next loader piece goes
 
     def _loader_check(label, at, n):
@@ -2498,7 +2499,50 @@ mkgo:""",
         window_records["demand stub"] = (loader_next, list(_sw))
         print(f"  demand stub   P:0x{loader_next:05x}..0x{loader_next + len(_sw):05x} ({len(_sw)} words)")
         loader_next += len(_sw)
-    guard_records = {}          # {"KEY:payload": addresses}: the wrappers of Remix.window_guard
+    guard_syms = {}
+    if GUARD:
+        # One body (modules/dlcopy/dlwrap.asm) for both payloads, behind each payload's trampolines; the
+        # trampolines hold the stock entries, which differ between payloads, and point at the body.
+        def _rdx(tag, a):
+            _x = PP[tag]["xtab"] + a
+            buf, i = (_virt, _x - idspace.VIRT) if (_virt is not None and _x >= idspace.VIRT) else (img, _x - BASE)
+            return buf[i] | (buf[i + 1] << 8) | (buf[i + 2] << 16)
+
+        _body_src = pathlib.Path("modules/dlcopy/dlwrap.asm").read_text()
+
+        def _tramps(tag, body_init, body_proc):
+            out = []
+            for _n, _gk in enumerate(GUARD):
+                _gid = stock_mod.BY_KEY[_gk].menu.fx2_id
+                _gi, _gq = _rdx(tag, _gid * 3), _rdx(tag, (PROC_OFF + _gid) * 3)
+                _gx = stock_mod.SLOT_EXTENT[_gk] + 1
+                guard_records[f"{_gk}:{tag}"] = {"stock_init": _gi, "stock_proc": _gq, "extent": _gx}
+                out.append(f"dwi_{_n}:\n        move    #>${_gi:x},x0\n        move    x0,x:>$3fd1\n"
+                           f"        move    #>${_gx:x},x0\n        move    x0,x:>$3fd2\n"
+                           f"        move    #>${body_init:x},r2\n        jmp     (r2)\n"
+                           f"dwp_{_n}:\n        move    #>${_gq:x},x0\n        move    x0,x:>$3fd1\n"
+                           f"        move    #>${_gx:x},x0\n        move    x0,x:>$3fd2\n"
+                           f"        move    #>${_gi:x},x0\n        move    x0,x:>$3fd3\n"
+                           f"        move    #>${body_proc:x},r2\n        jmp     (r2)\n")
+            return "".join(out)
+
+        # the trampolines' length does not depend on the body's address (all immediates are 24-bit)
+        _la = len(assemble_syms(_tramps("A", 0x30000, 0x30000), loader_next, label="guard trampolines A")[0])
+        _lb = len(assemble_syms(_tramps("B", 0x30000, 0x30000), loader_next, label="guard trampolines B")[0])
+        _bat = loader_next + _la + _lb
+        _bw, _bs = assemble_syms(_body_src, _bat, label="reverb guard body")
+        _at = loader_next
+        for _tag, _ln in (("A", _la), ("B", _lb)):
+            _tw, guard_syms[_tag] = assemble_syms(_tramps(_tag, _bs["init"], _bs["proc"]), _at, label=f"guard trampolines {_tag}")
+            _loader_check(f"reverb guard trampolines {_tag}", _at, len(_tw))
+            window_records[f"guard {_tag}"] = (_at, list(_tw))
+            for _n, _gk in enumerate(GUARD):
+                guard_records[f"{_gk}:{_tag}"].update(init=guard_syms[_tag][f"dwi_{_n}"], proc=guard_syms[_tag][f"dwp_{_n}"])
+            _at += _ln
+        _loader_check("reverb guard body", _bat, len(_bw))
+        window_records["guard body"] = (_bat, list(_bw))
+        print(f"  reverb guard  trampolines P:0x{loader_next:05x}..0x{_bat:05x} (A {_la}, B {_lb} words), body P:0x{_bat:05x}..0x{_bat + len(_bw):05x} ({len(_bw)} words)")
+        loader_next = _bat + len(_bw)
     pathlib.Path("out/dsp/demand_records.json").unlink(missing_ok=True)   # DLPUMP's table reads it after this stage
     for tag, va, ln in PAYLOADS:
         pp = PP[tag]
@@ -3202,35 +3246,11 @@ hostquit:
                 sys.exit(f"XTABLE: {name} has a table but no p:( read of it")
             return "\n".join(out), n
 
-        if GUARD:
-            # the stock reverbs kept off loaded code: their ids' entries point at trampolines of one wrapper
-            # (modules/dlcopy/dlwrap.asm) assembled for this payload
-            def _rdx(a):
-                buf, i = (_virt, a - idspace.VIRT) if (_virt is not None and a >= idspace.VIRT) else (img, a - BASE)
-                return buf[i] | (buf[i + 1] << 8) | (buf[i + 2] << 16)
-
-            _tr, _gstock = {"i": [], "p": []}, {}
-            for _n, _gk in enumerate(GUARD):
-                _gid = stock_mod.BY_KEY[_gk].menu.fx2_id
-                _gi, _gq = _rdx(pp["xtab"] + _gid * 3), _rdx(pp["xtab"] + (PROC_OFF + _gid) * 3)
-                _gx = stock_mod.SLOT_EXTENT[_gk] + 1
-                _gstock[_gk] = (_gid, _gi, _gq, _gx)
-                for _w, _st in (("i", _gi), ("p", _gq)):
-                    _tr[_w].append(f"dw{_w}_{_n}:\n        move    #>${_st:x},x0\n        move    x0,x:>$3fd1\n"
-                               f"        move    #>${_gx:x},x0\n        move    x0,x:>$3fd2\n        bra     {'init' if _w == 'i' else 'proc'}\n")
-            _gw, _gsyms = assemble_syms(pathlib.Path("modules/dlcopy/dlwrap.asm").read_text().replace("; TRAMPOLINES_I\n", "".join(_tr["i"])).replace("; TRAMPOLINES_P\n", "".join(_tr["p"])),
-                                        loader_next, label=f"stock reverb guard {tag}")
-            _loader_check(f"reverb guard {tag}", loader_next, len(_gw))
-            window_records[f"guard {tag}"] = (loader_next, list(_gw))
-            print(f"  reverb guard  P:0x{loader_next:05x}..0x{loader_next + len(_gw):05x} ({len(_gw)} words)")
-            loader_next += len(_gw)
-            for _n, _gk in enumerate(GUARD):
-                _gid, _gi, _gq, _gx = _gstock[_gk]
-                wrw_p(pp["xtab"] + _gid * 3, _gsyms[f"dwi_{_n}"])
-                wrw_p(pp["xtab"] + (PROC_OFF + _gid) * 3, _gsyms[f"dwp_{_n}"])
-                guard_records[f"{_gk}:{tag}"] = {"init": _gsyms[f"dwi_{_n}"], "proc": _gsyms[f"dwp_{_n}"],
-                                                 "stock_init": _gi, "stock_proc": _gq, "extent": _gx}
-                print(f"  {_gk:13} guard  stock init P:0x{_gi:05x} proc P:0x{_gq:05x}  extent 0x{_gx:x}")
+        for _n, _gk in enumerate(GUARD):
+            # the stock reverbs kept off loaded code: their ids' entries point at this payload's trampolines
+            _gid = stock_mod.BY_KEY[_gk].menu.fx2_id
+            wrw_p(pp["xtab"] + _gid * 3, guard_syms[tag][f"dwi_{_n}"])
+            wrw_p(pp["xtab"] + (PROC_OFF + _gid) * 3, guard_syms[tag][f"dwp_{_n}"])
         for name, src in plan:
             if name in WINDOW_KEYS and (name in WINDOW or tag == "B"):
                 # ---- IN THE SHARED WINDOW (schema.Remix.window): assembled once at its
