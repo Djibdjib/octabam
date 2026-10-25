@@ -21,6 +21,7 @@
 ; The effect's entry in the window, x:$33da3 + 8 k (five words used):
 ;   +0 BOUND  $b0a5ed while the code is resident   +1 the real init   +2 the real proc
 ;   +3 the first window word the code occupies     +4 the word after its last
+;   +5 blocks received   +6 blocks refused for their sum   +7 blocks published (counters, read by DLPROBE)
 ; BOUND is cleared before any other word of the entry or the code changes and set
 ; last, so a stub on either core sees the code whole or not at all.
 ;
@@ -44,6 +45,9 @@ dlc_start:
         move    x0,a
         tst     a
         beq     dlc_off
+        move    x:(r1+5),a
+        add     #>$1,a
+        move    a1,x:(r1+5)
         lua     (r1+3),r1
         move    x:>$2902,a
         move    #>$30000,x1
@@ -84,7 +88,7 @@ dlc_cpy:
         sub     x0,a
         move    a1,a
         tst     a
-        bne     dlc_bad                  ; not published
+        bne     dlc_refused              ; not published
         move    #>$30000,x1
         move    x:>$2901,a
         asl     #$3,a,a
@@ -101,6 +105,20 @@ dlc_cpy:
         lua     (r1-2),r1
         move    #>$b0a5ed,x0
         move    x0,x:(r1)                ; BOUND, after the code and both entries
+        move    x:(r1+7),a
+        add     #>$1,a
+        move    a1,x:(r1+7)
+        bra     dlc_bad
+dlc_refused:
+        move    #>$30000,x1
+        move    x:>$2901,a
+        asl     #$3,a,a
+        move    #>$33da3,x0
+        add     x0,a
+        move    a1,r1
+        move    x:(r1+6),a
+        add     #>$1,a
+        move    a1,x:(r1+6)
 dlc_bad:
         move    x:>$3fe8,b2
         move    x:>$3fe9,b1

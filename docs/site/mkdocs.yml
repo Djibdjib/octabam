@@ -116,6 +116,7 @@ nav:
       - CF Meter: reference/modules/cfmeter.md
       - CF Meter Idle: reference/modules/cfmeter-idle.md
       - Dlcopy: reference/modules/dlcopy.md
+      - Dlprobe: reference/modules/dlprobe.md
       - Dlpump: reference/modules/dlpump.md
       - Load Meter: reference/modules/load-meter.md
       - Pext Probe: reference/modules/pextprobe.md
