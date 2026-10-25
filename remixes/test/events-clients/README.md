@@ -24,25 +24,44 @@ analog outputs.
 
 ## Hardware results
 
-Octatrack MKII, 25 October 2026. `EVT871E2.RMX` was built from `9a752f97`;
-MAIN/RMX SHA-256:
-`18f5fced905a9dcdcb05bde239afb94ed5c99e9e22276d11d148e3b9e6a236c9`.
-BRAIN labels this remix `EVENTS-CLIENTS`; that label alone does not identify
-an image version. These results apply to E2, not automatically to later builds.
+Tested on radiohagen's MKII, 25 October 2026. EVENTS image `EVT871E3`
+was built from `d476ab24`; the matched upstream control `EVT871B1` from
+`ae69a3be`. Projects `EVT871E3_01` and `EVT871B1_01` contain identical
+pattern, Part and sample data. USB captures MAIN and CUE at 44.1 kHz.
 
 | Check | Recorded result |
 | --- | --- |
-| Stopped trig-paste undo, continuous hold | Existing MIX 64 restored; explicitly empty destination restored to unhighlighted Part value 127, both checked after release/rehold |
-| START / STOP / CONTINUE, C03 | Audio resumed at the next sample trigger, 4.1 seconds after CONTINUE; subsequent 90 BPM playback produced audio |
-| 600 seconds uninterrupted C03, 120 BPM | No sustained silence or clipping; zero USB overrun, underrun, duplicate-bank or DSP bad-record deltas |
-| Physical save and power cycle | C03/T1/trig 1 retained highlighted MIX 40; E2 selected before restart, image identity not independently checked afterward |
+| EUCLID in FX1 or FX2, all eight tracks | 90 seconds per layout: no audio-analysis flags, clipping, USB faults or DSP bad records |
+| START / STOP / CONTINUE, both slots | Audio resumes and stops; subsequent 90 BPM playback produces audio; zero USB faults or DSP bad records |
+| Mixed transport, tempo and program changes | Seed 871: 223 operations over 604 seconds, zero USB faults or DSP bad records, no clipping; audio present through the earlier 431.5-second failure interval |
 
-The sustained run's longest observed ColdFire frame interrupt was 424 us
-against a nominal 363-us frame period. An earlier E1 mixed-transport run
-stopped on silence at 431.5 seconds. A later edited-C03 workload comparison
-contained one detected stereo transient. Their cause is not established;
-these observations do not establish timing or mixed-transport acceptance.
-The [failure register](../../../docs/contributing/FAILURE_MODES.md#events-clients-transport-stress-reaches-silence-with-healthy-frames)
-contains the measured scope. Early E2 undo observations also differed from
-the later controlled passes; see the
-[undo record](../../../docs/contributing/FAILURE_MODES.md#plocks-trig-paste-undo-keeps-copied-page-two-locks).
+The mixed sequence uses 60–160 BPM. Its silence window is 18 seconds: a
+64-step pattern at 60 BPM plus two seconds for the next programmed trigger.
+The longest sampled frame interrupt in that run was 536 us, with healthy
+frame processing throughout.
+
+Matched BASE and both-slot captures, 90 seconds each at 120 BPM:
+
+| Layout | EVENTS RMS dBFS | Upstream RMS dBFS | EVENTS mean CF share | Upstream mean CF share | EVENTS longest CF interrupt | Upstream longest CF interrupt |
+| --- | --- | --- | --- | --- | --- | --- |
+| BASE | -36.98 | -36.98 | 61.00% | 61.57% | 364.7 us | 371.9 us |
+| EUCLID FX1 + FX2 | -32.32 | -32.41 | 71.03% | 71.39% | 417.5 us | 411.4 us |
+
+Both images had zero clipping, USB overrun/underrun/duplicate-bank deltas,
+and DSP bad records. The both-slot level increase also occurs upstream;
+its transient detector reported 3 threshold hits with EVENTS and 134
+upstream. These are detector hits, not counts of audible clicks. Mean
+frame-interrupt load did not increase in these captures. Sampled maxima
+are not a worst-case bound or a measurement of total CPU headroom.
+
+The captures use `ot_matrix.py run` with `--play 90 --tail 3 --bpm 120`:
+`--only 0,6,10` for EVENTS and `--only 0,10` for the upstream control.
+Transport uses `ot_fuzz.py` with the recorded seed-871 sequence and an
+explicit START/STOP/CONTINUE capture.
+
+PLOCKS hardware checks on `EVT871E2` (`9a752f97`) confirmed that stopped
+trig-paste undo restores both an existing MIX 64 lock and an explicitly
+empty destination. The snapshot implementation is unchanged in E3;
+current-source emulator gates cover its native snapshot/restore paths.
+The [failure register](../../../docs/contributing/FAILURE_MODES.md#plocks-trig-paste-undo-keeps-copied-page-two-locks)
+records the original defect and controlled verification.
