@@ -197,6 +197,10 @@ CC1..CC10 enabled, scene A = scene 1, scene B = scene 9, MIDI trigs on steps 4, 
   | 2501, `xf` | 2,577 | 32 and 33 (two runs) | 106 | 1,209 / 1,212 |
   | 2502, `scenes` | 2,311 | 503 | 1,083 | 1,210 / 1,212 |
 
+  Seed 2502 again with the fixed harness (unit and port from the same starting scene state, 606 s): the unit sent
+  1,075 lock CCs and the port 1,083, 1,211 and 1,212 note-ons; the longest common subsequence of the two CC value
+  streams is 1,074 values (of the unit's 1,075); the unit's first value is 36 where the port's stream starts with the
+  setup value 64. No failure, bad records 0, ColdFire longest run 239 us.
   The unit counts in this table are from `ot_fuzz.py run` before 25 Oct 2026 (evening), which called the 0.4 s
   `load_meter.healthy()` inline every 0.5 s: operations went out up to 0.4 s late, in bursts, and the sweeps were
   thinned. They are not the unit's behaviour. With the check in its own thread, the first 25 s of seed 2501 gave 95
