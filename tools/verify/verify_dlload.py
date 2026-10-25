@@ -11,6 +11,7 @@ staged project, each on its own boot, setting track effect ids by poking the liv
                                                            word, seen from both cores
   withdrawn  the same, T1's FX1 back to FILTER at 2 s  -> effect 0 unbound, its span empty
   unused     no track uses it                           -> effect 0 never bound
+  runs-b / runs-a  T1 (core B) / T5 (core A) uses it -> the loaded proc is reached on that core (--dsp-pcwatch)
   blocked    as used, and T8's FX2 (the track whose slot   -> effect 0 not loaded
              shares MODULATION's block) is PLATE REV
 
@@ -80,7 +81,10 @@ def main():
         "withdrawn": (poke(FX1_LIVE, FX1_PART, 0, mod_id), [(2000, poke(FX1_LIVE, FX1_PART, 0, FILTER))]),
         "unused": ("", []),
         "blocked": (poke(FX1_LIVE, FX1_PART, 0, mod_id) + ";" + poke(FX2_LIVE, FX2_PART, 7, PLATE), []),
+        "runs-b": (poke(FX1_LIVE, FX1_PART, 0, mod_id), []),      # T1 is on core B
+        "runs-a": (poke(FX1_LIVE, FX1_PART, 4, mod_id), []),      # T5 is on core A
     }
+    watch = {"runs-b": f"1:{rec['proc']:x}", "runs-a": f"0:{rec['proc']:x}"}
     procs = {}
     for tag, (first, later) in scenarios.items():
         card = OUT / f"{tag}.img"
@@ -96,6 +100,8 @@ def main():
                "--mkii", "--dsp", "--frame", "--live-script", OUT / f"{tag}.script", "--dsp-peek", peeks]
         if first:
             cmd += ["--step", "-:poke:" + first]
+        if tag in watch:
+            cmd += ["--dsp-pcwatch", watch[tag]]
         fh = open(OUT / f"{tag}.txt", "w")
         procs[tag] = (subprocess.Popen(list(map(str, cmd)), cwd=ROOT, stdout=fh, stderr=subprocess.STDOUT), fh)
     texts = {}
@@ -127,6 +133,12 @@ def main():
     check("effect 0 was never bound", peek("unused", 1, "X", 0x33D80)[:1] == [0])
     print("blocked:")
     check("effect 0 is not loaded over a stock reverb's block", peek("blocked", 1, "X", 0x33D80)[:1] == [0])
+    print("runs:")
+    for tag, core in (("runs-b", 1), ("runs-a", 0)):
+        m = re.search(r"dsp pcwatch:[^\n]*\n((?: +\d+ [^\n]*\n)*)", texts[tag])
+        arrivals = len(m.group(1).splitlines()) if m else None
+        check(f"core {core}: the loaded code runs on a track of that core", bool(arrivals),
+              f"arrivals at P:0x{rec['proc']:x}: {arrivals}")
     print("PASS" if not FAILS else "FAIL")
     return 1 if FAILS else 0
 
