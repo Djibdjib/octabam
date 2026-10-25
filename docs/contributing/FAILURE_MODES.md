@@ -15,7 +15,16 @@ a mode is seen on hardware.
 - **Fix:** EVENTS covers the snapshot/restore copies and PLOCKS mirrors them
   into its existing undo buffer. The native-panel regression compares stock
   page one with page two, including empty/existing destinations, repeated
-  paste/undo and clear/undo. Physical retest of the corrected image is pending.
+  paste/undo and clear/undo in a stopped fixture.
+- **Physical retest failed:** EVT871E2 (`9a752f97`), selected through BRAIN
+  REMIXES and confirmed RUNNING, pristine EVT871E2_ED, C03 playing, T1 FX2
+  SETUP. The operator confirmed trig 5 off, copied trig 1's MIX 40, pasted
+  onto trig 5 and kept it held for the second STOP. The exact message was
+  `UNDO PASTE`; after release/rehold MIX still showed 40, versus 127 with
+  no trig held. The 454.3-second panel capture had zero USB overrun,
+  underrun and duplicate-bank deltas, no host callback warnings and no
+  monitor errors. The software fix is insufficient for this observed
+  workflow; the reason for the software/hardware difference remains open.
 
 ## EVENTS-CLIENTS transport stress reaches silence with healthy frames
 

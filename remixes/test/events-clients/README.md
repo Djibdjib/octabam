@@ -38,5 +38,10 @@ page-two lock. The pre-EVENTS private-hook image reproduces this under the port;
 stock page one restores the previous locks while leaving the trig present.
 The PLOCKS fix and regression are described in its
 [development notes](../../../modules/plocks-p2/DEVELOPMENT.md#trig-paste-undo-snapshot).
-The corrected image still needs physical retesting, followed by the remaining
-edit operations, save/power-cycle and sustained combined transport run.
+EVT871E2 (`9a752f97`) failed the physical retest on EVT871E2_ED/C03 during
+playback: `UNDO PASTE` appeared, but the copied MIX 40 remained when trig 5
+was released and held again; the unheld Part value was 127. The 454.3-second
+panel monitor recorded zero USB fault deltas and no monitor errors. The
+stopped software fixture passes; the difference remains under investigation.
+Further edit operations, save/power-cycle and sustained combined transport
+acceptance remain pending.
