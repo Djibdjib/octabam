@@ -44,5 +44,29 @@ was released and held again; the unheld Part value was 127. The 454.3-second
 panel monitor recorded zero USB fault deltas and no monitor errors. The
 stopped software fixture passes; the difference remains under investigation.
 The stopped physical retest also retained MIX 40 after undo and release/rehold.
-Further edit operations, save/power-cycle and sustained combined transport
-acceptance remain pending.
+Later controlled stopped checks passed on E2: a previous MIX 64 returned after
+paste/undo, and an explicitly removed destination lock returned to unhighlighted
+127. Diagnostic-only D1 had separately traced both restores; its instrumentation
+is outside this PR. E2's clear-locks/undo messages and final MIX 40 were confirmed,
+but the intermediate cleared state was not checked. Track undo's final value
+was not confirmed. These scoped passes do not explain the original failures.
+Manual testing now focuses on hardware-specific behavior; real-card
+save/power-cycle acceptance remains pending.
+
+The later E2 fixed-C03 transport run on fresh `EVT871E2_RN` stopped at 18.0
+seconds: initial START produced audio, but the first STOP/CONTINUE remained
+silent until the monitor stopped. USB fault deltas and DSP bad-record increases were
+zero and frame health remained good; one sampled ColdFire longest run was
+413 microseconds. Fixture inspection found that the three-second silence grace
+ends before the next step-1 sample trigger; an earlier passing capture also
+waits 4.3 seconds after CONTINUE. This run is inconclusive, not an EVENTS
+failure, and does not supersede the earlier seven-minute failure. See the
+[failure register](../../../docs/contributing/FAILURE_MODES.md#e2-continue-monitor-stops-before-the-fixtures-next-trigger).
+
+The corrected E2 CONTINUE capture waited a full pattern: audio returned after
+4.1 seconds, followed by audible 90 BPM playback, with zero USB faults or DSP
+bad-record increments. A separate 600-second uninterrupted C03 run at 120 BPM
+also completed with no sustained silence, clipping or USB faults. ColdFire's
+longest observed frame interrupt was 424 microseconds, above the approximately
+363-microsecond frame budget; frame-budget acceptance remains open. Neither
+run reproduces the E1 mixed-transport sequence or proves total CPU headroom.

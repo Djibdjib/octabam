@@ -31,13 +31,25 @@ states, also with a 20-second paste-to-undo delay while stopped. The cause
 of this software/hardware difference remains open; see the
 [failure register](../../docs/contributing/FAILURE_MODES.md#plocks-trig-paste-undo-keeps-copied-page-two-locks).
 
+Later stopped hardware checks passed both controlled destination states:
+diagnostic-only D1 traced restoration of no lock and a previous MIX 64, then
+uninstrumented E2 restored those same states by operator release/rehold display
+checks. The destination was explicitly prepared and held throughout paste and
+undo. These passes do not explain the earlier failures. D1's instrumentation
+is separate from this change. E2 also showed MIX 40 again after CLEAR TRIG
+LOCKS / UNDO CLEAR LOCKS; the intermediate cleared state was not independently
+checked.
+
 The same stock/page-two panel comparison covers track paste/undo and pattern
 copy/paste/clear/undo. In this stopped fixture, stock's pattern paste calls
 `0x4004a8a4`, whose `0x40027e00` call invalidates undo kind 14 immediately.
 The next STOP pastes again. The gate compares that native state with stock
 and checks the resulting locks; it does not label that case a successful
 pattern-paste undo. Pattern clear/undo does exercise restoration. Physical
-pattern-paste undo remains an explicit follow-up, with no stock patch here.
+pattern-paste undo remains unverified, with no stock patch here. Routine
+emulator-covered panel operations are no longer required manual repetitions;
+hardware work focuses on timing, sustained audio, real-card persistence and
+specific discrepancies.
 
 Snapshot mirroring copies 768 bytes only at the editor's copy boundary;
 the playback path is unchanged. The existing track/pattern copy instruction

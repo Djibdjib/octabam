@@ -23,13 +23,22 @@ a mode is seen on hardware.
   `UNDO PASTE`; after release/rehold MIX still showed 40, versus 127 with
   no trig held. The 454.3-second panel capture had zero USB overrun,
   underrun and duplicate-bank deltas, no host callback warnings and no
-  monitor errors. The software fix is insufficient for this observed
-  workflow; the reason for the software/hardware difference remains open.
+  monitor errors. This observation did not establish hardware acceptance;
+  the reason for the software/hardware difference remains open.
   Repeating after STOP, with trig 5 confirmed off before copying/pasting,
   also left MIX 40 after undo and release/rehold. Playback is therefore
   not a necessary trigger. Local C03/EUCLID MIX replays clear the lock both
   stopped and playing, including a stopped run with a 20-second wait
   between paste and undo; none supersedes the failed physical checks.
+- **Later controlled checks passed:** diagnostic-only EVT871D1 recorded native
+  restore changing the copied MIX 40 back to no lock and back to a previous
+  MIX 64; release/rehold matched both traces. After switching back to E2,
+  stopped checks on the retained EVT871D1_ED project explicitly set and held
+  the destination's pre-paste state through both STOP presses. Release/rehold
+  showed highlighted 64 for the existing-lock case and unhighlighted Part
+  value 127 for the no-lock case. These E2 results are operator display
+  evidence, without diagnostic memory reads. They do not explain the initial
+  failures. D1's instrumentation remains outside the PR.
 
 ## EVENTS-CLIENTS transport stress reaches silence with healthy frames
 
@@ -41,6 +50,57 @@ a mode is seen on hardware.
   delta are zero; post-stop frame health is good. A 34-second suffix and isolated
   BASE/RAND checks pass after a power cycle. They do not reproduce the preceding
   runtime state. The audio failure remains open; no EVENTS cause or fix is claimed.
+
+### E2 CONTINUE monitor stops before the fixture's next trigger
+
+- **Seen:** radiohagen, 25 October 2026, selected `EVT871E2.RMX` and confirmed
+  the restart, then loaded fresh `EVT871E2_RN`. The image internally calls itself
+  `EVENTS-CLIENTS`; that RUNNING label does not distinguish E1 from E2.
+  The fixed-C03 sequence sent START at 1.1 seconds, STOP at 13 and CONTINUE
+  (`0xFB`) at 14.5. It stopped on silence at 18.0 seconds, before any tempo
+  change. No ten-minute acceptance was obtained. The operator saw no screen
+  error.
+- **Measured:** MAIN averaged about -33.4 dBFS during seconds 2–12, then about
+  -120 dBFS after CONTINUE. USB overrun/underrun/duplicate-bank deltas, host
+  callback warnings and DSP bad-record increases were zero. Frame health
+  continued to pass, including after STOP. One sampled ColdFire longest run
+  reached 413 microseconds, above the nominal 363-microsecond frame budget.
+- **Test defect, measured:** the packaged C03 has only a step-1 sample trig on
+  each track, length 64 at 1X. At 120 BPM, the next trigger is nominally 4.1
+  seconds after this CONTINUE, beyond the monitor's three-second grace. The
+  earlier passing E1 C03 capture likewise remains silent for 4.3 seconds after
+  CONTINUE, then resumes audio. The short monitor would falsely fail that known
+  passing capture too. This E2 run is therefore **inconclusive**, not evidence
+  of an EVENTS resume failure. It cannot resolve the earlier seven-minute
+  failure. Keep continuous endurance separate from transport checks, whose
+  grace must account for the next sample trigger. Local evidence is
+  `shared-events-hardware-E2/hardware/` (`combined-result.json`,
+  `combined-transport.wav`, `continue-fixture-audit.json`).
+- **Corrected hardware check:** E2, same C03 fixture, START for 11.9 seconds,
+  STOP for 1.5 seconds, then observe CONTINUE for 9.5 seconds. Audio returned
+  at 4.1 seconds (100-ms capture bins), as the next trigger predicts; subsequent
+  90 BPM playback was audible. USB fault and DSP bad-record deltas were zero,
+  frame health passed and no host callback warning occurred. Evidence:
+  `hardware/continue-aware/continue-report.json` and `resume-timing.json`.
+
+### E2 continuous audio survives ten minutes; frame-budget excursions remain
+
+- **Measured:** E2, EVT871E2_RN/C03, eight tracks with both-slot EUCLID and
+  PLOCKS, 600 seconds of uninterrupted 120 BPM playback. The automated runner
+  completed without sustained silence or frame-health failure. The saved audio
+  had no quiet one-second MAIN window during seconds 2–600 and no samples at
+  or above 0.9999 full scale. USB fault deltas, DSP bad-record increments and
+  host callback warnings were zero.
+- **Performance limit:** the longest observed ColdFire frame interrupt was
+  424 microseconds. Four of the 301 retained load samples exceeded 363
+  microseconds (400, 394, 424 and 404). The retained series is downsampled;
+  these are not counts of all overrunning frames. Attribution to EVENTS,
+  its clients, native code or interrupt interference is not established.
+  This is a sustained-audio pass, not a frame-budget or total-CPU acceptance.
+- **Scope:** no pattern transitions or CONTINUE in this endurance run, so it
+  does not clear the earlier E1 mixed-transport failure. Evidence:
+  `shared-events-hardware-E2/hardware/continuous-120/result.json`, `run.json`
+  and `combined-transport.log`.
 
 ## Warm restarts and emulator boots can miss cold-start failures
 
