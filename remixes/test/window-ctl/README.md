@@ -4,7 +4,7 @@ The `window-mod` set with MODULATION in internal P (no `Remix.window`). Its slot
 
 ## What is in it
 
-- CORE and LOAD METER, as in `octabam-inserts`.
+- CORE and LOAD METER, as in `octabam`.
 - MODULATION in the harvested region.
 - FILTER, EQUALIZER, DJ EQ, PHASER, FLANGER, SPATIALIZER, COMB FILTER, COMPRESSOR, LO-FI, DELAY. CHORUS and the three reverbs are given up, as in `window-mod`.
 

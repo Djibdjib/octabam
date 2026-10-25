@@ -2,7 +2,7 @@
 
 A measurement build: MODULATION's code is one copy at P:0x36300 (payload A's half of the shared window, the
 words octabam-bus leaves free) instead of two in the harvested region, so its slot cost on the unit is
-the cost of running from the window, to set against the same code in internal P (octabam-inserts,
+the cost of running from the window, to set against the same code in internal P (window-mod,
 modules/modulation/README.md). PLATE REV, SPRING REV and DARK REV give up their words to LOAD METER's DSP
 half and the CORE modules; no module here has an FX2 buffer, so the window words are not another effect's."""
 from remix.schema import Pin, Proof, Remix

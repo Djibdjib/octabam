@@ -7,8 +7,8 @@ marked as such; the bound is arithmetic over them.
 
 ```bash
 python3 tools/remix/costs.py table                                  # every effect: worst slot cost, settings read
-python3 tools/remix/costs.py check octabam-inserts                  # worst-case core load of a remix
-python3 tools/remix/costs.py check octabam-inserts --without LOFI2  # the same with effects left out
+python3 tools/remix/costs.py check stock-meter-a                    # worst-case core load of a remix
+python3 tools/remix/costs.py check stock-meter-a --without FILTER   # the same with effects left out
 python3 tools/remix/costs.py import out/hw/matrix/<label>/report.json ...   # merge new reports
 ```
 
@@ -45,7 +45,7 @@ dearest effect of the remix, each at its dearest measured setting:
 A remix whose worst core is at or under the limit (95 % of a frame) cannot
 overload the DSP in any configuration. `check` exits 0 on PASS, 1 on OVER or
 UNKNOWN. UNKNOWN means an effect has no measured cost or the remix has no
-measured base (a remix without LOAD METER, such as `octabam-core`, has none).
+measured base (a remix without LOAD METER, such as `cxosc-core`, has none).
 
 What the bound does not cover:
 
