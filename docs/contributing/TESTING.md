@@ -39,6 +39,15 @@ never sent to the OT's own port. A Midihub reverts to its stored preset on
 a power or USB blip, so its session pipes are saved (FROM A →
 drop-realtime-only → OCTATRACK).
 
+**The one-cable rig.** The unit on USB and nothing else: program change
+selects a layout, MIDI START and a host clock play it, the unit's USB audio
+is the capture and LOAD METER (`tools/hw/load_meter.py`) the load readout.
+`tools/hw/usb_transport_probe.py` shows START and STOP take effect;
+`tools/hw/ot_matrix.py` stamps up to 32 layouts of a remix per project and
+runs them (`docs/contributing/TOOLING.md`). `verify_usb_midi_clock` checks
+under the port that START and STOP over USB drive the sequencer's transport
+word as DIN's do. None of the three has run on a unit.
+
 **The verdict vocabulary.** A gate prints `[ok]`/`[PASS]` per check and
 exits non-zero on any `[FAIL]`. `[SKIP]` means an instrument, a project
 or a toolchain is missing: `make check` still exits 0, `make accept`
@@ -122,6 +131,7 @@ The two tables above.
 | `verify_usb_in` | USB INPUTS AB, CD, ABCD | image | the host's channels land bit-exact on their RX slots, the others stay the jacks', the recorder ring fills, the jacks return at alt 0 | port, `.venv` |
 | `verify_usb_align` | USB LAYOUT TRACKS MAIN CUE | image | MAIN and CUE are in phase with the tracks in the twenty-channel stream (lag 0) | port, `.venv` |
 | `verify_cfmeter` | CF METER | per remix | the DSP meter under the port with T8's FX2 = CF METER: frames counted within 8 of the frames run; spin min <= max and > 0; period min <= max and > 0; DBRN 40 lowers the spin minimum with the period maximum unchanged (within 10 %); DBRN 127 raises the period maximum past 1.5 x run 1's. Cannot see: the unit's cycle costs (the port prices each instruction at one step) and the ESAI's real underrun behaviour | `.venv`, port, project |
+| `verify_usb_load_meter` | LOAD METER | image | the USB vendor request `0xc0/0x57` returns `lm_stats`, `lm_dsp` and `lm_ot` (20, 48, 256 bytes) equal to the cells at their symbols, seq rising, a 0.5 s window on timer 3, plausible period and busy, sampled slots; wValue 3 STALLs. Cannot see: the unit's timers (the port's timer 0 moves in 1,024-count steps), a project playing | `.venv`, port |
 | `verify_char_key` | CHARACTER | shared | KEY = T1 on both cores: a host-fed T3 (core 1) and T6 (core 0, also under four skews) duck in a burst; KEY = T1 with the host unfed holds no gain reduction; no host holds none; SELF is bit-identical fed or not; the master at KEY = T1 equals KEY = SELF; the host's own output is unchanged by Characters reading it. Cannot see: the chip's timing, anything the ColdFire does (knobs are poked into r6) | `dsp_host` |
 | `verify_character_txtr`, `verify_char_key_txtr` (`modules/character-txtr/`) | CHARACTER TXTR | shared | `verify_character` and `verify_char_key` run on the TXTR module (a `Gate` takes no arguments, so each names the module) | `dsp_host` |
 | `verify_fx2_lock` | FX2 LOCK | image | T2, FX2 twice, DOWN, YES leaves the live FX2 ids (`0x80000ec4`) as a run that pressed nothing; with the poke undone in RAM the ids change; the poke is in the image. Without the module the same sequence turns T2's SEND into the stock DELAY | `.venv`, port, project |
