@@ -7,7 +7,7 @@ The ColdFire half of the demand loader (design, measurements and open items:
 interrupt. Idle, on frames whose ping word (`0x800000e0`) is 0, it compares the ids on the 16
 live FX slots (`0x80000ec4`) with the effects loaded and arms one message: a load when an effect
 is used, not loaded, and the FX2 slot that shares its block is not PLATE REV, SPRING REV or DARK
-REV; a withdrawal when it is loaded and unused. Sending, it writes 100 halfwords a ping-0 frame
+REV; a withdrawal when it is loaded and unused, or when that FX2 slot has become one of those reverbs. Sending, it writes 100 halfwords a ping-0 frame
 to core B's `X:0x2901..` by the stock host write, then the doorbell two frames later. It never
 writes to core A.
 

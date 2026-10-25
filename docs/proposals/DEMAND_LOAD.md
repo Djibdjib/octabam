@@ -37,7 +37,7 @@ never writes to core A.
 - **DLPUMP** (ColdFire, `modules/dlpump`), called from LOAD METER's entry code (`lm_in`, weak symbol) every frame interrupt.
   Idle: on ping-0 frames it compares the ids on the 16 live FX slots with the effects loaded and arms one message. A load is
   armed when an effect is used, not loaded, and the FX2 slot that shares its block is not PLATE REV, SPRING REV or DARK REV; a
-  withdrawal when it is loaded and no slot uses it. Sending: 100 halfwords per ping-0 frame to core B's `X:0x2901..`, then the
+  withdrawal when it is loaded and no slot uses it, or when the FX2 slot that shares its block has become one of those reverbs (stock wins by any route that sets the ids; the effect goes dry). Sending: 100 halfwords per ping-0 frame to core B's `X:0x2901..`, then the
   doorbell `0xa55a` to `X:0x2900` two frames later. The table of effects and their blocks are generated per remix
   (`remix.inc`, `Linked.include`) from `out/dsp/demand_records.json`; the unit reserves 2,600 code words a block on every link.
   The FX1 and FX2 choosers' "same effect" test is detoured: choosing an effect that is not loaded and whose block is under a
@@ -77,7 +77,7 @@ records are left out of payload A's upload and written to `out/dsp/demand_record
 |---|---|---|
 | `verify_dlstub` | for each effect: the stub unbound equals the null stub, bound equals the effect's own render (0 of 6,400 samples differ), a wrong magic or a missing doorbell stays dry; DLCOPY binds a staged block and the stub runs it; a withdraw message makes it dry again | `dsp_host`, test/dlspike and octabam |
 | `verify_dlwrap` | for each reverb, payload and published span: the guard equals the stock render and Y writes where the buffer is clear, passes the audio through and writes nothing where it covers the code | `dsp_host`, same |
-| `verify_dlload` | with live ids poked: the four effects load (entry and every code word, read from both cores), one is withdrawn while the others stay, none loads unused, none loads over a reverb's block, the FX1 chooser picks an effect that can load and refuses one that cannot, the loaded proc is reached on core B and on core A (`--dsp-pcwatch`) | port, test/dlspike and octabam |
+| `verify_dlload` | with live ids poked: the four effects load (entry and every code word, read from both cores), one is withdrawn while the others stay, one is withdrawn when a stock reverb takes its block, none loads unused, none loads over a reverb's block, the FX1 chooser picks an effect that can load and refuses one that cannot, the loaded proc is reached on core B and on core A (`--dsp-pcwatch`) | port, test/dlspike and octabam |
 
 `dsp_host` keeps P and Y apart, so the guard is shown to decide correctly, not to prevent an overwrite on the chip.
 

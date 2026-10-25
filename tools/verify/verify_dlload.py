@@ -13,6 +13,7 @@ Remix.window_demand (k):
   withdrawn  the same, T1's FX1 back to FILTER at 2 s  -> effect 0 unbound, its span empty, the rest bound
   unused     no track uses any                          -> none bound
   runs-b / runs-a  T1 (core B) / T5 (core A) uses effect 0 -> its loaded proc is reached on that core (--dsp-pcwatch)
+  evicted    effect 0 in use and loaded, then at 2 s the FX2 of its block's track becomes PLATE REV -> effect 0 withdrawn
   blocked    effect 0 in use, and the FX2 of the track whose slot shares its block is PLATE REV -> effect 0 not loaded
   pick / pick-blocked  T2's chooser (FX1, else FX2; NONE, DOWN to its row, YES) picks effect 0; with the block's track on PLATE REV
              the chooser leaves T2's FX1 as it was
@@ -97,6 +98,7 @@ def main():
         "used": (every, []),
         "withdrawn": (every, [(2000, poke(FX1_LIVE, FX1_PART, 0, FILTER))]),
         "unused": ("", []),
+        "evicted": (poke(FX1_LIVE, FX1_PART, 0, mod_id), [(2000, poke(FX2_LIVE, FX2_PART, block_track, PLATE))]),
         "blocked": (poke(FX1_LIVE, FX1_PART, 0, mod_id) + ";" + poke(FX2_LIVE, FX2_PART, block_track, PLATE), []),
         "pick": (poke(live, part, 1, 0), []),
         "pick-blocked": (poke(live, part, 1, 0) + ";" + poke(FX2_LIVE, FX2_PART, block_track, PLATE), []),
@@ -163,6 +165,10 @@ def main():
     print("unused:")
     for k, r in enumerate(recs):
         check(f"{r['key']} was never bound", peek("unused", 1, "X", 0x33DA3 + 8 * k)[:1] == [0])
+    print("evicted:")
+    entry = peek("evicted", 1, "X", 0x33DA3)
+    check(f"{recs[0]['key']} is withdrawn when a stock reverb takes its block", entry[:1] == [0] and entry[3:5] == [0, 0],
+          f"{[hex(w) for w in entry]}")
     print("blocked:")
     check(f"{recs[0]['key']} is not loaded over a stock reverb's block", peek("blocked", 1, "X", 0x33DA3)[:1] == [0])
     print("pick:")

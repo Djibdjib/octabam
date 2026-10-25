@@ -78,7 +78,8 @@ dl_pump:
 
 | Idle: compare the effects the tracks use with the ones loaded, on the frames the port delivers.
 | One message is armed per call: a load (the effect is used, not loaded, and its block is not
-| under a stock reverb) or a withdrawal (loaded, used by no track).
+| under a stock reverb) or a withdrawal (loaded, and used by no track or its block is now under a
+| stock reverb: the stock reverb wins whichever way it got there).
 idle:
         moveq   #PING,%d1
         cmp.l   0x800000e0,%d1
@@ -96,24 +97,28 @@ idle:
         moveq   #1,%d3
 5:      subq.l  #1,%d4
         bpl.w   4b
-        move.l  dl_loaded,%d0
-        btst    %d6,%d0
-        bne.w   6f
-        tst.l   %d3                             | not loaded
-        beq.w   7f
+        tst.l   %d3
+        beq.w   0f
         move.l  %a2@(4),%d1                     | the track whose FX2 slot shares the block
         lea     LIVE+8,%a1
         move.b  %a1@(0,%d1:l),%d1
         cmp.b   #DL_PLATE,%d1
-        beq.w   7f
+        beq.w   8f
         cmp.b   #DL_SPRING,%d1
-        beq.w   7f
+        beq.w   8f
         cmp.b   #DL_DARK,%d1
+        beq.w   8f
+0:      move.l  dl_loaded,%d0                   | d3: wanted (used, and the block is not under a stock reverb)
+        btst    %d6,%d0
+        bne.w   6f
+        tst.l   %d3                             | not loaded
         beq.w   7f
         move.l  %a2@(8),%d1                     | the staged block
         move.l  %a2@(12),%d2
         bset    %d6,%d0
         bra.w   arm
+8:      moveq   #0,%d3                          | under a stock reverb: not wanted, and withdrawn if loaded
+        bra.w   0b
 6:      tst.l   %d3                             | loaded
         bne.w   7f
         move.l  %a2@(16),%d1                    | the withdraw message
