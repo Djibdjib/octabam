@@ -3216,8 +3216,8 @@ hostquit:
                 _gx = stock_mod.SLOT_EXTENT[_gk] + 1
                 _gstock[_gk] = (_gid, _gi, _gq, _gx)
                 for _w, _st in (("i", _gi), ("p", _gq)):
-                    _tr[_w].append(f"dw{_w}_{_n}:\n        move    #>${_st:x},x0\n        move    x0,x:>$3ee1\n"
-                               f"        move    #>${_gx:x},x0\n        move    x0,x:>$3ee2\n        bra     {'init' if _w == 'i' else 'proc'}\n")
+                    _tr[_w].append(f"dw{_w}_{_n}:\n        move    #>${_st:x},x0\n        move    x0,x:>$3fd1\n"
+                               f"        move    #>${_gx:x},x0\n        move    x0,x:>$3fd2\n        bra     {'init' if _w == 'i' else 'proc'}\n")
             _gw, _gsyms = assemble_syms(pathlib.Path("modules/dlcopy/dlwrap.asm").read_text().replace("; TRAMPOLINES_I\n", "".join(_tr["i"])).replace("; TRAMPOLINES_P\n", "".join(_tr["p"])),
                                         loader_next, label=f"stock reverb guard {tag}")
             _loader_check(f"reverb guard {tag}", loader_next, len(_gw))

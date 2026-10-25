@@ -8,7 +8,7 @@ import pathlib
 from remix.schema import Category, Detour, Kind, Linked, Module, Proof
 
 RECORDS = pathlib.Path("out/dsp/demand_records.json")
-CAPACITY = 3500                 # code words a block may hold; the table is this size on every link
+CAPACITY = 2600                 # code words a block may hold: the staging area X:0x2906..0x3d55 takes 2 per word; the table is this size on every link
 BLOCK_TRACK = {0: 6, 1: 7, 2: 2, 3: 3}   # window block (address >> 14 & 3) -> the FX2 track whose slot is there (0-based; docs/firmware/DSP.md section 7)
 WIN = 0x30000
 REVERBS = ("PLATE REV", "SPRING REV", "DARK REV")

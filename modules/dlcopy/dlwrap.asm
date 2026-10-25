@@ -14,13 +14,13 @@
 ; dry until it is selected again.
 ;
 ; A trampoline leaves the reverb's stock entry (its init or its proc on this payload)
-; in x:$3ee1 and its extent (one more than the highest word it writes above its base)
-; in x:$3ee2, and enters `init` or `proc`.
+; in x:$3fd1 and its extent (one more than the highest word it writes above its base)
+; in x:$3fd2, and enters `init` or `proc`.
 ;
 ; Per core (X, private), one word per instance at idx = (r7 >> 8) & $3f:
-;   x:$3e00+idx  0 never initialised, 1 running the stock code, 2 dry
-;   x:$3e40+idx  the buffer base the instance was given
-; x:$3ee0 the proc's entry a   x:$3ee1 the stock entry   x:$3ee2 the extent
+;   x:$3f50+idx  0 never initialised, 1 running the stock code, 2 dry
+;   x:$3f90+idx  the buffer base the instance was given
+; x:$3fd0 the proc's entry a   x:$3fd1 the stock entry   x:$3fd2 the extent
 ; Shared (DLCOPY writes the entry of each loaded effect, x:$33da3 + 8 k): +0 BOUND,
 ; +3 and +4 the span [first word, word after the last).
 ; ---------------------------------------------------------------------------
@@ -32,11 +32,11 @@ init:
         asr     #$8,a,a
         and     #>$3f,a
         move    a1,r2
-        move    #>$3e40,x0
+        move    #>$3f90,x0
         add     x0,a
         move    a1,r3
         move    r2,a
-        move    #>$3e00,x0
+        move    #>$3f50,x0
         add     x0,a
         move    a1,r4
         move    x:(r5),x1                ; the buffer base: the entry's contents
@@ -46,7 +46,7 @@ init:
         bne     dw_off
         move    #>$1,x0
         move    x0,x:(r4)                ; running
-        move    x:>$3ee1,r2
+        move    x:>$3fd1,r2
         jmp     (r2)
 dw_off:
         move    #>$2,x0
@@ -55,16 +55,16 @@ dw_off:
 
 ; TRAMPOLINES_P
 proc:
-        move    a1,x:>$3ee0              ; proc is called with a = 0 or 1 in a: kept for the stock proc
+        move    a1,x:>$3fd0              ; proc is called with a = 0 or 1 in a: kept for the stock proc
         move    r7,a
         asr     #$8,a,a
         and     #>$3f,a
         move    a1,r2
-        move    #>$3e40,x0
+        move    #>$3f90,x0
         add     x0,a
         move    a1,r3
         move    r2,a
-        move    #>$3e00,x0
+        move    #>$3f50,x0
         add     x0,a
         move    a1,r4
         move    x:(r4),a
@@ -74,8 +74,8 @@ proc:
         bsr     dw_over
         tst     a
         bne     dw_now
-        move    x:>$3ee0,a
-        move    x:>$3ee1,r2
+        move    x:>$3fd0,a
+        move    x:>$3fd1,r2
         jmp     (r2)
 dw_now:
         move    #>$2,x0
@@ -103,7 +103,7 @@ dw_over:
         move    x:(r5+4),x0
         cmp     x0,a
         bge     dw_skip                  ; the range starts at or after the end of the code
-        move    x:>$3ee2,x0
+        move    x:>$3fd2,x0
         add     x0,a
         move    x:(r5+3),x0
         cmp     x0,a
