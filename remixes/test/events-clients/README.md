@@ -43,5 +43,6 @@ playback: `UNDO PASTE` appeared, but the copied MIX 40 remained when trig 5
 was released and held again; the unheld Part value was 127. The 454.3-second
 panel monitor recorded zero USB fault deltas and no monitor errors. The
 stopped software fixture passes; the difference remains under investigation.
+The stopped physical retest also retained MIX 40 after undo and release/rehold.
 Further edit operations, save/power-cycle and sustained combined transport
 acceptance remain pending.

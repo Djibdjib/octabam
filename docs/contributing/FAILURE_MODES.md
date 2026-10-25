@@ -25,6 +25,11 @@ a mode is seen on hardware.
   underrun and duplicate-bank deltas, no host callback warnings and no
   monitor errors. The software fix is insufficient for this observed
   workflow; the reason for the software/hardware difference remains open.
+  Repeating after STOP, with trig 5 confirmed off before copying/pasting,
+  also left MIX 40 after undo and release/rehold. Playback is therefore
+  not a necessary trigger. Local C03/EUCLID MIX replays clear the lock both
+  stopped and playing, including a stopped run with a 20-second wait
+  between paste and undo; none supersedes the failed physical checks.
 
 ## EVENTS-CLIENTS transport stress reaches silence with healthy frames
 

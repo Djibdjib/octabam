@@ -23,7 +23,13 @@ one and FX1/FX2 page two: empty destination, a different existing lock,
 repeated paste/undo, multiple held destinations and held clear/undo. It checks the entire
 track's restored locks, the source, release behavior and retained native
 trig bits. Releasing between STOP presses starts another paste and is not
-this undo operation. Physical acceptance of the corrected image is pending.
+this undo operation. EVT871E2 failed physical retests both playing and
+stopped: the copied MIX 40 remained after undo and release/rehold, while
+the unheld Part value was 127. The exact playing-test message was
+`UNDO PASTE`. Local C03/EUCLID MIX replays clear the lock in both transport
+states, also with a 20-second paste-to-undo delay while stopped. The cause
+of this software/hardware difference remains open; see the
+[failure register](../../docs/contributing/FAILURE_MODES.md#plocks-trig-paste-undo-keeps-copied-page-two-locks).
 
 The same stock/page-two panel comparison covers track paste/undo and pattern
 copy/paste/clear/undo. In this stopped fixture, stock's pattern paste calls
