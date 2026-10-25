@@ -701,6 +701,8 @@ keeps that unit, so the plan job and the unit jobs must pass the same
 machine, so a unit gets no hits from another. `identity` queues the checks
 of the remixes it names inside its own unit.
 
+The run's summary page has one section per unit (its `check_shards` and `reach` result tables, and the failure excerpts when a gate failed) and the `Gates — make reach` table of units with result, time and a link to each job.
+
 **A green CI run says nothing about a remix unless `Gates — make reach` ran.**
 Building, booting and playing one needs 1.40C, which that job fetches into
 the runner.

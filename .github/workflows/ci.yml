@@ -238,7 +238,29 @@ jobs:
           else
             base="${{ github.event.before }}"
           fi
-          make reach RUN=1 KEEP=1 JOBS=3 BASE="$base" REACHARGS='--only "'"$UNIT"'"'
+          set -o pipefail
+          make reach RUN=1 KEEP=1 JOBS=3 BASE="$base" REACHARGS='--only "'"$UNIT"'"' 2>&1 | tee reach.log
+
+      # the unit's result tables and failure excerpts on the run's summary
+      # page, under its name
+      - name: 📝 Unit Summary
+        if: always()
+        env:
+          UNIT: ${{ matrix.name }}
+        run: |
+          [ -f reach.log ] || exit 0
+          {
+            echo "### 🧪 $UNIT"
+            echo '```'
+            awk '/^check_shards: results/ {p=1} p && /^$/ {p=0} p' reach.log
+            sed -n '/^reach: results/,$p' reach.log
+            echo '```'
+            if grep -qE '^(check_shards: .* failed \(exit|  \| )' reach.log; then
+              echo '```'
+              grep -E '^(check_shards: .* failed \(exit|  \| )' reach.log | head -60
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: 🧮 Check ColdFire Port Built
         id: portdone
@@ -275,14 +297,30 @@ jobs:
       && needs.classify.outputs.reach == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      actions: read
     steps:
       - name: 🧮 Gate Results
         env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
           PLAN: ${{ needs.plan.result }}
           GATES: ${{ needs.gates.result }}
           COUNT: ${{ needs.plan.outputs.count }}
         run: |
           echo "plan: $PLAN, units: $COUNT, gates: $GATES"
+          {
+            echo "### 🧪 Gates"
+            echo "plan: $PLAN, units: $COUNT, gates: $GATES"
+            echo
+            echo "| unit | result | time |"
+            echo "|---|---|---|"
+            gh api "repos/$REPO/actions/runs/$RUN_ID/jobs?per_page=100" --jq '
+              .jobs[] | select(.name | startswith("🧪 Gates — ")) | select(.name != "🧪 Gates — make reach")
+              | "| [\(.name | ltrimstr("🧪 Gates — "))](\(.html_url)) | \(.conclusion // .status) | "
+                + "\(if .completed_at then ((.completed_at | fromdateiso8601) - (.started_at | fromdateiso8601)) else 0 end) s |"' || true
+          } >> "$GITHUB_STEP_SUMMARY"
           [ "$PLAN" = success ] || exit 1
           [ "$GATES" = success ] || { [ "$COUNT" = 0 ] && [ "$GATES" = skipped ]; }
 
