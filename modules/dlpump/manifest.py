@@ -21,7 +21,7 @@ def table_inc(modules, remix):
     link has the words and the same size."""
     from remix import stock
     recs = json.loads(RECORDS.read_text()) if RECORDS.is_file() else {}
-    keys = [key for key, _ in remix.window_demand]
+    keys = list(remix.window_demand)
     rows = [f"        .equ    DL_N, {len(keys)}"]
     for key in REVERBS:
         rows.append(f"        .equ    DL_{key.split()[0]}, 0x{stock.BY_KEY[key].menu.fx2_id:02x}")

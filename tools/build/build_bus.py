@@ -143,45 +143,18 @@ _BOUND = remix_registry.bound(REMIX)
 # and both payloads' dispatch entries for its id point at it.
 WINDOW = dict(REMIX.window)
 WINDOW_KEYS = {_k.removesuffix(":B") for _k in WINDOW}   # modules with window code; "KEY:B" is payload B's own copy
-DEMAND = {_dk: (_i, _da) for _i, (_dk, _da) in enumerate(REMIX.window_demand)}   # key -> (index k, stub address)
+DEMAND = {_dk: _i for _i, _dk in enumerate(REMIX.window_demand)}      # key -> index k
 if len(DEMAND) > 4:
     sys.exit(f"Remix.window_demand: {len(DEMAND)} effects; the entry table at x:$33da3 holds 4")
-# One effect's overlap test in the wrapper template: x:$33da3 + 8 k is its BOUND, +3 and +4 its span.
-_GUARD_ENTRY = """        move    x:>$33da3,a
-        move    #>$b0a5ed,x0
-        cmp     x0,a
-        bne     dwk0
-        move    x1,a
-        move    x:>$33da7,x0
-        cmp     x0,a
-        bge     dwk0                     ; the range starts at or after the end of the code
-        move    #>EXTENT,x0
-        add     x0,a
-        move    x:>$33da6,x0
-        cmp     x0,a
-        bgt     dw_yes                   ; the range ends after the start of the code
-dwk0:
-"""
-
-
-def _guard_entry(k):
-    base = 0x33DA3 + 8 * k
-    return (_GUARD_ENTRY.replace("$33da7", f"${base + 4:x}").replace("$33da6", f"${base + 3:x}")
-            .replace("$33da3", f"${base:x}").replace("dwk0", f"dwk{k}"))
-
-
-GUARD = {_gk: {"A": _ga, "B": _gb} for _gk, _ga, _gb in REMIX.window_guard}
-for _gk, _gp in GUARD.items():
-    if _gk not in stock_mod.SLOT_EXTENT or _gk not in REMIX.modules:
-        sys.exit(f"Remix.window_guard names {_gk!r}, which is not a stock buffered reverb the remix carries")
-    for _gt, _ga in _gp.items():
-        if not 0x30000 <= _ga < 0x40000:
-            sys.exit(f"Remix.window_guard: {_gk}'s payload {_gt} wrapper at P:0x{_ga:05x} is outside the shared window")
-for _dk, (_di, _da) in DEMAND.items():
+for _dk in DEMAND:
     if _dk not in WINDOW:
         sys.exit(f"Remix.window_demand names {_dk!r}, which Remix.window does not place")
-    if not 0x30000 <= _da < 0x40000:
-        sys.exit(f"Remix.window_demand: {_dk}'s stub at P:0x{_da:05x} is outside the shared window")
+GUARD = list(REMIX.window_guard)
+for _gk in GUARD:
+    if _gk not in stock_mod.SLOT_EXTENT or _gk not in REMIX.modules:
+        sys.exit(f"Remix.window_guard names {_gk!r}, which is not a stock buffered reverb the remix carries")
+if (DEMAND or GUARD) and not 0x30000 <= REMIX.window_loader < 0x40000:
+    sys.exit("Remix.window_demand / window_guard need Remix.window_loader: a P address in the shared window")
 for _wk, _wa in WINDOW.items():
     if _wk.removesuffix(":B") not in REMIX.modules:
         sys.exit(f"Remix.window names {_wk!r}, which the remix does not carry")
@@ -2499,6 +2472,32 @@ mkgo:""",
     tail_records = {}           # {payload: [P start, words]}: the tail's record
     window_records = {}         # {module key: (P start, words)}: Remix.window's records, payload A's upload
     demand_syms = {}            # {module key: (init, proc)}: entries of the Remix.window_demand records
+    loader_next = REMIX.window_loader    # where the next loader piece goes
+
+    def _loader_check(label, at, n):
+        """A loader piece must stay in the window, clear of every other owner and of the records so far."""
+        if at + n > 0x40000:
+            sys.exit(f"{label}: P:0x{at:05x}..0x{at + n:05x} runs past the shared window")
+        for _o in dsp_ranges.owners(remix_registry.selected(REMIX)):
+            if _o.domain == "shared" and _o.start < at + n and at < _o.end:
+                sys.exit(f"{label}: P:0x{at:05x}..0x{at + n:05x} overlaps {_o.owner}'s {_o.what}")
+        for _on, (_oa, _ow) in window_records.items():
+            if _oa < at + n and at < _oa + len(_ow):
+                sys.exit(f"{label} and {_on} overlap in the shared window")
+        if at < 0x30000 + min((_a for _k, _a in WINDOW.items() if _k.removesuffix(":B") not in DEMAND), default=0x40000) - 0x30000:
+            sys.exit(f"{label}: P:0x{at:05x} is below the lowest uploaded window word; payload A's boot zero loop "
+                     f"would wipe it")
+    stub_syms = {}
+    if DEMAND:
+        # one stub body for every demand effect; INIT[id] is `init`, PROCESS[id] a trampoline that names the entry
+        _tr = "".join(f"dls_p{k}:\n        move    #>${0x33DA3 + 8 * k:x},x0\n        move    x0,x:>$3f4c\n        bra     proc\n"
+                      for k in DEMAND.values())
+        _sw, stub_syms = assemble_syms(pathlib.Path("modules/dlcopy/dlstub.asm").read_text().replace("; TRAMPOLINES\n", _tr),
+                                       loader_next, label="demand stub")
+        _loader_check("demand stub", loader_next, len(_sw))
+        window_records["demand stub"] = (loader_next, list(_sw))
+        print(f"  demand stub   P:0x{loader_next:05x}..0x{loader_next + len(_sw):05x} ({len(_sw)} words)")
+        loader_next += len(_sw)
     guard_records = {}          # {"KEY:payload": addresses}: the wrappers of Remix.window_guard
     pathlib.Path("out/dsp/demand_records.json").unlink(missing_ok=True)   # DLPUMP's table reads it after this stage
     for tag, va, ln in PAYLOADS:
@@ -2545,7 +2544,8 @@ mkgo:""",
             # lowest window address, which leaves the words above it, and the same number at
             # the end of Y:0x4000..0xBFFF, unzeroed on core 0. Payload B's loop (widened above)
             # clears 0x37F00 up, so the mailbox and the tail of A's half stay zeroed.
-            _zn = min(WINDOW.values()) - 0x30000
+            # (a Remix.window_demand effect is not uploaded, so its address does not stop the loop)
+            _zn = min(_a for _k, _a in WINDOW.items() if _k.removesuffix(":B") not in DEMAND) - 0x30000
             _zl = 0x30000 + _zn
             from remix import dsp_ranges as _dr2
             for _o in _dr2.owners(remix_registry.selected(REMIX)):
@@ -3202,36 +3202,35 @@ hostquit:
                 sys.exit(f"XTABLE: {name} has a table but no p:( read of it")
             return "\n".join(out), n
 
-        for _gk, _gp in GUARD.items():
-            # a stock reverb kept off loaded code: its id's entries point at a wrapper (modules/dlcopy/dlwrap.asm)
-            _gid = stock_mod.BY_KEY[_gk].menu.fx2_id
-
+        if GUARD:
+            # the stock reverbs kept off loaded code: their ids' entries point at trampolines of one wrapper
+            # (modules/dlcopy/dlwrap.asm) assembled for this payload
             def _rdx(a):
                 buf, i = (_virt, a - idspace.VIRT) if (_virt is not None and a >= idspace.VIRT) else (img, a - BASE)
                 return buf[i] | (buf[i + 1] << 8) | (buf[i + 2] << 16)
 
-            _gi, _gq = _rdx(pp["xtab"] + _gid * 3), _rdx(pp["xtab"] + (PROC_OFF + _gid) * 3)
-            _gsrc = pathlib.Path("modules/dlcopy/dlwrap.asm").read_text()
-            _gblk = "".join(_guard_entry(k) for k in range(len(DEMAND)))
-            _gsrc = (_gsrc.replace("; ENTRIES\n", _gblk).replace("STOCKINIT", f"${_gi:x}")
-                     .replace("STOCKPROC", f"${_gq:x}").replace("EXTENT", f"${stock_mod.SLOT_EXTENT[_gk] + 1:x}"))
-            _gw, _gsyms = assemble_syms(_gsrc, _gp[tag], label=f"{_gk} guard {tag}")
-            _gkey = f"{_gk} guard {tag}"
-            if _gkey not in window_records:
-                for _o in dsp_ranges.owners(remix_registry.selected(REMIX)):
-                    if _o.domain == "shared" and _o.start < _gp[tag] + len(_gw) and _gp[tag] < _o.end:
-                        sys.exit(f"{_gkey}: P:0x{_gp[tag]:05x}..0x{_gp[tag] + len(_gw):05x} overlaps "
-                                 f"{_o.owner}'s {_o.what}")
-                for _on, (_oa, _ow) in window_records.items():
-                    if _oa < _gp[tag] + len(_gw) and _gp[tag] < _oa + len(_ow):
-                        sys.exit(f"{_gkey} and {_on} overlap in the shared window")
-                window_records[_gkey] = (_gp[tag], list(_gw))
-            wrw_p(pp["xtab"] + _gid * 3, _gsyms["init"])
-            wrw_p(pp["xtab"] + (PROC_OFF + _gid) * 3, _gsyms["proc"])
-            guard_records[f"{_gk}:{tag}"] = {"addr": _gp[tag], "init": _gsyms["init"], "proc": _gsyms["proc"],
-                                             "stock_init": _gi, "stock_proc": _gq,
-                                             "extent": stock_mod.SLOT_EXTENT[_gk] + 1}
-            print(f"  {_gk:13} guard  P:0x{_gp[tag]:05x} ({len(_gw):3} words)  stock init P:0x{_gi:05x} proc P:0x{_gq:05x}  extent 0x{stock_mod.SLOT_EXTENT[_gk] + 1:x}")
+            _tr, _gstock = {"i": [], "p": []}, {}
+            for _n, _gk in enumerate(GUARD):
+                _gid = stock_mod.BY_KEY[_gk].menu.fx2_id
+                _gi, _gq = _rdx(pp["xtab"] + _gid * 3), _rdx(pp["xtab"] + (PROC_OFF + _gid) * 3)
+                _gx = stock_mod.SLOT_EXTENT[_gk] + 1
+                _gstock[_gk] = (_gid, _gi, _gq, _gx)
+                for _w, _st in (("i", _gi), ("p", _gq)):
+                    _tr[_w].append(f"dw{_w}_{_n}:\n        move    #>${_st:x},x0\n        move    x0,x:>$3ee1\n"
+                               f"        move    #>${_gx:x},x0\n        move    x0,x:>$3ee2\n        bra     {'init' if _w == 'i' else 'proc'}\n")
+            _gw, _gsyms = assemble_syms(pathlib.Path("modules/dlcopy/dlwrap.asm").read_text().replace("; TRAMPOLINES_I\n", "".join(_tr["i"])).replace("; TRAMPOLINES_P\n", "".join(_tr["p"])),
+                                        loader_next, label=f"stock reverb guard {tag}")
+            _loader_check(f"reverb guard {tag}", loader_next, len(_gw))
+            window_records[f"guard {tag}"] = (loader_next, list(_gw))
+            print(f"  reverb guard  P:0x{loader_next:05x}..0x{loader_next + len(_gw):05x} ({len(_gw)} words)")
+            loader_next += len(_gw)
+            for _n, _gk in enumerate(GUARD):
+                _gid, _gi, _gq, _gx = _gstock[_gk]
+                wrw_p(pp["xtab"] + _gid * 3, _gsyms[f"dwi_{_n}"])
+                wrw_p(pp["xtab"] + (PROC_OFF + _gid) * 3, _gsyms[f"dwp_{_n}"])
+                guard_records[f"{_gk}:{tag}"] = {"init": _gsyms[f"dwi_{_n}"], "proc": _gsyms[f"dwp_{_n}"],
+                                                 "stock_init": _gi, "stock_proc": _gq, "extent": _gx}
+                print(f"  {_gk:13} guard  stock init P:0x{_gi:05x} proc P:0x{_gq:05x}  extent 0x{_gx:x}")
         for name, src in plan:
             if name in WINDOW_KEYS and (name in WINDOW or tag == "B"):
                 # ---- IN THE SHARED WINDOW (schema.Remix.window): assembled once at its
@@ -3303,20 +3302,7 @@ hostquit:
                     sys.exit(f"payload {tag}: {name} has no init/proc labels")
                 if name in DEMAND:
                     # the id's dispatch entries point at the stub; the real code is loaded on demand
-                    _sk, _sa = DEMAND[name]
-                    _ssrc = re.sub(r"\$33da([345])", lambda m: f"${0x33DA3 + 8 * _sk + int(m.group(1)) - 3:x}",
-                                   pathlib.Path("modules/dlcopy/dlstub.asm").read_text())
-                    _sw, _ssyms = assemble_syms(_ssrc, _sa, label=name + " stub")
-                    if name + " stub" not in window_records:
-                        for _o in dsp_ranges.owners(remix_registry.selected(REMIX)):
-                            if (_o.domain == "shared" and _o.start < _sa + len(_sw) and _sa < _o.end):
-                                sys.exit(f"{name}'s stub: P:0x{_sa:05x}..0x{_sa + len(_sw):05x} overlaps "
-                                         f"{_o.owner}'s {_o.what}")
-                        for _on, (_oa, _ow) in window_records.items():
-                            if _oa < _sa + len(_sw) and _sa < _oa + len(_ow):
-                                sys.exit(f"{name}'s stub and {_on} overlap in the shared window")
-                        window_records[name + " stub"] = (_sa, list(_sw))
-                    init_a, proc_a = _ssyms["init"], _ssyms["proc"]
+                    init_a, proc_a = stub_syms["init"], stub_syms[f"dls_p{DEMAND[name]}"]
                 wrw_p(pp["xtab"] + NEW_IDS[name] * 3, init_a)
                 wrw_p(pp["xtab"] + (PROC_OFF + NEW_IDS[name]) * 3, proc_a)
                 if name == REMIX.fallback:

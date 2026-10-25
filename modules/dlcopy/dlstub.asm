@@ -1,19 +1,22 @@
 ; ---------------------------------------------------------------------------
-; DLSTUB -- the lazy-binding stub in front of one demand-loaded effect
-; (docs/proposals/DEMAND_LOAD.md).
+; DLSTUB -- the lazy-binding stub in front of the demand-loaded effects
+; (docs/proposals/DEMAND_LOAD.md). One body serves them all; the build adds a
+; trampoline per effect where the marker below is.
 ;
-; The dispatch tables point this effect's id here. While the real code is not
-; resident the stub passes the audio through (the stock null stub's loop). Once
-; the copier (DLCOPY) has published the code, each instance runs the real init
-; once, with the proc's registers kept, and from then on jumps to the real proc.
-; Every path that selects an effect ends in INIT[id] and PROCESS[id], so nothing
-; on the ColdFire side has to guard the setters.
+; Each effect's id dispatches to the stub. While the real code is not resident the
+; stub passes the audio through (the stock null stub's loop). Once DLCOPY has
+; published the code, each instance runs the real init once, with the proc's
+; registers kept, and from then on jumps to the real proc. Every path that selects
+; an effect ends in INIT[id] and PROCESS[id], so nothing on the ColdFire side has to
+; guard the setters.
 ;
-; The effect's entry in the window, x:$33da3 + 8 k (k = 0 here; DLCOPY writes it):
-;   x:$33da3  BOUND  $b0a5ed when the code is resident, anything else if not
-;   x:$33da4  the real init   x:$33da5  the real proc
+; INIT[id] is `init` for every effect (it only clears the instance's flag).
+; PROCESS[id] is the effect's trampoline, which leaves the effect's entry address in
+; x:$3f4c and enters `proc`. The entry, x:$33da3 + 8 k (DLCOPY writes it):
+;   +0 BOUND  $b0a5ed when the code is resident, anything else if not
+;   +1 the real init   +2 the real proc
 ; Per core (X, private): x:$3f00..$3f3f one word per instance, 1 once its init
-; has run; x:$3f40..$3f4b the registers kept across the init and the entry a.
+; has run; x:$3f40..$3f4c the registers kept across the init, the entry a and the entry.
 ; ---------------------------------------------------------------------------
 
 init:
@@ -27,9 +30,11 @@ init:
         move    a,x:(r2)                 ; this instance has not run the real init
         rts
 
+; TRAMPOLINES
 proc:
         move    a1,x:>$3f4b              ; proc is called with a = 0 or 1 in a: kept for the real code
-        move    x:>$33da3,a
+        move    x:>$3f4c,r2
+        move    x:(r2),a
         move    #>$b0a5ed,x0
         cmp     x0,a
         bne     dl_pass
@@ -50,7 +55,8 @@ proc:
         move    n7,x:>$3f44
         move    m0,x:>$3f45
         move    m1,x:>$3f46
-        move    x:>$33da4,r2
+        move    x:>$3f4c,r2
+        move    x:(r2+1),r2
         jsr     (r2)
         move    x:>$3f40,r0
         move    x:>$3f41,n0
@@ -64,7 +70,8 @@ proc:
         move    x0,x:(r2)
 dl_run:
         move    x:>$3f4b,a
-        move    x:>$33da5,r2
+        move    x:>$3f4c,r2
+        move    x:(r2+2),r2
         jmp     (r2)
 dl_pass:
         move    r0,r1
