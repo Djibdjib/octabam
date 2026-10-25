@@ -143,6 +143,9 @@ _BOUND = remix_registry.bound(REMIX)
 # and both payloads' dispatch entries for its id point at it.
 WINDOW = dict(REMIX.window)
 WINDOW_KEYS = {_k.removesuffix(":B") for _k in WINDOW}   # modules with window code; "KEY:B" is payload B's own copy
+for _dk in REMIX.window_demand:
+    if _dk not in WINDOW:
+        sys.exit(f"Remix.window_demand names {_dk!r}, which Remix.window does not place")
 for _wk, _wa in WINDOW.items():
     if _wk.removesuffix(":B") not in REMIX.modules:
         sys.exit(f"Remix.window names {_wk!r}, which the remix does not carry")
@@ -2459,6 +2462,7 @@ mkgo:""",
     dev_delay = None            # (words) for the .mem dump append, DEV only
     tail_records = {}           # {payload: [P start, words]}: the tail's record
     window_records = {}         # {module key: (P start, words)}: Remix.window's records, payload A's upload
+    demand_syms = {}            # {module key: (init, proc)}: entries of the Remix.window_demand records
     for tag, va, ln in PAYLOADS:
         pp = PP[tag]
         mods, _ = modules(bytes(img), va, ln)
@@ -3206,6 +3210,7 @@ hostquit:
                         if _oa < _wa + len(_ww) and _wa < _oa + len(_ow):
                             sys.exit(f"{name} and {_on} overlap in the shared window")
                     window_records[_wk] = (_wa, _ww)
+                    demand_syms[_wk] = (_wsyms.get("init"), _wsyms.get("proc"))
                 for _h in _wd.hooks:
                     # the two stock words become `jsr >label`, a 24-bit address (schema.DspHook)
                     if not _h.on(tag):
@@ -3875,6 +3880,17 @@ hostquit:
                  f"payload {', '.join(sorted(set(tail_records) | ({'A'} if window_records else set())))}'s -- take one")
     # The window's records are not in the OS image's payload: tools/build/dsp_modmap.py's memory
     # dumps (every gate that runs an effect in dsp_host) read them from here and append them.
+    # Remix.window_demand records are loaded at run time by the ColdFire, not uploaded at boot.
+    demand_records = {k: window_records.pop(k) for k in list(window_records)
+                      if k in REMIX.window_demand}
+    _df = pathlib.Path("out/dsp/demand_records.json")
+    if demand_records:
+        _df.parent.mkdir(parents=True, exist_ok=True)
+        _df.write_text(json.dumps({k: {"addr": a, "words": list(w), "init": demand_syms[k][0],
+                                       "proc": demand_syms[k][1]}
+                                   for k, (a, w) in demand_records.items()}))
+    else:
+        _df.unlink(missing_ok=True)
     _wf = pathlib.Path("out/dsp/window_records.json")
     if window_records:
         _wf.parent.mkdir(parents=True, exist_ok=True)
