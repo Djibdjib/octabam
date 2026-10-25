@@ -71,6 +71,52 @@ first.
    `python3 tools/hw/ot_matrix.py report <report.json> ...` prints a Markdown
    table. The flags are explained in [HARDWARE_MATRIX.md](HARDWARE_MATRIX.md).
 
+## Measuring a module's processor cost
+
+**Static, no unit.** `make cycles REMIX=<remix>` counts each module's per-sample
+loop in DSP cycles (`tools/build/cycle_count.py`). It is a floor: memory
+contention is not modelled, and a hook-only section is not priced.
+`dsp_host -meter FILE` writes per-block instruction counts per core from a
+render. Use both to decide whether a module is worth flashing; neither gives the
+unit's busy figure.
+
+**On the unit** (an image with LOAD METER: `octabam-inserts`, `octabam-bus`).
+`ot_matrix.py plan <remix>` lists a single-effect layout per module and
+setting, `<MODULE> FX1 def`, `<MODULE> FX2 def`, `dear`, and each mode. Each puts
+that effect on all eight tracks in one slot, so each core carries four
+instances. Run them and compare with BASE (no effect):
+
+```
+cost per slot  =  (DSP busy of the layout - DSP busy of BASE) / 4        per core
+```
+
+`ot_matrix.py run` prints `dsp <core 0>/<core 1>` for every layout. Worked
+example, stock DJ EQ: BASE 22.5 / 14.9 %, `DJ EQ FX2 def` 51.7 / 44.1 %,
+so (51.7 - 22.5) / 4 = 7.30 % per slot on core 0 and (44.1 - 14.9) / 4 = 7.30 %
+on core 1. Readings are to 0.1 point of busy, so a per-slot figure is good to
+about 0.03 point.
+
+- **Budget.** A core has eight effect slots (four tracks, FX1 and FX2). At the 95 %
+  limit an effect that may sit in every slot has `(95 - BASE) / 8` per slot:
+  9.07 % on core 0 and 10.0 % on core 1 with BASE at 22.4 / 14.9 %.
+- **Which numbers to compare.** The same effect costs the same on core 0 and core 1
+  and in FX1 or FX2 to 0.1 point; a difference larger than that is a finding.
+- **Each setting separately.** An effect with modes costs differently per mode, and a
+  `dear` setting can cost more than the default. Run every mode with and
+  without `dear`.
+- **Per-slot counts.** `report.json` has `load.slots`: `mean_counts` per slot in
+  timer-0 counts (36,256 to a frame). An empty slot reads about 76 counts, which is
+  the hook's own cost.
+- **Combinations.** `ot_matrix.py predict` adds the single-slot costs to rank pair
+  and split layouts (see [HARDWARE_MATRIX.md](HARDWARE_MATRIX.md), "Predicting the
+  combinations"); run the heaviest on the unit before relying on the sum, and not
+  one predicted at 100 % or more.
+- **What it does not show.** The ColdFire's share is the frame interrupt's
+  (`cf` in the run output). An effect that runs on the ColdFire, like stock DELAY,
+  reads 0 on the DSP and is not priced here.
+- **Results so far.** The stock effects' per-slot costs are in
+  [HARDWARE_MATRIX.md](HARDWARE_MATRIX.md), "Tests not yet run", item 1.
+
 ## Stress sequences
 
 `python3 tools/hw/ot_fuzz.py gen <seed> <out.json> --profile mix --minutes 10 --layouts <n>`
