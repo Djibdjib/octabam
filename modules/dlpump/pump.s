@@ -13,7 +13,8 @@
 | (0x800000e0, flipped once per frame) is 1 is lost, and one started at ping 0
 | arrives whole (tools/verify/verify_dlpump.py, a chunk of 100 words on each
 | frame of both phases, core B). The pump therefore sends on ping-0 frames only.
-| Whether the unit loses the same frames is open.
+| Whether the unit loses the same frames is open. The PHASE build setting ANY sends on every
+| frame (remixes/test/dl-probe-any), to measure it: the copier's sum check counts what arrives.
 |
 | State, set by whoever arms the pump (dl_state last):
 |   dl_core  0 = core A, 1 = core B
@@ -42,9 +43,11 @@
 dl_pump:
         move.l  dl_state,%d0
         beq.w   idle
+        .if     PHASE_ANY == 0
         moveq   #PING,%d1
         cmp.l   0x800000e0,%d1                  | the frame's ping word
         bne.w   9f
+        .endif
         move.l  dl_core,%d4
         subq.l  #1,%d0
         bne.w   2f
@@ -84,9 +87,11 @@ dl_pump:
 | under a stock reverb) or a withdrawal (loaded and used by no track). Whoever holds a block
 | keeps it: a loaded effect is not withdrawn for a reverb, and a reverb is not moved for an effect.
 idle:
+        .if     PHASE_ANY == 0
         moveq   #PING,%d1
         cmp.l   0x800000e0,%d1
         bne.w   9b
+        .endif
         move.l  dl_rwait,%d0                    | a load is sent twice: the second copy replaces one the DSP
         beq.w   4f                              | refused for its checksum
         subq.l  #1,%d0

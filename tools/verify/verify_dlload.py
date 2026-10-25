@@ -135,7 +135,7 @@ def main():
         lines.append(f"{a.ms} quit")
         (OUT / f"{tag}.script").write_text("\n".join(lines) + "\n")
         dump = OUT / f"{tag}_ids.bin"
-        peeks = ";".join(f"{c}:X:{STAGE:x},1;{c}:X:{0x33DA3 + 8 * k:x},5;{c}:P:{r['addr']:x},{len(r['words'])}"
+        peeks = ";".join(f"{c}:X:{STAGE:x},1;{c}:X:{0x33DA3 + 8 * k:x},8;{c}:P:{r['addr']:x},{len(r['words'])}"
                          for c in (0, 1) for k, r in enumerate(recs))
         cmd = [EMU, "--image", image, "--card", card, "--set", a.set_name, "--project", a.name, "--load-ms", "90000",
                "--mkii", "--dsp", "--frame", "--live-script", OUT / f"{tag}.script", "--dsp-peek", peeks,
@@ -166,7 +166,10 @@ def main():
         for c in (1, 0):
             entry = peek("used", c, "X", 0x33DA3 + 8 * k)
             check(f"core {c}: {r['key']} is bound with its entries and span",
-                  entry == [0xB0A5ED, r["init"], r["proc"], r["addr"], r["addr"] + n], f"{[hex(w) for w in entry]}")
+                  entry[:5] == [0xB0A5ED, r["init"], r["proc"], r["addr"], r["addr"] + n], f"{[hex(w) for w in entry]}")
+            if c == 1:
+                check(f"{r['key']}: the copier counted two blocks received, none refused, two published (DLPROBE's counters)",
+                      entry[5:8] == [2, 0, 2], f"{entry[5:8]}")
             code = peek("used", c, "P", r["addr"])
             check(f"core {c}: {r['key']}'s code is in the window, every word", code == r["words"],
                   f"{len(code)} of {n} words read")
