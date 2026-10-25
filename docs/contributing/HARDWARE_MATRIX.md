@@ -5,6 +5,7 @@ nothing else: program change over USB MIDI selects a layout, MIDI START and a
 host clock play it, the unit's USB audio stream is the capture, and LOAD METER
 (vendor request `0xc0/0x57`) is the load readout. First run 24 Oct 2026
 (`octabam-bus`, image A1, 28 layouts, about 10 minutes, no crash or freeze).
+A step-by-step session guide is [HARDWARE_TESTING.md](HARDWARE_TESTING.md).
 Tools: `tools/hw/ot_matrix.py`, `ot_stimuli.py`, `load_meter.py`,
 `usb_transport_probe.py`, `usb_counters.py`. What none of it proves is under
 "Limits".

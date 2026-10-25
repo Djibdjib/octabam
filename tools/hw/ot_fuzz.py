@@ -12,8 +12,8 @@ STOP at any moment, a MIDI clock whose tempo moves, the crossfader (CC 48) swept
 A / B select (CC 55, 56), track mutes and levels, FX page-1 knobs. The same SEED gives the same
 sequence; `run` sends it with the recorded timing and, every 0.5 s, checks that the DSP's frame
 count advances, the frame interrupt keeps its rate and LOAD METER's bad records stay near zero,
-that the MIDI and audio endpoints are still there and the audio level has not gone dead for 3 s
-while the transport plays. It stops on the first failure and writes out/hw/fuzz/LABEL/failure.json
+that the MIDI and audio endpoints are still there and, with at least three tracks unmuted by the
+sequence, the audio rms over 3 s has not fallen below -80 dB while the transport plays. It stops on the first failure and writes out/hw/fuzz/LABEL/failure.json
 with the operation index, the last 40 operations and the unit's state, so `run SEQ.json LABEL
 --until INDEX` replays up to it. The unit has to be power-cycled after a failure.
 
