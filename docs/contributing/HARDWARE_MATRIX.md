@@ -257,12 +257,14 @@ note-ons are put on a step grid and fitted against the landing step and two posi
   landing, 9 at a program change that arrived within 0.03 s of a step boundary. No multi-step disorder. Note times
   within -0.06 to +0.18 steps of the 125 ms grid. ColdFire: mean 104.9 us (median), longest run 145 us median, 204
   p95, 253 max; share 28.9 % median, 29.4 % max.
-- **Observed, not measured** (Sam, 25 Oct 2026, during that run): the trig indicator on the sequencer page lagged
-  and jumped on some program changes in the burst, not continuously. The MIDI track 1 notes show no corresponding
-  stall or shift. The LCD was not captured; the toggle-off run with the same sequence has not been done.
+- **Observed, not measured** (Sam, 25 Oct 2026, during that run): the trig indicator lagged and jumped on some
+  program changes in the burst, not continuously. The MIDI track 1 notes show no corresponding stall or shift. Which
+  display element it is has not been established: the playhead is shown by the trig keys' running light
+  (`docs/site/usage/trackpatterns.md`), and whether the LCD has an indicator is unchecked. The display was not
+  captured; the toggle-off run with the same sequence has not been done.
 - Not done: Kits in play, MIDI tracks other than 1, tempo changes, scale and length differences between the
-  patterns, `switch` load and gaps at the jump, the toggle-off run of seed 2601, the trig indicator column of the
-  LCD under the port.
+  patterns, `switch` load and gaps at the jump, the toggle-off run of seed 2601, the trig key LED rows under the
+  port's panel link.
 
 ## Flags
 
