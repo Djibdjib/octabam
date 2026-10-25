@@ -610,12 +610,14 @@ Entries from here to the end of the file (5 Oct 2026) were recorded in other doc
 - **Fix:** none. `ot_matrix.py` flags OVERLOAD (the frame interrupt under 80 % of 2,756 a second) and stops the run; `predict` leaves layouts predicted at 100 % or more out unless `--include-overload` is given.
 - **To find out:** whether a power-cycle clears it (expected); what BRAIN > LOG > EVENTS recorded; whether the unit recovers when the load drops below the budget without a power-cycle; where between 98.8 and 105 % it starts.
 
-## A Kit's MODULATION FX2 mode2 + dear plays digital silence while the DSP runs it 🔴 open
+## The T1 audio goes silent after a sequence of program changes, crossfader moves and CCs at 125 BPM 🔴 open
 
-- **Seen:** Sam's MKII, image I4 (`octabam-inserts` with MODULATION 26520d6e and the frame-count fix), 25 Oct 2026, project `MXKIT_ROT1` (Kits migrated from the Parts, then every pattern pointed one Kit along, `ot_kits.py rotate 1`). A 56-minute `ot_fuzz.py` `mix` sequence (seed 21) stopped at 719.5 s: the audio silent for 3 s while the transport played. The replay stopped at 719.0 s. Layout 21 played alone (`ot_matrix.py run --only 20-23`): rms -138.5 dB with FREEZE, DSP busy 58.3 / 50.7 % (the figure of MODULATION mode2); layouts 20, 22 and 23 had audio. Pattern 21 plays Kit 22 there (mode2 + dear).
-- **Not seen:** the same layouts in `MXKIT_IDENT` (each pattern plays its own Kit), same image: layout 21 -41.6 dB, layout 22 -39.0 dB; and in `MXMOD01` (no Kits), mode2 -41.8 dB.
-- **Not established:** whether the Kit load alone causes it or the transition from the previous Kit's state (layout 20 played mode2 content immediately before).
-- **Cause:** open. **Check:** `ot_matrix.py run MXKIT_ROT1 LABEL --only 21` (layout 21 after BASE only), then 20-21.
+- **Seen:** Sam's MKII, image I4 (`octabam-inserts` with MODULATION 26520d6e and the frame-count fix), 25 Oct 2026, project `MXKIT_ROT1` (Kits migrated from the Parts, every pattern pointed one Kit along, `ot_kits.py rotate 1`). `ot_fuzz.py` `mix` sequence, seed 21 (`~/octa/matrix/fuzzkit_seed21_mix56.json`): the audio on USB channels 0/1 (track 1 pre-fader, TRACKS PRE) stopped at about 716 s and the check failed at 719.0 to 719.5 s ("silent for 3 s while the transport plays"). Three runs failed at ops 951, 948 and 949, the third after a fresh project load. LOAD METER read healthy afterwards (frame count advancing, `bad` 2): the DSP kept running.
+- **State at 707.6 s (the transport start before the failure):** 125 BPM; crossfader CC48 = 15, scene A CC55 = 76, scene B CC56 = 11; 59 other CC values set earlier. The program changes before it: layout 2 at +1.6 s, layout 4 (program 16) at +2.3 s, layout 21 (program 81) at +3.1 s, taking effect at the pattern end.
+- **Reproduced short:** `~/octa/matrix/state707_l21.json` sends the 59 CCs' final values and the tempo, then START and those three program changes: fails at 16 s.
+- **Not reproduced:** layout 21 alone or after layout 20 on a freshly loaded `MXKIT_ROT1` (audible, -39.4 and -40.4 dB); T1's six knob CCs alone then layout 21 (no failure in 51 s); the same layouts in `MXKIT_IDENT` or `MXMOD01`.
+- **Not established:** which of the CC values or the tempo is needed. The earlier reading of -138.5 dB for layout 21 (an `ot_matrix.py run --only 20-23`) was taken after a stress run, on the unit's changed in-memory state, and is not evidence about Kits.
+- **Cause:** open. **Check:** reload the project, then the short sequence with groups of the CCs.
 
 ## The DSP's frame count stops while the ColdFire and USB keep running 🟡 idle stop fixed in LOAD METER; the stops under overload are open (a power-cycle cleared each so far)
 
