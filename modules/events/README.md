@@ -5,20 +5,12 @@ declare `requires=('EVENTS',)` and register only the events they consume.
 EUCLID uses transport notifications. PLOCKS P2 uses held-edit ownership and
 copy notifications. The module adds no controls, persistent data or FX slots.
 
-This replaces **SEQUENCER EVENTS** and **EDIT EVENTS**. Existing remix selections
-must replace either old key with `EVENTS` (once if both were selected).
-No client storage format or musical policy changes here.
-
 ## Native boundaries and saved data
 
-The hook sites come from the preceding
-[SEQUENCER EVENTS](https://github.com/sambanks/octabam/blob/051508cce237159d40d08e7e8f9043b2432af9da/modules/sequencer-events/manifest.py)
-and [EDIT EVENTS](https://github.com/sambanks/octabam/blob/051508cce237159d40d08e7e8f9043b2432af9da/modules/edit-events/manifest.py)
-implementations. Their 25 sites retain the expected stock 1.40C instructions,
-detour kinds and overwritten widths. Two additional address-load sites,
-`0x40029550` and `0x4002a426`, cover track-lock snapshot/restore for trig undo.
-The installer checks those instructions against the user's stock image before patching; selection determines
-which sites are actually installed.
+The installer checks each hook site's expected stock 1.40C instructions,
+detour kind and overwritten width against the user's image before patching.
+Selection determines which sites are installed. The address-load sites
+`0x40029550` and `0x4002a426` cover track-lock snapshot/restore for trig undo.
 
 | Contract | Stock boundary and continuation |
 | --- | --- |
@@ -115,33 +107,26 @@ client pays one direct callback call; each additional notification client adds
 argument reloads and one call. Code size grows linearly with subscriber count;
 stack depth stays constant. This favors small, fixed firmware compositions.
 
-The assembled editor fixture measures the following instruction counts,
+The assembled event fixtures measure the following instruction counts,
 excluding the entry instruction and client/native bodies. Held fallthrough
 includes the two displaced native prologue instructions:
 
-| Clients | Previous copy dispatcher | EVENTS copy | Previous held fallthrough | EVENTS held fallthrough |
+| Clients | Copy dispatcher | Held fallthrough | Transport dispatcher | Accepted-MIDI dispatcher |
 | --- | ---: | ---: | ---: | ---: |
-| 0 | 29 | 0 | 16 | 2 (stock prologue) |
-| 1 | 37 | 13 | 28 | 16 |
-| 3 | 53 | 21 | 52 | 26 |
+| 0 | 0 | 2 (stock prologue) | 1 (stock instruction) | 1 (stock instruction) |
+| 1 | 13 | 16 | 12 | 30 |
+| 3 | 21 | 26 | 16 | 34 |
 
-The old counts are from EDIT EVENTS in PR #858. Zero-client EVENTS has no
-dispatcher: tests execute stock code. Empty transport and MIDI paths execute
-one stock instruction at each former detour, versus the previous three/four
-instructions, respectively. These are emulator instruction counts, **not**
-ColdFire cycles, elapsed time, hardware CPU headroom or MIDI latency.
-
-With one/three clients, transport dispatch falls from 27/43 to 12/16
-instructions, and accepted-MIDI dispatch from 42/58 to 30/34, excluding the
-entry jump and callback bodies. Both MIDI acceptance sites have the same count.
+Zero-client EVENTS has no dispatcher: tests execute stock code. Both MIDI
+acceptance sites have the same count. These are emulator instruction counts,
+**not** ColdFire cycles, elapsed time, hardware CPU headroom or MIDI latency.
 
 The real PLOCKS mirror path was also assembled against its pre-dispatch source
 (`ff9c5f84`). Across 14 track/pattern transfers and uninitialized cases, native
-copy results, side data and `nv_touch` call counts match. Shared dispatch now
-adds **19 instructions**, versus **43** through EDIT EVENTS. For example, a
-track bank-to-clipboard copy is 680 → 699 (previously 723), and a pattern copy
-is 4718 → 4737 (previously 4761). These counts include the six-instruction
-PLOCKS adapter, but exclude the unchanged caller, native memcpy and `nv_touch`
+copy results, side data and `nv_touch` call counts match. Shared dispatch
+adds **19 instructions**. For example, a track bank-to-clipboard copy is
+680 → 699, and a pattern copy is 4718 → 4737. These counts include the
+six-instruction PLOCKS adapter, but exclude the unchanged caller, native memcpy and `nv_touch`
 bodies, which the probe substitutes at their entry points.
 
 ## Verification boundary
@@ -164,7 +149,6 @@ The [events-clients fixture](../../remixes/test/events-clients/README.md) select
 both clients with USB MAIN/CUE and LOAD METER for focused integration checks.
 EUCLID and PLOCKS retain their own behavior gates. The fixture's
 [hardware results](../../remixes/test/events-clients/README.md#hardware-results)
-identify the tested image and scope. Earlier SEQUENCER EVENTS/EUCLID and
-EDIT EVENTS/PLOCKS reports apply to their named images.
+identify the tested image and scope.
 Add further events only with an audited native boundary, a precise contract,
 and both dispatcher and installed-image tests.
