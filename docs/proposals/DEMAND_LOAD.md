@@ -46,6 +46,26 @@ is stock's buffer memory, so the code goes only where no running stock effect wr
    execution of copied code, (c) the stock extents at non-default knob settings. No image depends on them until they are read.
 9. **Frame entry:** LOAD METER's entry code calls a named pump hook when the pump unit is present. The pump is its own module.
 
+## Port findings, 26 Oct 2026
+
+Measured with `tools/verify/verify_dlpump.py` (test/dlspike, a 3,126-halfword block, 100 per chunk).
+
+- The pump delivers the whole block to core B's `X:0x2900..` when it sends on frames whose ping word (`0x800000e0`) is 0, and loses the
+  chunks sent on ping-1 frames (zero of 1,563 differ against 1,178 of 3,126 when sending every frame).
+- Payload B's frame loop rewrites the host handlers' address masks every frame from the bank word: `P:0x70` stores `0x3fff` or `0x5fff`
+  to `p:$371` / `p:$380` (`P:0x5f..0x72`). The destination word `0x4000 | 0x2901` lands at `X:0x2901` under `0x3fff`; under `0x5fff` it
+  is `0x4901`, outside the staging area. 🟡 the lost chunks are the `0x5fff` frames (not located at `X:0x4901`; X was searched `0..0x3fff` only).
+- Sending to core A (`dl_core` 0) loses every second chunk whatever the gate, and after the first send the ping words stop alternating
+  (`0x800000e0` and `e4` both 0 from the third call on): the stock frame chain on core A stalls. Polling HC (CVR bit 7, `HOST+5`) before
+  and after each command, and a 4,000-iteration settle after each chunk, did not change it. 🟡 cause not found; A receives the stock
+  `0x8c` frame command, B does not.
+- Staged addresses are window offsets (`dest - 0x30000`): a host word carries 16 bits.
+
+Consequence for decision 7: no pump send to core A is used. The window is one memory, so a copy made by core B's code is resident for
+core A's tracks too (`pextprobe`: code written to the window ran from both cores). The copy therefore has to run on core B whether or not a
+core B track uses the effect, which means the copier is a frame hook on payload B, not part of each stub. The ColdFire knows which effect
+every track uses, so the stub's "wanted" word is not needed either. Pending Sam's decision; the work below assumes it.
+
 ## Design
 
 Three DSP pieces and one ColdFire piece.
