@@ -40,6 +40,13 @@ is separate from this change. E2 also showed MIX 40 again after CLEAR TRIG
 LOCKS / UNDO CLEAR LOCKS; the intermediate cleared state was not independently
 checked.
 
+The subsequent physical save/restart check preserved highlighted MIX 40 on
+EVT871D1_ED/C03/T1/trig 1. The operator confirmed the value before saving,
+completed the save, power-cycled, confirmed the same project loaded and read
+40 again without turning the knob. This covers one saved lock. E2 was selected
+before restart; no independent post-restart image identification or card-byte
+inspection was made.
+
 The same stock/page-two panel comparison covers track paste/undo and pattern
 copy/paste/clear/undo. In this stopped fixture, stock's pattern paste calls
 `0x4004a8a4`, whose `0x40027e00` call invalidates undo kind 14 immediately.

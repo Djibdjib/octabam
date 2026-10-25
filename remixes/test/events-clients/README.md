@@ -50,8 +50,12 @@ paste/undo, and an explicitly removed destination lock returned to unhighlighted
 is outside this PR. E2's clear-locks/undo messages and final MIX 40 were confirmed,
 but the intermediate cleared state was not checked. Track undo's final value
 was not confirmed. These scoped passes do not explain the original failures.
-Manual testing now focuses on hardware-specific behavior; real-card
-save/power-cycle acceptance remains pending.
+Manual testing now focuses on hardware-specific behavior. The operator saved
+`EVT871D1_ED` with C03/T1/trig 1 showing highlighted MIX 40, power-cycled the
+unit, confirmed the same project loaded, and confirmed highlighted MIX 40
+again without turning the knob. This passes persistence for that lock, not
+every save path. E2 was the selected image before restart; the running image
+was not independently identified again after the power cycle.
 
 The later E2 fixed-C03 transport run on fresh `EVT871E2_RN` stopped at 18.0
 seconds: initial START produced audio, but the first STOP/CONTINUE remained
