@@ -109,13 +109,25 @@ def dumpmem(img, args):
         if t != tag.upper():
             continue
         mods, b = modules(img, va, ln)
+        # Remix.window's records ride payload A's pre-boot upload, not the image's payload; the
+        # build leaves them in out/dsp/window_records.json, and the window is shared memory, so
+        # both payloads' dumps carry them (dsp_host keeps P private per core).
+        win = []
+        wf = pathlib.Path("out/dsp/window_records.json")
+        if wf.exists():
+            import json
+            win = [(a, w) for a, w in json.loads(wf.read_text()).values()]
         with open(out, "wb") as fh:
             for sp, addr, cnt, data in mods:
                 fh.write(struct.pack("<BII", sp, addr, cnt))
                 for i in range(cnt):
                     fh.write(struct.pack("<I", w24(b, data + i * 3)))
+            for addr, words in win:
+                fh.write(struct.pack("<BII", 0, addr, len(words)))
+                for w in words:
+                    fh.write(struct.pack("<I", w))
             fh.write(struct.pack("<BII", 0xff, 0, 0))
-        n = sum(c for _, _, c, _ in mods)
+        n = sum(c for _, _, c, _ in mods) + sum(len(w) for _, w in win)
         print(f"payload {t}: {len(mods)} modules, {n:,} words -> {out}")
         return
     sys.exit(f"unknown payload {tag}")

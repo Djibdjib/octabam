@@ -129,6 +129,16 @@ REMIX = remix_registry.remix(os.environ.get("REMIX"))
 # Every module, the selected ones bound to the remix's build-time settings
 # (schema.Module.bind): the build reads a module's code from here only.
 _BOUND = remix_registry.bound(REMIX)
+# EFFECT CODE IN THE SHARED WINDOW (schema.Remix.window): {module key: P address}. The
+# module is assembled once at that address, written as a record of payload A's upload,
+# and both payloads' dispatch entries for its id point at it.
+WINDOW = dict(REMIX.window)
+for _wk, _wa in WINDOW.items():
+    if _wk not in REMIX.modules:
+        sys.exit(f"Remix.window names {_wk!r}, which the remix does not carry")
+    if not 0x30000 <= _wa < 0x40000:
+        sys.exit(f"Remix.window: {_wk} at P:0x{_wa:05x} is outside the shared window "
+                 f"P:0x30000..0x3ffff")
 for _v in ("NOTEMPO", "TEMPOCAVE"):
     if os.environ.get(_v):
         sys.exit(f"{_v} is TEMPO SYNC's CAVE setting since 11 Oct 2026: "
@@ -284,6 +294,7 @@ def _harvest_listed():
 # payload's DRAM region for the pre-boot copy (unpacked, then packed).
 TAIL_REGION = "dsp_tail_%s"
 TAIL_SLACK = 0x1000         # bytes over the payload's length, each half of the region
+WINDOW_SLACK = 0x9000       # the same where Remix.window adds records to payload A: 12,288 words, the window's free ground and then some
 
 
 def _tail_plan():
@@ -1425,12 +1436,13 @@ def main():
     # and its packed stage, one region per payload, last in the stack.
     _tail = _tail_plan()
     for _tag, _va, _ln in PAYLOADS:
-        if _tag in _tail:
-            _regions.append((TAIL_REGION % _tag, 2 * (_ln + TAIL_SLACK), 16))
-    if _tail and not _dram:
-        sys.exit(f"{', '.join(sorted({k for v in _tail.values() for k in v}))}: "
-                 f"placed at the payload's tail, which rides octabam's loader, "
-                 f"and this remix links no DRAM platform")
+        if _tag in _tail or (WINDOW and _tag == "A"):
+            _regions.append((TAIL_REGION % _tag,
+                             2 * (_ln + (WINDOW_SLACK if WINDOW and _tag == "A" else TAIL_SLACK)), 16))
+    if (_tail or WINDOW) and not _dram:
+        sys.exit(f"{', '.join(sorted({k for v in _tail.values() for k in v} | set(WINDOW)))}: "
+                 f"placed at the payload's tail or in the shared window, which rides octabam's "
+                 f"loader, and this remix links no DRAM platform")
     _fixed = [(f"{_k} {_r.label}", _r.at, _r.end) for _k in REMIX.modules
               for _r in getattr(remix_modules()[_k], "arena_reserves", ())]
     _incs = {_u.label: _u.include(_sel, REMIX) for _m, _u in _dram + _early if _u.include is not None}
@@ -1463,7 +1475,7 @@ def main():
             [(_m.key, _u) for _m, _u in _dram], [], pathlib.Path("out/platform"),
             reserve=reserve, defsyms=_d, unit_defs=_ud, includes=_incs,
             regions=_regions, early=[_u for _m, _u in _early], fixed=_fixed,
-            preboot_slots=1 if _tail else 0, **kw)
+            preboot_slots=1 if (_tail or WINDOW) else 0, **kw)
 
     _FIT = ("does not fit its arena reserve", "past the reserve's ceiling", "above DRAM region")
 
@@ -2415,6 +2427,7 @@ mkgo:""",
 
     dev_delay = None            # (words) for the .mem dump append, DEV only
     tail_records = {}           # {payload: [P start, words]}: the tail's record
+    window_records = {}         # {module key: (P start, words)}: Remix.window's records, payload A's upload
     for tag, va, ln in PAYLOADS:
         pp = PP[tag]
         mods, _ = modules(bytes(img), va, ln)
@@ -2451,6 +2464,30 @@ mkgo:""",
                 sys.exit(f"payload {tag}: P:0x{_pa:05x} ({_what}) holds "
                          f"{rdw_p_at(_pa):06x}, not stock {_stock:06x}; refusing")
             wrw_p_at(_pa, _new)
+        if tag == "A" and WINDOW:
+            # ⚠️ PAYLOAD A'S BOOT CODE ZEROES THE WINDOW AFTER THE UPLOAD. P:0x40-0x49 is one
+            # `do` over y:(r4)+ (Y:0x4000..0xBFFF) and y:(r5)+ (Y:0x30000..0x37FFF), 0x8000 words each,
+            # so a record of the upload placed in the window is wiped before the effect first runs
+            # (25 Oct 2026: the port runs zeros there and faults). The count goes down to the
+            # lowest window address, which leaves the words above it, and the same number at
+            # the end of Y:0x4000..0xBFFF, unzeroed on core 0. Payload B's loop (widened above)
+            # clears 0x37F00 up, so the mailbox and the tail of A's half stay zeroed.
+            _zn = min(WINDOW.values()) - 0x30000
+            _zl = 0x30000 + _zn
+            from remix import dsp_ranges as _dr2
+            for _o in _dr2.owners(remix_registry.selected(REMIX)):
+                if (_o.domain == "shared" and _o.owner not in WINDOW and _o.end > _zl
+                        and _o.start < 0x37F00):
+                    sys.exit(f"Remix.window: payload A's boot zero loop would stop at "
+                             f"0x{_zl:05x}, and {_o.owner}'s {_o.what} "
+                             f"(0x{_o.start:05x}..0x{_o.end:05x}) needs zeroing")
+            if rdw_p_at(0x41) != 0x008000:
+                sys.exit(f"payload A: P:0x00041 (boot zero count, move #>$8000,b) holds "
+                         f"{rdw_p_at(0x41):06x}, not stock 008000; refusing")
+            wrw_p_at(0x41, _zn)
+            print(f"  WINDOW        payload A's boot zero loop (P:0x00041) counts 0x{_zn:05x}, not "
+                  f"0x08000: it stops at Y:0x{_zl:05x}, and at Y:0x{0x4000 + _zn:05x} of "
+                  f"0x4000..0xbfff (the rest is not zeroed on core 0)")
 
         # ---- the servers pack into the HARVESTED effects' code -----------
         # The donor region is not a place, it is a choice: the thirteen DSP
@@ -2500,7 +2537,7 @@ mkgo:""",
             # payload's code in a record of its own (_tail_plan).
             _need = [m for m in ([m for m in _SEL if m.dsp is not None]
                                  + [_MODS[k] for k in HOOKED])
-                     if not m.dsp.pins and not m.dsp.tail]
+                     if not m.dsp.pins and not m.dsp.tail and m.key not in WINDOW]
             if _need:
                 sys.exit(f"payload {tag}: nothing is harvested, so there is "
                          f"nowhere to place "
@@ -3091,6 +3128,56 @@ hostquit:
             return "\n".join(out), n
 
         for name, src in plan:
+            if name in WINDOW:
+                # ---- IN THE SHARED WINDOW (schema.Remix.window): assembled once at its
+                # address, table behind the code, a record of payload A's upload; this
+                # payload's dispatch entries point at it. Takes no harvested words.
+                _wa = WINDOW[name]
+                _wm = remix_modules()[name]
+                _wd = _wm.dsp
+                if _wd.tail or _wd.hooks or _wd.ptable2 or _wd.pins or "$facade" in src:
+                    sys.exit(f"{name}: placed in the shared window, so it has no tail, hooks, "
+                             f"second table, pins or LFO table")
+                _wt = list(_wd.ptable)
+                if _wt and (PTABLE_MARK not in src or src.count(PTABLE_MARK) != 1):
+                    sys.exit(f"payload {tag}: {name}: a DspSection.ptable and exactly one "
+                             f"{PTABLE_MARK} literal in the source go together")
+                _ws = src
+                if _wt:
+                    _w0, _ = assemble_syms(src.replace(PTABLE_MARK, "$0"), _wa, label=name)
+                    _ws = src.replace(PTABLE_MARK, f"${_wa + len(_w0):x}")
+                _ww, _wsyms = assemble_syms(_ws, _wa, label=name)
+                if _wt and len(_ww) != len(_w0):
+                    sys.exit(f"{name}: the code changed length with its table's address")
+                _ww = list(_ww) + _wt
+                if name in window_records and window_records[name][1] != _ww:
+                    sys.exit(f"{name}: placed in the shared window as one copy, but its payload "
+                             f"A and payload B sources assemble to different words")
+                if name not in window_records:
+                    from remix import dsp_ranges as _dr
+                    for _o in _dr.owners(remix_registry.selected(REMIX)):
+                        if (_o.domain == "shared" and _o.start < _wa + len(_ww)
+                                and _wa < _o.end):
+                            sys.exit(f"{name}: P:0x{_wa:05x}..0x{_wa + len(_ww):05x} overlaps "
+                                     f"{_o.owner}'s {_o.what} "
+                                     f"(0x{_o.start:05x}..0x{_o.end:05x})")
+                    for _on, (_oa, _ow) in window_records.items():
+                        if _oa < _wa + len(_ww) and _wa < _oa + len(_ow):
+                            sys.exit(f"{name} and {_on} overlap in the shared window")
+                    window_records[name] = (_wa, _ww)
+                init_a, proc_a = _wsyms.get("init"), _wsyms.get("proc")
+                if init_a is None or proc_a is None:
+                    sys.exit(f"payload {tag}: {name} has no init/proc labels")
+                wrw_p(pp["xtab"] + NEW_IDS[name] * 3, init_a)
+                wrw_p(pp["xtab"] + (32 + NEW_IDS[name]) * 3, proc_a)
+                if name == REMIX.fallback:
+                    wrw_p(pp["xtab"] + NONE_ID * 3, init_a)
+                    wrw_p(pp["xtab"] + (32 + NONE_ID) * 3, proc_a)
+                    fb_init, fb_proc = init_a, proc_a
+                print(f"  {name:13} P:0x{_wa:05x}..0x{_wa + len(_ww):05x} ({len(_ww):4} words)  "
+                      f"id 0x{NEW_IDS[name]:02x}  IN THE SHARED WINDOW (one copy, both cores, "
+                      f"a record of payload A's upload)")
+                continue
             if "$facade" in src and src.count("$facade") != 1:
                 sys.exit(f"payload {tag}: {name} has multiple $facade "
                          f"LFOTAB literals -- expected exactly one")
@@ -3696,7 +3783,8 @@ hostquit:
             [(_m.key, _u) for _m, _u in _dram], [], pathlib.Path("out/platform"),
             reserve=_reserve, defsyms=_pdefs, unit_defs=_unit_defs,
             includes={_u.label: _u.include(_sel, REMIX) for _m, _u in _dram + _early if _u.include is not None},
-            regions=_regions, patch=_rt_patch, early=[_u for _m, _u in _early], fixed=_fixed)
+            regions=_regions, patch=_rt_patch, early=[_u for _m, _u in _early], fixed=_fixed,
+            **({"preboot_slots": 1} if (_tail or WINDOW) else {}))
         if (_psyms2, _pgsyms2, _punits2) != (_psyms, _pgsyms, _punits):
             # the loader is not compared: its tail (_end & co) moves with
             # the packed payload the patch changes, by design
@@ -3715,12 +3803,20 @@ hostquit:
     if len(_srcm) > 1:
         sys.exit(f"{' and '.join(_m.key for _m in _srcm)} are DSP source machines: each owns "
                  "the source seam and SPRING REV's code -- take one")
-    if _srcm and tail_records:
+    if _srcm and (tail_records or window_records):
         sys.exit(f"{_srcm[0].key} replaces both DSP uploads, and "
-                 f"{', '.join(sorted({k for v in _tail.values() for k in v}))} grows "
-                 f"payload {', '.join(sorted(tail_records))}'s at its tail -- take one")
+                 f"{', '.join(sorted({k for v in _tail.values() for k in v} | set(window_records)))} grows "
+                 f"payload {', '.join(sorted(set(tail_records) | ({'A'} if window_records else set())))}'s -- take one")
+    # The window's records are not in the OS image's payload: tools/build/dsp_modmap.py's memory
+    # dumps (every gate that runs an effect in dsp_host) read them from here and append them.
+    _wf = pathlib.Path("out/dsp/window_records.json")
+    if window_records:
+        _wf.parent.mkdir(parents=True, exist_ok=True)
+        _wf.write_text(json.dumps({k: [a, list(w)] for k, (a, w) in window_records.items()}))
+    else:
+        _wf.unlink(missing_ok=True)
     _pres, _pwho = [], None
-    if tail_records:
+    if tail_records or window_records:
         # THE TAIL's upload (schema.DspSection.tail): a copy of the payload
         # with one more P record before its terminator, shipped as a
         # PRE-BOOT payload of octabam's loader into its DRAM region
@@ -3735,15 +3831,18 @@ hostquit:
         print(f"\n=== DSP tail: a load record above the payload's code ===")
         _tpokes = []
         for _tag, _va, _ln in PAYLOADS:
-            if _tag not in tail_records:
+            if _tag not in tail_records and not (window_records and _tag == "A"):
                 continue
             if (_va, _ln) != {"A": ab_records.PAYLOAD_A, "B": ab_records.PAYLOAD_B}[_tag]:
                 sys.exit(f"payload {_tag} at 0x{_va:08x}+{_ln} is not where ab_records "
                          f"has it; the upload pointer's stock value would not match")
-            _start, _words = tail_records[_tag]
+            _xr = [tuple(tail_records[_tag])] if _tag in tail_records else []
+            if _tag == "A":
+                _xr += [tuple(_v) for _v in window_records.values()]
             _recs, _term = ab_records.records(img, _va, _ln)
             _p0 = _va - BASE
-            _raw = bytes(img[_p0:_term]) + ab_records.ot_record(0, _start, _words) + \
+            _raw = bytes(img[_p0:_term]) + \
+                b"".join(ab_records.ot_record(0, _s, _w) for _s, _w in _xr) + \
                 bytes(img[_term:_p0 + _ln])
             _packed = pack.PACKED_MAGIC + len(_raw).to_bytes(4, "big") + \
                 pack.pack(_raw, platform_build.MAX_CANDIDATES)
@@ -3761,9 +3860,18 @@ hostquit:
             _tpokes.append((_ptr[_tag], _va.to_bytes(4, "big"),
                             (_ra + ab_records.UNCACHED).to_bytes(4, "big"),
                             f"DSP boot: payload {_tag}'s upload reads the tail copy"))
-            print(f"  payload {_tag}: P:0x{_start:05x}..0x{_start + len(_words) - 1:05x} "
-                  f"({len(_words)} words) as a record of its own; upload {len(_raw):,} B, "
-                  f"packed {len(_blob):,}, into {_reg} 0x{_ra:08x} ({_rn:,} B)")
+            if len(_xr) == 1 and _tag in tail_records:
+                # ⚠️ WORDING FROZEN: the build report is API (refhash hashes it verbatim)
+                _start, _words = _xr[0]
+                print(f"  payload {_tag}: P:0x{_start:05x}..0x{_start + len(_words) - 1:05x} "
+                      f"({len(_words)} words) as a record of its own; upload {len(_raw):,} B, "
+                      f"packed {len(_blob):,}, into {_reg} 0x{_ra:08x} ({_rn:,} B)")
+            else:
+                for _s, _w in _xr:
+                    print(f"  payload {_tag}: P:0x{_s:05x}..0x{_s + len(_w) - 1:05x} "
+                          f"({len(_w)} words) as a record of its own")
+                print(f"  payload {_tag}: upload {len(_raw):,} B, packed {len(_blob):,}, "
+                      f"into {_reg} 0x{_ra:08x} ({_rn:,} B)")
         for _aa, _aexp, _aw, _anote in _tpokes:
             _got = bytes(img[_aa - BASE:_aa - BASE + len(_aexp)])
             if _got != _aexp:

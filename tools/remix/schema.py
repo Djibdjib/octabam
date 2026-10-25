@@ -2022,6 +2022,16 @@ class Remix:
     # that itself, the way modules/modulation does with its allocator slot.
     hidden: tuple[str, ...] = ()
     named: tuple[str, ...] = ()
+    # EFFECT CODE IN THE SHARED WINDOW (25 Oct 2026): (module key, P address) pairs. The
+    # module is assembled ONCE at that address in `P:0x30000..0x3ffff`, its P table (if any)
+    # behind it, written into the window as a load record of payload A's upload (the same
+    # pre-boot copy a DspSection.tail uses), and both payloads' dispatch entries for its id
+    # point there: one copy, run by both cores. It takes no words from the harvested region.
+    # Core 1 running code that sits in payload A's half is measured on the unit
+    # (modules/pextprobe). The build refuses an address inside another owner's range
+    # (tools/remix/dsp_ranges.py) or a module whose two payload sources assemble differently.
+    # A module placed this way has no hooks, no LFO or second table, and no tail.
+    window: tuple[tuple[str, int], ...] = ()
     # THE HOST PAGE DRAWS ITS FIRST SLOTS ONLY (26 Sep 2026, Sam: "want
     # all the tracks to look the same"): (key, n) pairs. The hidden
     # module's page draws slots 0..n-1 under their manifest names (the rig:
