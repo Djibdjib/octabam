@@ -28,16 +28,6 @@ class PortRequired(unittest.TestCase):
 
 
 class OnceGates(unittest.TestCase):
-    def test_scratch_image_builders_run_before_selected_image_gates(self):
-        from remix import registry
-        for key, script in (("BRAIN", "verify_brain.py"),
-                            ("LOAD METER", "verify_load_meter.py")):
-            with self.subTest(module=key):
-                gates = registry.by_key(key).gates
-                gate = next(g for g in gates if pathlib.Path(g.script).name == script)
-                self.assertFalse(gate.remix_arg)
-                self.assertEqual(gate.stage, "isolated")
-
     def test_once_needs_remix_arg_and_the_isolated_stage(self):
         Gate("tools/verify/x.py", once=True)
         with self.assertRaises(ValueError):

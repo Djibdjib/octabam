@@ -136,17 +136,6 @@ def main():
         if f.is_file() and f.suffix.lower() == ".work":
             shutil.copy2(f, copy / f.name)
 
-    # The chooser scripts take one DOWN from SPECTRUM/SEND. Establish
-    # those starting slots and the template/save targets in the private
-    # copy, including when the source is a fresh matrix with NONE slots.
-    import ot_project
-    for slot, track, key in (("fx1", 1, "CHARACTER"), ("fx2", 1, "DELAY SERVER"),
-                             ("fx1", 2, "SPECTRUM"), ("fx2", 2, "SEND")):
-        target = mods[key]
-        ot_project.set_fx(copy, slot, track, key,
-                          page=[p.default or 0 for p in target.params[:6]],
-                          page2=[p.default or 0 for p in target.params[6:12]], guard=False)
-
     delay, character = mods["DELAY"], mods["CHARACTER"]
     want = {"DELAY": {"TIME": 52, "FB": 5, "X": 1, "TAPE": 0}, "CHARACTER": {"DRV": 9, "MIX": 77}}
     work = ot_brain.set_default(None, delay, want["DELAY"])
