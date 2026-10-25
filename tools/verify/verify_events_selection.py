@@ -80,7 +80,7 @@ def main():
         selected = {m.key: m for m in registry.selected(registry.remix(remix))}
         assert len(selected['EVENTS'].detours) == count, remix
         assert selected['EVENTS'].select is not None
-    # Inserts no longer carries EUCLID. Keep the combined-client binding
+    # The official octabam remix does not carry EUCLID. Keep the combined-client binding
     # assertion independent of that production remix's effect selection.
     euclid = registry.remix('euclid')
     combined = replace(euclid, modules=euclid.modules + ('SCENES P2', 'STORE', 'PLOCKS P2'))

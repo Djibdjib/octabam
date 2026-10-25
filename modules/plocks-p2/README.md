@@ -168,5 +168,6 @@ call sites, so the two share no site. Its CS1 ranges (`0x100f85a0..e8`,
 
 PLOCKS P2 requires EVENTS for held-step dispatch and pattern/track copy notifications. Other selected editors register independently; no pair-specific bridge is needed.
 
-The shared EVENTS migration has software coverage only. The earlier hardware
-reports above describe the separate EDIT EVENTS image, not this implementation.
+EVENTS integration results, including MKII trig undo checks, are recorded in
+the [combined fixture](../../remixes/test/events-clients/README.md#hardware-results).
+Earlier reports above apply to their named images.

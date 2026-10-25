@@ -162,12 +162,9 @@ ownership and stock bytes at every unused boundary in each built image.
 
 The [events-clients fixture](../../remixes/test/events-clients/README.md) selects
 both clients with USB MAIN/CUE and LOAD METER for focused integration checks.
-EUCLID and PLOCKS retain their own behavior gates. Combined image EVT871E1
-has partial hardware results, including an unresolved transport-stress silence
-and a PLOCKS trig-undo failure; see the
-[fixture results](../../remixes/test/events-clients/README.md#hardware-results).
-Physical acceptance of the corrected trig-undo implementation is pending.
-Earlier SEQUENCER EVENTS/EUCLID and EDIT EVENTS/PLOCKS MKII reports remain
-historical evidence for those earlier images only.
+EUCLID and PLOCKS retain their own behavior gates. The fixture's
+[hardware results](../../remixes/test/events-clients/README.md#hardware-results)
+identify the tested image and scope. Earlier SEQUENCER EVENTS/EUCLID and
+EDIT EVENTS/PLOCKS reports apply to their named images.
 Add further events only with an audited native boundary, a precise contract,
 and both dispatcher and installed-image tests.

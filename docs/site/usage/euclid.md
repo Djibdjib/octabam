@@ -65,5 +65,5 @@ Ordinary and arpeggiated MIDI start/resume/stop also passed on optimized
 `EUCL EVENTS 99` the same day.
 
 For shared EVENTS integration testing, `events-clients` combines EUCLID and
-PLOCKS P2 with USB MAIN/CUE and LOAD METER. It is a dedicated test selection;
-hardware qualification is pending.
+PLOCKS P2 with USB MAIN/CUE and LOAD METER. Its [scoped results](../../../remixes/test/events-clients/README.md#hardware-results)
+identify the tested image and operations.

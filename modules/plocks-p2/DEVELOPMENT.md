@@ -18,45 +18,30 @@ saved field or native trig mutation is needed. Other transfer lengths,
 unaligned addresses, and the native CS1 duplicate remain outside this
 mapping. The restore touches the page-two power-off copy once.
 
+`verify_plocks_copy.py` executes 61 snapshot/restore and rejection cases
+through the assembled client and EVENTS dispatcher, checking all side memory,
+native-copy count, register preservation and persistence-touch count. Disabling
+the current source's snapshot branch makes the same regression fail. Native
+memcpy and persistence bodies are substituted in this focused gate; the panel
+and save/load gate executes the full firmware.
+
 The panel regression uses the same continuous-hold sequence on stock page
 one and FX1/FX2 page two: empty destination, a different existing lock,
 repeated paste/undo, multiple held destinations and held clear/undo. It checks the entire
 track's restored locks, the source, release behavior and retained native
 trig bits. Releasing between STOP presses starts another paste and is not
-this undo operation. EVT871E2 failed physical retests both playing and
-stopped: the copied MIX 40 remained after undo and release/rehold, while
-the unheld Part value was 127. The exact playing-test message was
-`UNDO PASTE`. Local C03/EUCLID MIX replays clear the lock in both transport
-states, also with a 20-second paste-to-undo delay while stopped. The cause
-of this software/hardware difference remains open; see the
+this undo operation.
+
+The same stock/page-two comparison covers track paste/undo and pattern
+copy/paste/clear/undo. In the stopped fixture, stock's pattern paste calls
+`0x4004a8a4`, whose `0x40027e00` call invalidates undo kind 14. The gate
+compares native undo availability and the resulting locks with stock;
+pattern clear/undo separately exercises restoration.
+
+Physical results are recorded once in the
+[combined fixture](../../remixes/test/events-clients/README.md#hardware-results),
+with the earlier discrepancy in the
 [failure register](../../docs/contributing/FAILURE_MODES.md#plocks-trig-paste-undo-keeps-copied-page-two-locks).
-
-Later stopped hardware checks passed both controlled destination states:
-diagnostic-only D1 traced restoration of no lock and a previous MIX 64, then
-uninstrumented E2 restored those same states by operator release/rehold display
-checks. The destination was explicitly prepared and held throughout paste and
-undo. These passes do not explain the earlier failures. D1's instrumentation
-is separate from this change. E2 also showed MIX 40 again after CLEAR TRIG
-LOCKS / UNDO CLEAR LOCKS; the intermediate cleared state was not independently
-checked.
-
-The subsequent physical save/restart check preserved highlighted MIX 40 on
-EVT871D1_ED/C03/T1/trig 1. The operator confirmed the value before saving,
-completed the save, power-cycled, confirmed the same project loaded and read
-40 again without turning the knob. This covers one saved lock. E2 was selected
-before restart; no independent post-restart image identification or card-byte
-inspection was made.
-
-The same stock/page-two panel comparison covers track paste/undo and pattern
-copy/paste/clear/undo. In this stopped fixture, stock's pattern paste calls
-`0x4004a8a4`, whose `0x40027e00` call invalidates undo kind 14 immediately.
-The next STOP pastes again. The gate compares that native state with stock
-and checks the resulting locks; it does not label that case a successful
-pattern-paste undo. Pattern clear/undo does exercise restoration. Physical
-pattern-paste undo remains unverified, with no stock patch here. Routine
-emulator-covered panel operations are no longer required manual repetitions;
-hardware work focuses on timing, sustained audio, real-card persistence and
-specific discrepancies.
 
 Snapshot mirroring copies 768 bytes only at the editor's copy boundary;
 the playback path is unchanged. The existing track/pattern copy instruction
@@ -212,4 +197,4 @@ These cover Core editor/copy paths. Track and pattern operations exercise
 clipboard and undo-buffer transfers through EDIT EVENTS; trig copy/paste
 and lock clear/undo use PLOCKS' own hooks. Individual detour addresses and
 physical latency were not instrumented. Bus, Inserts and CX OSC have software
-coverage only for this migration.
+coverage for the named image. Shared EVENTS results are in the combined fixture.

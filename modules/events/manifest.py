@@ -125,7 +125,7 @@ HOOKS['edit', 'copy_pre'] = _EDIT_HOOKS[1:]
 MODULE = Module(
     name='events', key='EVENTS', kind=Kind.CF_PATCH,
     category=Category.PARTS, author='radiohagen', author_url='https://github.com/radiohagen',
-    proof=Proof.CHECK, proof_note='Shared EVENTS migration: software verification only; no hardware test of this image.',
+    proof=Proof.CHECK, proof_note='Dispatcher, selection and installed-client gates; scoped MKII EVT871E2 results in events-clients.',
     doc='System: transport and MIDI notifications, held-step ownership and copy notifications.',
     linked=UNITS, detours=tuple(d for hooks in HOOKS.values() for d in hooks),
     select=select,

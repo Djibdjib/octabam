@@ -4,7 +4,7 @@ from remix.schema import Proof, Remix
 REMIX = Remix(
     name="events-clients",
     family="probes", proof=Proof.CHECK,
-    proof_note="EUCLID and PLOCKS shared EVENTS fixture; hardware pending",
+    proof_note="MKII EVT871E2 (25 Oct 2026): controlled trig undo, CONTINUE and 600-second audio capture; see scoped results",
     doc="EVENTS with EUCLID in both FX slots, PLOCKS P2, USB MAIN/CUE and LOAD METER.",
     modules=("BRAIN", "STORE", "EVENTS", "EUCLID", "SCENES P2", "PLOCKS P2",
              "USB", "LOAD METER", "ATA WRITE GUARD", "FILTER", "COMPRESSOR", "PLATE REV"),
