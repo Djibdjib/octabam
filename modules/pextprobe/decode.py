@@ -1,0 +1,118 @@
+#!/usr/bin/env python3
+"""Read PEXT PROBE's status out of a capture of the track's audio.
+
+    python3 modules/pextprobe/decode.py CAPTURE.raw|CAPTURE.wav [--channels L R] [--invert]
+
+Each 16-sample frame carries 32 bits, one per sample slot (L sample j = bit j,
+R sample j = bit 16 + j), a one positive and a zero negative; only the sign is
+read (the layout is at the head of pextprobe.asm). The stream is not aligned to
+the DSP's frames, so the 16-sample phase is the one where R samples 8..15 read
+0xa5 most often.
+
+A `.raw` is dsp_host's output: interleaved little-endian int32 L, R. A `.wav`
+is read with `soundfile` (any channel count; --channels picks the two that
+carry the probe's track, default 0 1).
+"""
+import argparse
+import pathlib
+import struct
+import sys
+
+MARKER = 0xA5
+RUNGS = [(k + 1) * 0x2000 + 0x1FE0 for k in range(7)]
+CODE = {0: "untested", 1: "REAL", 2: "ALIAS (wraps onto the base)", 3: "ABSENT"}
+
+
+def _bits(samples, invert):
+    return [(1 if (s > 0) != invert else 0) for s in samples]
+
+
+def decode_stream(L, R, invert=False):
+    """-> (phase, [state per frame]); state = dict(mask, k, go, parity, marker)."""
+    n = min(len(L), len(R))
+    best = (-1, 0)
+    for ph in range(16):
+        hits = total = 0
+        for f in range((n - ph) // 16):
+            base = ph + 16 * f
+            bits = _bits(R[base + 8: base + 16], invert)
+            m = sum(b << i for i, b in enumerate(bits))
+            hits += (m == MARKER)
+            total += 1
+        if total and hits > best[0]:
+            best = (hits, ph)
+    ph = best[1]
+    out = []
+    for f in range((n - ph) // 16):
+        base = ph + 16 * f
+        lw = sum(b << i for i, b in enumerate(_bits(L[base: base + 16], invert)))
+        rw = sum(b << i for i, b in enumerate(_bits(R[base: base + 16], invert)))
+        out.append(dict(mask=lw & 0x3FFF, k=((lw >> 14) & 3) | ((rw & 1) << 2), go=(rw >> 1) & 1,
+                        parity=(rw >> 2) & 1, marker=(rw >> 8) & 0xFF))
+    return ph, out
+
+
+def summarise(phase, frames):
+    """-> list of text lines."""
+    lines = []
+    good = [f for f in frames if f["marker"] == MARKER]
+    lines.append(f"{len(frames)} frames, phase {phase}, {len(good)} with the marker")
+    if not good:
+        return lines + ["no marker found: the probe is not on this channel pair, or it is not running"]
+    states, last = [], None
+    for i, f in enumerate(frames):
+        if f["marker"] != MARKER:
+            continue
+        key = (f["mask"], f["k"], f["go"])
+        if key != last:
+            states.append((i, f))
+            last = key
+    for i, f in states:
+        lines.append(f"  frame {i:6d}: GO {f['go']}  next rung {f['k']}  mask {f['mask']:014b}")
+    f = good[-1]
+    last_marker = max(i for i, x in enumerate(frames) if x["marker"] == MARKER)
+    trailing = len(frames) - 1 - last_marker                     # frames after the last one carrying the marker
+    parities = {x["parity"] for x in good[-6:]}
+    stopped = trailing >= 8 or (len(good) >= 6 and len(parities) == 1)
+    lines.append(f"final: GO {f['go']}, next rung {f['k']}, "
+                 + ("FRAMES STOPPED ARRIVING (" + (f"{trailing} frames without the marker after it" if trailing >= 8
+                                                     else "the parity bit stopped toggling") + ")"
+                    if stopped else "frames still arriving (the parity bit toggles)"))
+    for k in range(7):
+        c = (f["mask"] >> (2 * k)) & 3
+        lines.append(f"  rung {k}  P:0x{RUNGS[k]:04x}: {CODE[c]}")
+    if f["go"] and f["k"] < 7:
+        lines.append(f"ladder not finished: rung {f['k']} (P:0x{RUNGS[f['k']]:04x}) never completed"
+                     f" ({'the core froze on it' if stopped else 'still running'})")
+    elif f["go"]:
+        top = [k for k in range(7) if (f["mask"] >> (2 * k)) & 3 == 1]
+        lines.append("P above 0x2000 is real memory up to rung " + (str(max(top)) if top else "none")
+                     + (f", P:0x{RUNGS[max(top)]:04x}" if top else ""))
+    return lines
+
+
+def load(path, channels):
+    p = pathlib.Path(path)
+    if p.suffix == ".raw":
+        d = p.read_bytes()
+        w = struct.unpack(f"<{len(d) // 4}i", d)
+        return list(w[0::2]), list(w[1::2])
+    import soundfile as sf
+    x, _ = sf.read(str(p), always_2d=True)
+    return list(x[:, channels[0]]), list(x[:, channels[1]])
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap.add_argument("capture")
+    ap.add_argument("--channels", nargs=2, type=int, default=[0, 1])
+    ap.add_argument("--invert", action="store_true", help="the capture inverts the signal")
+    a = ap.parse_args(argv)
+    L, R = load(a.capture, a.channels)
+    phase, frames = decode_stream(L, R, a.invert)
+    print("\n".join(summarise(phase, frames)))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

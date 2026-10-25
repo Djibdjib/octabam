@@ -116,6 +116,7 @@ nav:
       - CF Meter: reference/modules/cfmeter.md
       - CF Meter Idle: reference/modules/cfmeter-idle.md
       - Load Meter: reference/modules/load-meter.md
+      - Pext Probe: reference/modules/pextprobe.md
       - Testgen: reference/modules/testgen.md
       - Wave Load: reference/modules/waveload.md
   - Remix Reference:
