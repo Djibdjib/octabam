@@ -118,7 +118,8 @@ gone = [(sp, a, [0] * len(w) if (sp == 0 and a == CODE_AT) else w) for sp, a, w 
 halves = []
 for w in code:
     halves += [w >> 8, w & 0xFF]
-staged = [0xA55A, CODE_AT, N, init_m, proc_m] + halves
+WIN = 0x30000                      # staged addresses are window offsets: the host write delivers 16 bits
+staged = [0xA55A, CODE_AT - WIN, N, init_m - WIN, proc_m - WIN] + halves
 
 
 def variant(name, doorbell=True, stage=True):

@@ -99,8 +99,11 @@ dl_pass:
 dl_end:
         rts
 
-dl_copy:
-        move    x:>$2901,r1              ; the destination
+dl_copy:                                 ; staged addresses are window offsets: the host write delivers 16 bits
+        move    x:>$2901,a
+        move    #>$30000,x1
+        add     x1,a
+        move    a1,r1                    ; the destination
         move    x:>$2902,x0              ; N
         move    #>$2905,r2
         do      x0,>dl_cpy
@@ -114,14 +117,17 @@ dl_copy:
         move    x0,p:(r1)+
 dl_cpy:
         move    x:>$2901,a
+        add     x1,a
         move    a1,x:>$33d9e             ; the span the code occupies
         move    x:>$2902,x0
         add     x0,a
         move    a1,x:>$33d9f
-        move    x:>$2903,x0
-        move    x0,x:>$33da1
-        move    x:>$2904,x0
-        move    x0,x:>$33da2
+        move    x:>$2903,a
+        add     x1,a
+        move    a1,x:>$33da1
+        move    x:>$2904,a
+        add     x1,a
+        move    a1,x:>$33da2
         move    #>$b0a5ed,x0
         move    x0,x:>$33da0             ; BOUND, after the code and both entries
         clr     a
