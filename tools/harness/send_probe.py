@@ -142,7 +142,7 @@ def entry_points(mem_path, fxid):
     if init is None or proc is None:
         die(f"no dispatch entry for fx id 0x{fxid:02x} in {pathlib.Path(mem_path).name}")
     _MAX_INIT = 256
-    if not 0 < init < 0x20000 or not init < proc <= init + _MAX_INIT:
+    if not (0 < init < 0x20000 or 0x30000 <= init < 0x40000) or not init < proc <= init + _MAX_INIT:   # internal P, or code in the shared window
         die(f"implausible entry points for 0x{fxid:02x}: init 0x{init:05x} "
             f"proc 0x{proc:05x} (want init < proc <= init+{_MAX_INIT})")
     return init, proc

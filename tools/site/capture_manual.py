@@ -425,7 +425,7 @@ def main():
             scratch.write_text('import dataclasses,runpy\nbase=runpy.run_path("remixes/octabam-core/remix.py")["REMIX"]\nREMIX=dataclasses.replace(base,name="manual-features",modules=tuple(k for k in base.modules if k!="REC_TRIG_MUTE")+("REC THRESHOLD","EUCLID FILL","RND NAME","STEM REC"))\n')
             jobs=[('../out/manual-captures/features',capture_features,[])]
         elif group=='inserts':
-            assignments=[(i+1,'fx1' if i<5 else 'fx2',key) for i,key in enumerate(('SPECTRUM','CHARACTER','MODULATION','TRANSIENT','EUCLID','LOFI2','GATE VERB','DELAY'))]
+            assignments=[(i+1,'fx1' if i<4 else 'fx2',key) for i,key in enumerate(('SPECTRUM','CHARACTER','MODULATION','TRANSIENT','GATE VERB','DELAY'))]
             jobs=[('octabam-inserts',capture_fx,assignments)]
         elif group=='bus':jobs=[('octabam-bus',capture_bus,[])]
         elif group=='usb':jobs=[('octabam-bus',capture_usb,[])]

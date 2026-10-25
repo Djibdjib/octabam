@@ -23,8 +23,8 @@ fixed. The DSP half of LOAD METER does not fit in Core.
 
 ## Octabam Inserts
 
-SPECTRUM, CHARACTER, MODULATION, TRANSIENT and EUCLID on FX1 and FX2, plus
-GATE VERB and LOFI2 on FX2. The stock DELAY stays. Each effect processes its
+SPECTRUM, CHARACTER, MODULATION and TRANSIENT on FX1 and FX2, plus
+GATE VERB on FX2. The stock DELAY stays. Each effect processes its
 own track.
 
 ## Octabam Bus
