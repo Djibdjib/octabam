@@ -830,7 +830,10 @@ plk_copy_mirror:
         cmpil   #TRK_STRIDE,%d0
         beq.s   mc_go
         cmpil   #PTN_STRIDE,%d0
-        bne.w   mc_stock
+        beq.s   mc_go
+        cmpil   #64*32,%d0            | stock's packed track-lock snapshot
+        beq.w   mc_locks
+        bra.w   mc_stock
 mc_go:  movel   INITED,%d1
         cmpil   #MAGIC,%d1
         bne.w   mc_stock
@@ -877,6 +880,52 @@ mc_out: movem.l %sp@,%d2-%d4
         lea     %sp@(12),%sp
 mc_stock:
         rts                          | EVENTS owns the native copy
+
+| Trig paste/clear undo snapshots the track's 64 lock records, not a
+| whole native track. Its packed buffer puts locks at +0x28; bank RAM
+| puts them at track+0x59. Mirror all 64 page-2 records, including 0xff.
+| The native buffer kind owns the existing P2BUF mirror's lifetime.
+mc_locks:
+        movel   INITED,%d1
+        cmpil   #MAGIC,%d1
+        bne.s   mc_stock
+        lea     %sp@(-12),%sp
+        movem.l %d2-%d4,%sp@
+        movel   %sp@(12+8),%d0
+        bsr.w   p2lockloc
+        movel   %a0,%d0
+        beq.w   mc_out
+        moveal  %a0,%a1
+        movel   %sp@(12+4),%d0
+        bsr.w   p2lockloc
+        movel   %a0,%d0
+        beq.w   mc_out
+        movel   %a0,%d4
+        moveal  %a1,%a0
+        moveal  %d4,%a1
+        movel   #TRACK_B/4,%d2
+        bra.w   mc_copy
+
+| Only exact packed-buffer lock starts and bank track-lock starts map.
+| CS1's native duplicate copy must not mirror or touch NV a second time.
+p2lockloc:
+        cmpil   #CLIP+0x28,%d0
+        bne.s   pll_undo
+        lea     P2BUF0,%a0
+        rts
+pll_undo:
+        cmpil   #UNDO+0x28,%d0
+        bne.s   pll_ram
+        lea     P2BUF1,%a0
+        rts
+pll_ram:
+        movel   %d0,%d1
+        subil   #BLOB+0x59,%d1
+        bcs.w   pl_none
+        cmpil   #16*BANK_STRIDE,%d1
+        bcc.w   pl_none
+        subil   #0x59,%d0
+        bra.w   p2loc
 
 | p2loc: d0 = an address -> a0 = the page-2 track block that mirrors it
 | (a track's start in a bank's patterns, the clipboard or the undo

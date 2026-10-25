@@ -33,24 +33,25 @@ def native_copy_cases(work):
         f.uc.mem_write(0x40020898, raw[0x40020898 - 0x40000400:0x40022000 - 0x40000400])
         fixtures.append(f)
     cases = 0
-    for size in (0, 1, 2, 3, 4, 7, 15, 16, 31, 64, 512):
+    lengths = (0, 1, 2, 3, 4, 7, 15, 16, 31, 64, 512, 2048)
+    for size in lengths:
         for offset in range(4):
             states = []
             for f in fixtures:
                 u = f.uc
-                payload = bytes(i % 256 for i in range(512))
+                payload = bytes(i % 256 for i in range(max(lengths)))
                 dst, src = 0x47005000 + offset, 0x47006000 + offset
-                u.mem_write(0x47005000, b'old!' + bytes(1020))
+                u.mem_write(0x47005000, b'old!' + bytes(4092))
                 u.mem_write(src, payload)
                 f.call('ed_copy', args=(dst, src, size))
                 assert bytes(u.mem_read(dst, size)) == payload[:size]
                 assert f.native_count == 1
                 states.append(([u.reg_read(r) for r in fixture.REGS],
                                u.reg_read(fixture.UC_M68K_REG_A7), read_sr(u, DONE - 16),
-                               bytes(u.mem_read(0x47005000, 1024))))
+                               bytes(u.mem_read(0x47005000, 4096))))
             assert states[0] == states[1] == states[2], (size, offset)
             cases += 1
-    print(f'[ok] {cases} native memcpy comparisons: 0/1/3 clients, 11 lengths x 4 alignments; entry frame, copy bytes, return registers, stack and CCR match stock')
+    print(f'[ok] {cases} native memcpy comparisons: 0/1/3 clients, {len(lengths)} lengths x 4 alignments; entry frame, copy bytes, return registers, stack and CCR match stock')
 
 def main():
     cases=0;costs={}

@@ -76,7 +76,7 @@ def main():
             raise AssertionError(clients)
     select.__globals__['CLIENTS'] = original
     # Exercise the registry's actual bound selection, not only the helper.
-    for remix, count in (('events-empty', 0), ('euclid', 2), ('plocks-p2', 21), ('octabam-inserts', 21), ('events-clients', 23)):
+    for remix, count in (('events-empty', 0), ('euclid', 2), ('plocks-p2', 23), ('octabam-inserts', 23), ('events-clients', 25)):
         selected = {m.key: m for m in registry.selected(registry.remix(remix))}
         assert len(selected['EVENTS'].detours) == count, remix
         assert selected['EVENTS'].select is not None
@@ -85,7 +85,7 @@ def main():
     euclid = registry.remix('euclid')
     combined = replace(euclid, modules=euclid.modules + ('SCENES P2', 'STORE', 'PLOCKS P2'))
     selected = {m.key: m for m in registry.selected(combined)}
-    assert len(selected['EVENTS'].detours) == 23, 'EUCLID + PLOCKS P2'
+    assert len(selected['EVENTS'].detours) == 25, 'EUCLID + PLOCKS P2'
     r = registry.remix('events-empty')
     old = registry.modules()['EVENTS']
     try:

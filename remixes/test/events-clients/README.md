@@ -2,7 +2,7 @@
 
 A focused fixture for the shared EVENTS migration: EUCLID consumes transport
 notifications and PLOCKS P2 consumes held edits and copy notifications. Both
-clients are selected together, installing 23 event hooks. FILTER and COMPRESSOR
+clients are selected together, installing 25 event hooks. FILTER and COMPRESSOR
 provide stock controls; PLATE REV supplies the page-2 fallback used by the
 editor gates.
 
@@ -20,4 +20,23 @@ separately by `events-empty`.
 The standard stress generator covers START/STOP but not CONTINUE. Resume needs
 an explicit sequence or the panel. Held edits, copy/paste/undo and the physical
 save/power-cycle check also need the operator. USB capture does not validate the
-analog outputs. No hardware result is claimed for this fixture yet.
+analog outputs.
+
+## Hardware results
+
+EVT871E1 (`f09654ca`), 25 October 2026: six layouts and four explicit
+START/STOP/CONTINUE/tempo cases ran with zero USB fault deltas or DSP bad-record
+increases. The first both-slot ENV capture had one brief transient; its repeat
+did not. Elevated level remained. The ten-minute transport stress stopped on
+silence at 431.5 seconds with a healthy frame engine; attribution is unresolved.
+Short BASE/RAND and transport-suffix checks passed after power cycling but did
+not reproduce the preceding seven minutes. These are partial results, not a
+hardware acceptance pass.
+
+During physical editing, continuous-hold trig-paste undo retained the copied
+page-two lock. The pre-EVENTS private-hook image reproduces this under the port;
+stock page one restores the previous locks while leaving the trig present.
+The PLOCKS fix and regression are described in its
+[development notes](../../../modules/plocks-p2/DEVELOPMENT.md#trig-paste-undo-snapshot).
+The corrected image still needs physical retesting, followed by the remaining
+edit operations, save/power-cycle and sustained combined transport run.

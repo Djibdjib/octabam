@@ -14,9 +14,10 @@ No client storage format or musical policy changes here.
 The hook sites come from the preceding
 [SEQUENCER EVENTS](https://github.com/sambanks/octabam/blob/051508cce237159d40d08e7e8f9043b2432af9da/modules/sequencer-events/manifest.py)
 and [EDIT EVENTS](https://github.com/sambanks/octabam/blob/051508cce237159d40d08e7e8f9043b2432af9da/modules/edit-events/manifest.py)
-implementations. All 25 declared sites retain their expected stock 1.40C
-instructions, detour kinds and overwritten widths. The installer checks those
-instructions against the user's stock image before patching; selection determines
+implementations. Their 25 sites retain the expected stock 1.40C instructions,
+detour kinds and overwritten widths. Two additional address-load sites,
+`0x40029550` and `0x4002a426`, cover track-lock snapshot/restore for trig undo.
+The installer checks those instructions against the user's stock image before patching; selection determines
 which sites are actually installed.
 
 | Contract | Stock boundary and continuation |
@@ -24,7 +25,7 @@ which sites are actually installed.
 | Transport | `0x4009c3d4` / `0x4009c4d4` write PLAYING at `0x800065b8`; continue at `0x4009c3da` / `0x4009c4da` |
 | Accepted MIDI | `0x4009fbb2` / `0x4009fcfa`, after native sender `0x40010bc8` returns; continue at `0x4009fbb8` / `0x4009fd00` |
 | Held editor | Entry `0x400508e4`; unclaimed edits replay its prologue and continue at `0x400508ec` |
-| Copy | The 20 call/address-load sites listed in `manifest.py` target native memcpy `0x40020898`; callbacks finish before entering it with the original frame |
+| Copy | The 22 call/address-load sites listed in `manifest.py` target native memcpy `0x40020898`; callbacks finish before entering it with the original frame |
 
 These addresses and instructions are observed; the event names describe their
 roles, not firmware symbols. Native-code tests check transport writes, MIDI
@@ -104,9 +105,9 @@ the source units needed by selected subscribers. Assembly omits every unused
 entry point. Consequently:
 
 - No clients: no event code, tables or hooks; zero runtime overhead.
-- PLOCKS only: 21 editor/copy hooks, no transport or MIDI hooks.
+- PLOCKS only: 23 editor/copy hooks, no transport or MIDI hooks.
 - EUCLID only: two transport hooks, no MIDI or editor hooks.
-- Both: 23 hooks, no MIDI hooks (there is currently no production MIDI client).
+- Both: 25 hooks, no MIDI hooks (there is currently no production MIDI client).
 
 Active dispatch uses generated direct calls. There are no null checks, pointer
 tables, indirect callback calls or registration loops on a live event. One
@@ -149,7 +150,7 @@ bodies, which the probe substitutes at their entry points.
 synthetic clients, independent transport subscriptions, and native MIDI packet
 construction/arbitration. `verify_edit_events.py` checks first-owner precedence,
 native fallback, register/stack/condition-code preservation, callback ordering,
-copy results and counts. A second pass executes native memcpy for 11 lengths
+copy results and counts. A second pass executes native memcpy for 12 lengths
 and four alignments, comparing zero/one/three clients' copy bytes, entry frame,
 return registers, stack and condition codes. Synthetic callbacks deliberately
 clobber registers.
@@ -161,8 +162,12 @@ ownership and stock bytes at every unused boundary in each built image.
 
 The [events-clients fixture](../../remixes/test/events-clients/README.md) selects
 both clients with USB MAIN/CUE and LOAD METER for focused integration checks.
-EUCLID and PLOCKS retain their own behavior gates. No hardware run has tested
-this combined implementation. Earlier SEQUENCER EVENTS/EUCLID and EDIT EVENTS/
-PLOCKS MKII reports remain historical evidence for those earlier images only.
+EUCLID and PLOCKS retain their own behavior gates. Combined image EVT871E1
+has partial hardware results, including an unresolved transport-stress silence
+and a PLOCKS trig-undo failure; see the
+[fixture results](../../remixes/test/events-clients/README.md#hardware-results).
+Physical acceptance of the corrected trig-undo implementation is pending.
+Earlier SEQUENCER EVENTS/EUCLID and EDIT EVENTS/PLOCKS MKII reports remain
+historical evidence for those earlier images only.
 Add further events only with an audited native boundary, a precise contract,
 and both dispatcher and installed-image tests.

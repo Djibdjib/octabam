@@ -23,6 +23,11 @@ The locks move with the data: trig copy and paste, clear a trig's locks,
 pattern copy and paste, clear a pattern and its undo each carry or clear
 them. SAVE PROJECT writes them and a power cycle loads them back.
 
+To undo a trig paste, keep the destination trig held and press STOP again.
+Its page-two locks return to their previous values, including no lock,
+just like page one. Stock can leave the trig itself present after undo;
+the trig LED alone does not indicate whether a lock remains.
+
 ## Limits and saving
 
 - Page 2 has no slide: a slide trig moves page 1 only.

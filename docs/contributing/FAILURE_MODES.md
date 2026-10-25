@@ -3,6 +3,31 @@
 Symptom → cause (measured, inferred or open) → fix. Add an entry the moment
 a mode is seen on hardware.
 
+## PLOCKS trig-paste undo keeps copied page-two locks
+
+- **Seen:** radiohagen, 25 October 2026, EVENTS-CLIENTS image EVT871E1
+  (`f09654ca`), project EVT871E1_ED, C03. Copy trig 1 with MIX 40 onto empty
+  trig 5, keep trig 5 held and press STOP again. UNDO appears, but MIX 40 remains.
+- **Measured under the port:** stock page one restores its pre-paste locks
+  while retaining the trig. Page two fails on EVT871E1 and the private-hook
+  baseline `ff9c5f84`; this predates the EVENTS migration. Native undo copies
+  the track's entire lock snapshot, a boundary PLOCKS did not mirror.
+- **Fix:** EVENTS covers the snapshot/restore copies and PLOCKS mirrors them
+  into its existing undo buffer. The native-panel regression compares stock
+  page one with page two, including empty/existing destinations, repeated
+  paste/undo and clear/undo. Physical retest of the corrected image is pending.
+
+## EVENTS-CLIENTS transport stress reaches silence with healthy frames
+
+- **Seen:** radiohagen, 25 October 2026, EVT871E1 (`f09654ca`), pristine
+  EVT871E1_RN. `ot_fuzz.py run` of a ten-minute transport/tempo/program-change
+  sequence stops at 431.5 seconds: MAIN stays below -80 dBFS for three seconds
+  while playback is expected. No controls were touched or errors displayed.
+- **Measured:** USB overrun/underrun/duplicate-bank deltas and DSP bad-record
+  delta are zero; post-stop frame health is good. A 34-second suffix and isolated
+  BASE/RAND checks pass after a power cycle. They do not reproduce the preceding
+  runtime state. The audio failure remains open; no EVENTS cause or fix is claimed.
+
 ## Warm restarts and emulator boots can miss cold-start failures
 
 - **Seen:** on radiohagen's MKII, an early-startup code change passed emulator

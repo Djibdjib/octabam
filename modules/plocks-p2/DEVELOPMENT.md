@@ -1,5 +1,45 @@
 # PLOCKS-P2 contribution notes
 
+## Trig-paste undo snapshot
+
+Hardware testing of EVENTS image EVT871E1 on 25 October 2026 exposed a
+pre-existing PLOCKS gap: continuous-hold paste/undo restored page-one locks
+but retained copied page-two locks. The same page-two failure reproduces
+under the port on private-hook baseline `ff9c5f84`, before either shared
+editor migration. Stock and the candidate both leave a newly pasted trig
+present while undoing its copied page-one locks.
+
+Native snapshot `0x400294c0` copies a track's 64 × 32 lock bytes from
+`track+0x59` into packed buffer `+0x28`; native restore copies them back.
+The memcpy address loads at `0x40029550` and `0x4002a426` now belong to
+EVENTS `edit.copy_pre`. PLOCKS maps that exact 2,048-byte transfer to its
+existing 768-byte track mirror, including `0xff` values. No extra buffer,
+saved field or native trig mutation is needed. Other transfer lengths,
+unaligned addresses, and the native CS1 duplicate remain outside this
+mapping. The restore touches the page-two power-off copy once.
+
+The panel regression uses the same continuous-hold sequence on stock page
+one and FX1/FX2 page two: empty destination, a different existing lock,
+repeated paste/undo, multiple held destinations and held clear/undo. It checks the entire
+track's restored locks, the source, release behavior and retained native
+trig bits. Releasing between STOP presses starts another paste and is not
+this undo operation. Physical acceptance of the corrected image is pending.
+
+The same stock/page-two panel comparison covers track paste/undo and pattern
+copy/paste/clear/undo. In this stopped fixture, stock's pattern paste calls
+`0x4004a8a4`, whose `0x40027e00` call invalidates undo kind 14 immediately.
+The next STOP pastes again. The gate compares that native state with stock
+and checks the resulting locks; it does not label that case a successful
+pattern-paste undo. Pattern clear/undo does exercise restoration. Physical
+pattern-paste undo remains an explicit follow-up, with no stock patch here.
+
+Snapshot mirroring copies 768 bytes only at the editor's copy boundary;
+the playback path is unchanged. The existing track/pattern copy instruction
+counts remain unchanged. Empty EVENTS and EUCLID-only selections omit the
+two new hooks entirely.
+
+## Held-edit release
+
 The page-2 editor marks a held trig as edited and clears native pending tap
 masks before committing a lock. This lets release distinguish an edit from
 a bare tap, preserving the lock just entered. `verify_plocks_p2.py`
