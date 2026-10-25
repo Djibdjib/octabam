@@ -14,11 +14,6 @@ Holding a trig shows its lock after the same short delay as page 1, with
 the value area highlighted. Knob edits update immediately. Releasing the
 trig restores the Part display.
 
-For trig-paste undo, keep the destination trig held and press STOP a second
-time. Page-two locks return to their previous values, including no lock,
-as page-one locks do. Stock can leave a newly pasted trig present after
-undo; its LED remaining lit does not mean its copied locks remain.
-
 ## Measured
 
 Under the port, 2 Oct 2026, `tools/verify/verify_plocks_p2.py` on
