@@ -4,7 +4,7 @@
 
 *Spectrum, one of the insert effects*
 
-Octabam Inserts adds the core features and seven effects to Octatrack OS
+Octabam Inserts adds the core features and five effects to Octatrack OS
 1.40C. Each effect is an insert on its own track, on FX1, FX2 or both, and
 the stock DELAY stays.
 
@@ -22,14 +22,11 @@ stock COMPRESSOR keeps its id, undisturbed, with no side-chain KEY.
 | [CHARACTER](reference/modules/character.md) | ✓ | ✓ | fold, saturation, tilt, compressor, width |
 | [MODULATION](reference/modules/modulation.md) | ✓ | ✓ | Juno, Dimension, flanger, phaser, comb |
 | [TRANSIENT](reference/modules/transient.md) | ✓ | ✓ | transient shaper (Ignorato) |
-| [EUCLID](reference/modules/euclid.md) | ✓ | ✓ | Euclidean filter / amp sequencer (repeat98) |
 | [DELAY](reference/modules/delay.md) | — | ✓ | Stock delay. |
 | [GATE VERB](reference/modules/gateverb.md) | — | ✓ | Gated plate reverb with AMNT, GAIN, TIME, DIFF, TONE, and GATE controls. |
-| [LOFI2](reference/modules/lofi2.md) | — | ✓ | Ring modulation or stereo frequency shifting, followed by sample-rate and bit reduction. |
 
 The three stations are FX1-only in the bus remix; here each has its SLOTS
-build setting at FX1+FX2, so an FX2 instance runs live. LOFI2 runs on FX2
-only: it needs more DSP than the FX1 slots leave. CHARACTER's KEY = T1
+build setting at FX1+FX2, so an FX2 instance runs live. CHARACTER's KEY = T1
 needs a BusDelay host, so in this remix it keys on the track's own input. The
 FX1 chooser lists NONE and the effects marked FX1; the FX2 chooser lists the
 effects marked FX2. A MODE turned on the panel re-defaults the knobs around
