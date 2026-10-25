@@ -143,9 +143,14 @@ _BOUND = remix_registry.bound(REMIX)
 # and both payloads' dispatch entries for its id point at it.
 WINDOW = dict(REMIX.window)
 WINDOW_KEYS = {_k.removesuffix(":B") for _k in WINDOW}   # modules with window code; "KEY:B" is payload B's own copy
-for _dk in REMIX.window_demand:
+DEMAND = {_dk: (_i, _da) for _i, (_dk, _da) in enumerate(REMIX.window_demand)}   # key -> (index k, stub address)
+if len(DEMAND) > 4:
+    sys.exit(f"Remix.window_demand: {len(DEMAND)} effects; the entry table at x:$33d80 holds 4")
+for _dk, (_di, _da) in DEMAND.items():
     if _dk not in WINDOW:
         sys.exit(f"Remix.window_demand names {_dk!r}, which Remix.window does not place")
+    if not 0x30000 <= _da < 0x40000:
+        sys.exit(f"Remix.window_demand: {_dk}'s stub at P:0x{_da:05x} is outside the shared window")
 for _wk, _wa in WINDOW.items():
     if _wk.removesuffix(":B") not in REMIX.modules:
         sys.exit(f"Remix.window names {_wk!r}, which the remix does not carry")
@@ -3233,6 +3238,22 @@ hostquit:
                 init_a, proc_a = _wsyms.get("init"), _wsyms.get("proc")
                 if init_a is None or proc_a is None:
                     sys.exit(f"payload {tag}: {name} has no init/proc labels")
+                if name in DEMAND:
+                    # the id's dispatch entries point at the stub; the real code is loaded on demand
+                    _sk, _sa = DEMAND[name]
+                    _ssrc = re.sub(r"\$33d8([012])", lambda m: f"${0x33D80 + 8 * _sk + int(m.group(1)):x}",
+                                   pathlib.Path("modules/dlcopy/dlstub.asm").read_text())
+                    _sw, _ssyms = assemble_syms(_ssrc, _sa, label=name + " stub")
+                    if name + " stub" not in window_records:
+                        for _o in dsp_ranges.owners(remix_registry.selected(REMIX)):
+                            if (_o.domain == "shared" and _o.start < _sa + len(_sw) and _sa < _o.end):
+                                sys.exit(f"{name}'s stub: P:0x{_sa:05x}..0x{_sa + len(_sw):05x} overlaps "
+                                         f"{_o.owner}'s {_o.what}")
+                        for _on, (_oa, _ow) in window_records.items():
+                            if _oa < _sa + len(_sw) and _sa < _oa + len(_ow):
+                                sys.exit(f"{name}'s stub and {_on} overlap in the shared window")
+                        window_records[name + " stub"] = (_sa, list(_sw))
+                    init_a, proc_a = _ssyms["init"], _ssyms["proc"]
                 wrw_p(pp["xtab"] + NEW_IDS[name] * 3, init_a)
                 wrw_p(pp["xtab"] + (PROC_OFF + NEW_IDS[name]) * 3, proc_a)
                 if name == REMIX.fallback:
@@ -3881,8 +3902,7 @@ hostquit:
     # The window's records are not in the OS image's payload: tools/build/dsp_modmap.py's memory
     # dumps (every gate that runs an effect in dsp_host) read them from here and append them.
     # Remix.window_demand records are loaded at run time by the ColdFire, not uploaded at boot.
-    demand_records = {k: window_records.pop(k) for k in list(window_records)
-                      if k in REMIX.window_demand}
+    demand_records = {k: window_records.pop(k) for k in list(window_records) if k in DEMAND}
     _df = pathlib.Path("out/dsp/demand_records.json")
     if demand_records:
         _df.parent.mkdir(parents=True, exist_ok=True)

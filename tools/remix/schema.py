@@ -2040,10 +2040,13 @@ class Remix:
     # (tools/remix/dsp_ranges.py) or a module whose two payload sources assemble differently.
     # A module placed this way has no hooks, no LFO or second table, and no tail.
     window: tuple[tuple[str, int], ...] = ()
-    # DEMAND-LOADED WINDOW EFFECTS (docs/proposals/DEMAND_LOAD.md): module keys also listed in
-    # `window`. They are assembled and placed as above but left out of payload A's upload; their
-    # words, entry points and address go to out/dsp/demand_records.json for the ColdFire loader.
-    window_demand: tuple[str, ...] = ()
+    # DEMAND-LOADED WINDOW EFFECTS (docs/proposals/DEMAND_LOAD.md): (module key, stub address) pairs; the
+    # key is also in `window`. The module is assembled and placed as above but left out of payload A's
+    # upload: its words, address, entry points and id go to out/dsp/demand_records.json for the ColdFire
+    # loader. Its id's dispatch entries point at a stub (modules/dlcopy/dlstub.asm, assembled at the given
+    # address and uploaded) that passes the audio through until DLCOPY has published the code. The
+    # position in this tuple is the effect's index k, 0..3 (the entry at x:$33d80 + 8 k).
+    window_demand: tuple[tuple[str, int], ...] = ()
     # THE HOST PAGE DRAWS ITS FIRST SLOTS ONLY (26 Sep 2026, Sam: "want
     # all the tracks to look the same"): (key, n) pairs. The hidden
     # module's page draws slots 0..n-1 under their manifest names (the rig:

@@ -8,6 +8,7 @@ shapes its input, so a pass-through does not return it bit for bit), through DLS
 stub) and through DLSTUB bound to MODULATION's code (it must equal the direct render, from the first block). The shared words are written into a copy of the dump. dsp_host maps P and X separately outside the
 window's alias, so this proves the stub's logic and register handling, not the hardware.
 """
+import json
 import math
 import pathlib
 import struct
@@ -36,8 +37,9 @@ def check(label, ok, detail=""):
 
 MOD = registry.by_name("modulation")
 mem = send_probe.dump_mem("out/mainos_bus.bin", TMP / "dlspike_A.mem", "A")
-init_m, proc_m = send_probe.entry_points(mem, MOD.menu.fx2_id)
-init_s, proc_s = send_probe.entry_points(mem, 0x1B)
+rec = json.loads(pathlib.Path("out/dsp/demand_records.json").read_text())["MODULATION"]
+init_m, proc_m = rec["init"], rec["proc"]                       # the real code, loaded on demand
+init_s, proc_s = send_probe.entry_points(mem, MOD.menu.fx2_id)  # its id dispatches to the stub
 init_n, proc_n = send_probe.entry_points(mem, 0x08)          # an unassigned id: the stock null stub
 print(f"MODULATION init/proc P:0x{init_m:05x}/0x{proc_m:05x}; DLSTUB P:0x{init_s:05x}/0x{proc_s:05x}")
 

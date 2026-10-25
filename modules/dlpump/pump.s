@@ -26,28 +26,33 @@
         .equ    CSEL,   0xfc0a400c
         .equ    CHUNK,  100
         .equ    BELL,   0x2900                  | X staging word the DSP polls
+        .equ    LIVE,   0x80000ec4              | the live FX1 and FX2 ids of tracks 1-8
+        .equ    STAGE1, 0x2901                  | the first word of a staged message
         .equ    RING,   0xa55a
         .equ    PING,   0                       | the frames whose host writes the port delivers (below)
+
+        .data
+        .include "remix.inc"
 
         .text
         .globl  dl_pump
 dl_pump:
         move.l  dl_state,%d0
-        beq.w   9f
+        beq.w   idle
         moveq   #PING,%d1
         cmp.l   0x800000e0,%d1                  | the frame's ping word
         bne.w   9f
         move.l  dl_core,%d4
         subq.l  #1,%d0
-        bne.s   2f
+        bne.w   2f
         move.l  dl_left,%d2                     | state 1: the next chunk
         cmp.l   #CHUNK,%d2
-        bls.s   1f
+        bls.w   1f
         moveq   #CHUNK,%d2
 1:      move.l  dl_dest,%d1
         move.l  dl_src,%a0
         move.l  %d2,%d5
-        bsr.s   dl_xfer
+        bsr.w   dl_xfer
         lea     dl_dest,%a1
         add.l   %d5,%a1@                        | dest += n
         lea     dl_src,%a1
@@ -58,18 +63,76 @@ dl_pump:
         asr.l   #1,%d5
         sub.l   %d5,%d0
         move.l  %d0,%a1@
-        bne.s   8f
+        bne.w   8f
         moveq   #2,%d0
         move.l  %d0,dl_state
-        bra.s   8f
+        bra.w   8f
 2:      move.l  #BELL,%d1                       | state 2: the doorbell
         lea     dl_bell,%a0
         moveq   #1,%d2
-        bsr.s   dl_xfer
+        bsr.w   dl_xfer
         clr.l   dl_state
 8:      moveq   #0,%d0
         move.b  %d0,CSEL                        | the frame code expects core A selected
 9:      rts
+
+| Idle: compare the effects the tracks use with the ones loaded, on the frames the port delivers.
+| One message is armed per call: a load (the effect is used, not loaded, and its block is not
+| under a stock reverb) or a withdrawal (loaded, used by no track).
+idle:
+        moveq   #PING,%d1
+        cmp.l   0x800000e0,%d1
+        bne.w   9b
+        lea     dl_tab,%a2
+        moveq   #0,%d6                          | the effect's index
+3:      cmp.l   #DL_N,%d6
+        bcc.w   9b
+        move.l  %a2@,%d2                        | its id
+        moveq   #0,%d3                          | used by a track
+        lea     LIVE,%a1                        | FX1 ids of tracks 1-8, then FX2's
+        moveq   #15,%d4
+4:      cmp.b   %a1@+,%d2
+        bne.w   5f
+        moveq   #1,%d3
+5:      subq.l  #1,%d4
+        bpl.w   4b
+        move.l  dl_loaded,%d0
+        btst    %d6,%d0
+        bne.w   6f
+        tst.l   %d3                             | not loaded
+        beq.w   7f
+        move.l  %a2@(4),%d1                     | the track whose FX2 slot shares the block
+        lea     LIVE+8,%a1
+        move.b  %a1@(0,%d1:l),%d1
+        cmp.b   #DL_PLATE,%d1
+        beq.w   7f
+        cmp.b   #DL_SPRING,%d1
+        beq.w   7f
+        cmp.b   #DL_DARK,%d1
+        beq.w   7f
+        move.l  %a2@(8),%d1                     | the staged block
+        move.l  %a2@(12),%d2
+        bset    %d6,%d0
+        bra.w   arm
+6:      tst.l   %d3                             | loaded
+        bne.w   7f
+        move.l  %a2@(16),%d1                    | the withdraw message
+        moveq   #5,%d2
+        bclr    %d6,%d0
+        bra.w   arm
+7:      lea     %a2@(20),%a2
+        addq.l  #1,%d6
+        bra.w   3b
+arm:    move.l  %d0,dl_loaded
+        move.l  %d1,dl_src
+        move.l  %d2,dl_left
+        moveq   #1,%d0
+        move.l  %d0,dl_core
+        move.l  #STAGE1,%d0
+        move.l  %d0,dl_dest
+        moveq   #1,%d0
+        move.l  %d0,dl_state
+        rts
 
 | d4 core, d1 X word, d2 words, a0 source halfwords
 dl_xfer:
@@ -87,7 +150,7 @@ dl_xfer:
         move.l  %d2,%d3
 3:      move.w  HOST+8,%d0
         and.l   #6,%d0
-        beq.s   3b
+        beq.w   3b
         moveq   #0,%d1
         move.w  (%a0)+,%d1
         moveq   #0,%d0
@@ -97,14 +160,15 @@ dl_xfer:
         move.w  %d0,HOST+0x18
         move.w  %d1,HOST+0x1c
         subq.l  #1,%d3
-        bne.s   3b
+        bne.w   3b
         rts
 
         .data
-        .globl  dl_state, dl_core, dl_dest, dl_src, dl_left
+        .globl  dl_state, dl_core, dl_dest, dl_src, dl_left, dl_loaded
 dl_state: .long 0
 dl_core:  .long 0
 dl_dest:  .long 0
 dl_src:   .long 0
 dl_left:  .long 0
+dl_loaded: .long 0                      | bit k: effect k is loaded
 dl_bell:  .word RING
