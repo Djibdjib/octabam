@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""DLPUMP under the port: a block staged in DRAM arrives in a DSP core's X memory, doorbell last.
+"""DLPUMP and DLCOPY under the port: a block staged in DRAM arrives in a DSP core's X memory, doorbell last, and is copied into the window.
 
     python3 tools/verify/verify_dlpump.py [--core 0|1] [--project DIR]
 
 Builds REMIX=test/dlspike (MODULATION is its Remix.window_demand effect), arms the pump by poking
-its state (core, destination, source, count, state last) and a staged block (the halfwords the
-DSP copier takes: 4 header words and 2 per code word) into DRAM, runs to a fixed time with no
-DSP effect assigned, and reads X:0x2900.. back from the core. Passes when X:0x2901.. holds the
-block, X:0x2900 the doorbell, and the pump is idle again.
+its state (core, destination, source, count, state last) and a staged block (effect index, window
+offsets of the code and its entries, then the halfwords the copier takes: 2 per code word) into
+DRAM, runs to a fixed time with no DSP effect assigned, and reads back, from the core the block
+went to and from the other core: the doorbell, effect 0's entry and the code in the window.
 
 Cannot see: the hardware's host-write timing, other projects' use of X:0x2840..0x3fff.
 """
@@ -74,7 +74,7 @@ def main():
     for w in rec["words"]:
         halves += [w >> 8, w & 0xFF]
     win = 0x30000
-    block = [rec["addr"] - win, len(rec["words"]), rec["init"] - win, rec["proc"] - win] + halves
+    block = [0, rec["addr"] - win, len(rec["words"]), rec["init"] - win, rec["proc"] - win] + halves      # effect 0
 
     pokes = []
     for i, h in enumerate(block):
@@ -99,7 +99,7 @@ def main():
     cmd = [EMU, "--image", image, "--card", card, "--set", a.set_name, "--project", a.name, "--load-ms", "90000",
            "--mkii", "--dsp", "--frame", "--live-script", OUT / "run.script",
            "--step", "-:poke:" + ";".join(pokes),
-           "--dsp-peek", f"{a.core}:X:{STAGE:x},{len(block) + 1};{a.core}:X:0,16384",
+           "--dsp-peek", ";".join(f"{c}:X:{STAGE:x},1;{c}:X:33d80,5;{c}:P:{rec['addr']:x},{len(rec['words'])}" for c in (a.core, 1 - a.core)),
            "--mem-dump", f"{sym['dl_state']:#x},20={state_dump}"]
     log = OUT / "run.txt"
     with open(log, "w") as fh:
@@ -108,14 +108,24 @@ def main():
     if r.returncode or "ended on quit" not in text:
         sys.exit(f"verify_dlpump: the run did not finish -- {log}")
 
-    m = re.search(rf"core {a.core} X:0x0*{STAGE:x}:([^\n]*)", text)
-    words = [int(t, 16) for t in m.group(1).split()] if m else []
-    check("X:0x2900.. read back", len(words) >= len(block) + 1, f"{len(words)} of {len(block) + 1} words")
-    if len(words) >= len(block) + 1:
-        check("the doorbell is in X:0x2900", words[0] & 0xFFFF == RING, f"{words[0]:06x}")
-        got = [w & 0xFFFF for w in words[1:len(block) + 1]]
-        bad = [i for i, (g, w) in enumerate(zip(got, block)) if g != w]
-        check("the block arrived, every halfword", not bad, f"{len(bad)} of {len(block)} differ" + (f", first at {bad[0]}" if bad else ""))
+    def peek(space, addr, core=a.core):
+        m = re.search(rf"core {core} {space}:0x0*{addr:x}:([^\n]*)", text)
+        return [int(t, 16) for t in m.group(1).split()] if m else []
+
+    bell = peek("X", STAGE)
+    entry = peek("X", 0x33D80)
+    code = peek("P", rec["addr"])
+    check("the doorbell was consumed by the copier", bell == [0], f"{bell}")
+    check("effect 0 is bound", entry[:1] == [0xB0A5ED], f"{[hex(w) for w in entry]}")
+    check("its init and proc and span are published",
+          entry[1:5] == [rec["init"], rec["proc"], rec["addr"], rec["addr"] + len(rec["words"])],
+          f"{[hex(w) for w in entry[1:5]]}")
+    bad = [i for i, (g, w) in enumerate(zip(code, rec["words"])) if g != w]
+    check("the code is in the window, every word", len(code) == len(rec["words"]) and not bad,
+          f"{len(code)} of {len(rec['words'])} words read, {len(bad)} differ")
+    other = 1 - a.core
+    check("the other core sees effect 0 bound", peek("X", 0x33D80, other)[:1] == [0xB0A5ED])
+    check("the other core sees the code", peek("P", rec["addr"], other) == rec["words"])
     left = int.from_bytes(state_dump.read_bytes()[0:4], "big")
     check("the pump is idle again", left == 0, f"dl_state={left}")
     print("PASS" if not FAILS else "FAIL")
