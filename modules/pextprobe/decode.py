@@ -19,8 +19,14 @@ import struct
 import sys
 
 MARKER = 0xA5
-RUNGS = [(k + 1) * 0x2000 + 0x1FE0 for k in range(7)]
-CODE = {0: "untested", 1: "REAL", 2: "ALIAS (wraps onto the base)", 3: "ABSENT"}
+# GO select -> (name, rung addresses, what each two-bit code means); keep in step with gen_pextprobe.py
+LADDERS = {
+    1: ("LOW", [0x1FE0, 0x2000, 0x2100, 0x2400, 0x2800, 0x3000, 0x3800],
+        {0: "untested", 1: "REAL", 2: "ALIAS (the address wraps onto live code, nothing written)", 3: "ABSENT"}),
+    2: ("WINDOW", [0x30100, 0x35900, 0x36300, 0x36800, 0x37000, 0x37800, 0x37E00],
+        {0: "untested", 1: "read/write only (the routine returned the wrong x0)", 2: "read/write and EXECUTE",
+         3: "ABSENT (read/write failed)"}),
+}
 
 
 def _bits(samples, invert):
@@ -47,8 +53,8 @@ def decode_stream(L, R, invert=False):
         base = ph + 16 * f
         lw = sum(b << i for i, b in enumerate(_bits(L[base: base + 16], invert)))
         rw = sum(b << i for i, b in enumerate(_bits(R[base: base + 16], invert)))
-        out.append(dict(mask=lw & 0x3FFF, k=((lw >> 14) & 3) | ((rw & 1) << 2), go=(rw >> 1) & 1,
-                        parity=(rw >> 2) & 1, marker=(rw >> 8) & 0xFF))
+        out.append(dict(mask=lw & 0x3FFF, k=((lw >> 14) & 3) | ((rw & 1) << 2), go=(rw >> 1) & 3,
+                        parity=(rw >> 3) & 1, marker=(rw >> 8) & 0xFF))
     return ph, out
 
 
@@ -69,25 +75,34 @@ def summarise(phase, frames):
             last = key
     for i, f in states:
         lines.append(f"  frame {i:6d}: GO {f['go']}  next rung {f['k']}  mask {f['mask']:014b}")
-    f = good[-1]
+    f = next((x for x in reversed(good) if x["go"]), good[-1])        # the last frame with GO on: GO back to 0 starts the ladder over
     last_marker = max(i for i, x in enumerate(frames) if x["marker"] == MARKER)
     trailing = len(frames) - 1 - last_marker                     # frames after the last one carrying the marker
     parities = {x["parity"] for x in good[-6:]}
     stopped = trailing >= 8 or (len(good) >= 6 and len(parities) == 1)
-    lines.append(f"final: GO {f['go']}, next rung {f['k']}, "
-                 + ("FRAMES STOPPED ARRIVING (" + (f"{trailing} frames without the marker after it" if trailing >= 8
-                                                     else "the parity bit stopped toggling") + ")"
-                    if stopped else "frames still arriving (the parity bit toggles)"))
+    if stopped and f["k"] >= 7:
+        tail = "frames end after the ladder finished (the capture left the probe's track or project)"
+    elif stopped:
+        tail = ("FRAMES STOPPED ARRIVING (" + (f"{trailing} frames without the marker after it" if trailing >= 8
+                                               else "the parity bit stopped toggling") + ")")
+    else:
+        tail = "frames still arriving (the parity bit toggles)"
+    lines.append(f"final: GO {f['go']}, next rung {f['k']}, {tail}")
+    name, addrs, codes = LADDERS.get(f["go"], (None, [], {}))
+    if name is None:
+        lines.append("GO is off: no ladder has run" if f["go"] == 0 else f"unknown GO value {f['go']}")
+        return lines
+    lines.append(f"ladder {name}:")
     for k in range(7):
         c = (f["mask"] >> (2 * k)) & 3
-        lines.append(f"  rung {k}  P:0x{RUNGS[k]:04x}: {CODE[c]}")
-    if f["go"] and f["k"] < 7:
-        lines.append(f"ladder not finished: rung {f['k']} (P:0x{RUNGS[f['k']]:04x}) never completed"
+        lines.append(f"  rung {k}  P:0x{addrs[k]:05x}: {codes[c]}")
+    if f["k"] < 7:
+        lines.append(f"ladder not finished: rung {f['k']} (P:0x{addrs[f['k']]:05x}) never completed"
                      f" ({'the core froze on it' if stopped else 'still running'})")
-    elif f["go"]:
-        top = [k for k in range(7) if (f["mask"] >> (2 * k)) & 3 == 1]
-        lines.append("P above 0x2000 is real memory up to rung " + (str(max(top)) if top else "none")
-                     + (f", P:0x{RUNGS[max(top)]:04x}" if top else ""))
+    else:
+        real = [k for k in range(7) if (f["mask"] >> (2 * k)) & 3 in ((1,) if name == "LOW" else (1, 2))]
+        lines.append(f"{name}: {len(real)} of 7 rungs read and wrote"
+                     + (f"; the highest is P:0x{addrs[max(real)]:05x}" if real else ""))
     return lines
 
 

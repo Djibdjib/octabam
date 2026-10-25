@@ -1,9 +1,10 @@
-"""PEXT PROBE -- how far does P memory reach above P:0x2000 on each DSP core?
+"""PEXT PROBE -- where can a DSP core keep code besides its stock P memory?
 
 A measurement source, not an effect: an insert that replaces its track's audio
 with a 32-bit status word per frame (the sign of each of the frame's 32
-samples), and, once its GO knob is turned, tests P memory at seven addresses
-above the stock code, 0x3fe0 to 0xffe0. A capture of the track's audio (the USB
+samples), and, once its GO select is turned, runs a ladder of seven tests: LOW,
+a control at P:0x1fe0 and P memory at 0x2000..0x3800; WIN, read, write and
+execute at seven words of the shared window. A capture of the track's audio (the USB
 audio out) reads the result with modules/pextprobe/decode.py, and keeps it if
 the core freezes on the way. modules/pextprobe/README.md is the procedure.
 
@@ -20,7 +21,7 @@ MODULE = Module(
     kind=Kind.DSP_EFFECT,
     category=Category.TRACK, author="sambanks", author_url="https://github.com/sambanks",
     proof=Proof.CHECK, proof_note="",
-    doc="Measurement instrument: tests how far P memory reaches above P:0x2000 and reports it in the track's audio.",
+    doc="Measurement instrument: tests P memory above P:0x2000 and code in the shared window, and reports it in the track's audio.",
     menu=MenuEntry(
         fx2_id=12,                    # EQUALIZER's id: every id 4..31 is taken, so the probe replaces one stock effect
         replaces="EQUALIZER",
@@ -30,8 +31,8 @@ MODULE = Module(
         build_tag=False,
     ),
     params=(
-        Param(b"GO", 0, 2, active=True, formatter=Formatter.STEPPED, labels=("OFF", "RUN"),
-              doc="OFF: the idle signature only. RUN: after 64 frames, one rung of the ladder every 64 frames"),
+        Param(b"GO", 0, 3, active=True, formatter=Formatter.STEPPED, labels=("OFF", "LOW", "WIN"),
+              doc="OFF idle; LOW P:0x1fe0 control, P:0x2000..0x3800; WIN shared window; a rung per 64 frames"),
         _BLANK, _BLANK, _BLANK, _BLANK, _BLANK, _BLANK, _BLANK, _BLANK, _BLANK, _BLANK, _BLANK,
     ),
     dsp=DspSection(
