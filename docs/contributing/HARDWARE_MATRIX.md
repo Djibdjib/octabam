@@ -197,11 +197,14 @@ CC1..CC10 enabled, scene A = scene 1, scene B = scene 9, MIDI trigs on steps 4, 
   | 2501, `xf` | 2,577 | 32 and 33 (two runs) | 106 | 1,209 / 1,212 |
   | 2502, `scenes` | 2,311 | 503 | 1,083 | 1,210 / 1,212 |
 
-  The unit sends fewer lock CCs than the port in both. The port's MIDI out carries no timestamps, so values are
-  not compared per event. For seed 2501 every unit CC value appears in the port's stream in order; for seed 2502
-  that test fails and does not separate a timing offset from a wrong value. The lock CC is sent only when its value
-  changes, and a crossfader step of 1 moves it by less than 1 with the locks 105 apart; whether that accounts for
-  the difference is not checked.
+  The unit counts in this table are from `ot_fuzz.py run` before 25 Oct 2026 (evening), which called the 0.4 s
+  `load_meter.healthy()` inline every 0.5 s: operations went out up to 0.4 s late, in bursts, and the sweeps were
+  thinned. They are not the unit's behaviour. With the check in its own thread, the first 25 s of seed 2501 gave 95
+  lock CCs on the unit, 93 from a plain sender with no health check, and 95 under the port, with the same values in
+  the same order. Controlled sweeps (a 0 to 127 crossfader sweep, scene A 0 and B 15, the sequencer stopped or
+  playing, with LOAD METER polling or audio capture) gave 104 CCs per direction at 200 and 50 ms per step and 102 to
+  104 at 20 ms; the port gave 105. The port's MIDI out carries no timestamps in the unstamped runs, so these
+  comparisons are by order and count.
 - **Crossfader to CC latency** (`ot_xflag.py`, scene A 0 locked at 8, scene B 15 locked at 113, crossfader
   alternating 0 and 127, host monotonic clock):
 
