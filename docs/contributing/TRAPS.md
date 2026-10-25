@@ -1019,6 +1019,12 @@ report (the hints name `tools/harness/send_probe.py`), which refhash
 correctly flagged with every artifact identical. Re-save only after proving
 the artifact lines match.
 
+A module that gains or loses `replaces` moves between the build report's
+"not in this remix, LEFT STOCK" and "not in this remix" lines in every case.
+The cases that exit non-zero (`plain`, `marker`) have the report as their only
+line, so `tools/verify/refhash_compare.py` compares their logs with those two
+lines masked; any other difference in a refusal still fails.
+
 <a name="trap-nm-order"></a>
 
 ### Same-named labels across DRAM units resolve by nm table order
