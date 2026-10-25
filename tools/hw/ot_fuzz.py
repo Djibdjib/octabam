@@ -44,6 +44,7 @@ PROFILES = {
             "scene": 2, "mute": 3, "level": 2, "knob": 4},
 }
 HEALTH_EVERY_S, DEAD_AUDIO_S = 0.5, 3.0
+MIN_AUDIBLE_TRACKS = 3        # the silence check needs this many unmuted tracks: one track through an effect can be quieter than -80 dB
 
 
 def program_of(layout):
@@ -173,10 +174,23 @@ def cmd_run(a):
     dev, nch = U.find_input(a.audio)
     out = ot_midi.Out(a.midi)
     clock = ClockGen(out)
-    state = {"idx": -1, "db": -240.0, "played_at": None, "bad0": None, "fail": None, "samples": []}
+    state = {"idx": -1, "db": -240.0, "played_at": None, "bad0": None, "fail": None, "samples": [], "muted": set()}
+
+    blocks = []                                    # (time, sum of squares, samples) over the last DEAD_AUDIO_S
 
     def cb(indata, frames, t, status):
-        state["db"] = float(20 * np.log10(max(np.sqrt(np.mean(indata[:, :2].astype(np.float64) ** 2)), 1e-12)))
+        x = indata[:, :2].astype(np.float64)
+        state["db"] = float(20 * np.log10(max(np.sqrt(np.mean(x ** 2)), 1e-12)))
+        now = time.monotonic()
+        blocks.append((now, float(np.sum(x ** 2)), x.size))
+        while blocks and now - blocks[0][0] > DEAD_AUDIO_S:
+            blocks.pop(0)
+
+    def window_db():
+        """rms over the last DEAD_AUDIO_S seconds: one quiet stretch of a sweep or a decay is not silence."""
+        snap = list(blocks)
+        n = sum(b[2] for b in snap)
+        return 20 * np.log10(max(np.sqrt(sum(b[1] for b in snap) / n), 1e-12)) if n else -240.0
     last_audio = {"t": time.monotonic()}
 
     def check():
@@ -193,10 +207,9 @@ def cmd_run(a):
                 return f"{r['dsp']['bad'] - state['bad0']} bad records since the start (frames are being skipped)"
         if not any(n == "Elektron Octatrack DPS-1" for n, _ in ot_midi.endpoints("dst")):
             return "the MIDI destination is gone"
-        if state["db"] > -80.0:
-            last_audio["t"] = time.monotonic()
-        elif state["played_at"] is not None and time.monotonic() - max(last_audio["t"], state["played_at"]) > DEAD_AUDIO_S:
-            return f"the audio has been silent for {DEAD_AUDIO_S:.0f} s while the transport plays"
+        if (8 - len(state["muted"]) >= MIN_AUDIBLE_TRACKS and state["played_at"] is not None
+                and time.monotonic() - state["played_at"] > DEAD_AUDIO_S and window_db() < -80.0):
+            return f"the audio has been below -80 dB (rms over {DEAD_AUDIO_S:.0f} s) while the transport plays"
         return None
 
     t_start = time.monotonic()
@@ -221,6 +234,8 @@ def cmd_run(a):
                     clock.bpm = float(o["note"])
                 elif o["bytes"]:
                     out.send(o["bytes"])
+                    if o["op"] == "cc" and o["bytes"][1] == 49:
+                        (state["muted"].add if o["bytes"][2] >= 64 else state["muted"].discard)(o["bytes"][0] & 15)
                 if o["op"] == "start":
                     state["played_at"] = time.monotonic(); last_audio["t"] = time.monotonic()
                 elif o["op"] == "stop":

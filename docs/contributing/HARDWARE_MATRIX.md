@@ -132,6 +132,13 @@ No single-slot run has gone past 98.8 %.
 
 ## Stress sequences
 
+The audio check reads USB channels 0/1 (MAIN on an image whose TRACKS setting is OFF; TRACKS PRE puts T1 there)
+and fails the run when their rms over 3 s is below -80 dB while the transport plays and at least three tracks are
+unmuted by the sequence's own mute operations. Before that rule (25 Oct 2026) a 56-minute `mix` run stopped at
+719 s, three times at the same place: the sequence had muted T1 to T7, leaving T8 alone through MODULATION
+mode2 + dear; the mutes alone reproduce it, unmuting brings the audio back (-42 dB against -66 to -69 dB with only
+T8), and LOAD METER read healthy throughout. The check assumes every track starts unmuted: load a fresh project.
+
 `tools/hw/ot_fuzz.py` plays seeded random sequences of the things a person does over MIDI (program changes, START /
 STOP, a moving tempo, the crossfader, scene select, mutes, levels, FX knobs) against one of the generated projects,
 with the health checks above every 0.5 s, and stops on the first failure with the operation index and the last 40

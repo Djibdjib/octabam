@@ -610,15 +610,6 @@ Entries from here to the end of the file (5 Oct 2026) were recorded in other doc
 - **Fix:** none. `ot_matrix.py` flags OVERLOAD (the frame interrupt under 80 % of 2,756 a second) and stops the run; `predict` leaves layouts predicted at 100 % or more out unless `--include-overload` is given.
 - **To find out:** whether a power-cycle clears it (expected); what BRAIN > LOG > EVENTS recorded; whether the unit recovers when the load drops below the budget without a power-cycle; where between 98.8 and 105 % it starts.
 
-## The T1 audio goes silent after a sequence of program changes, crossfader moves and CCs at 125 BPM 🔴 open
-
-- **Seen:** Sam's MKII, image I4 (`octabam-inserts` with MODULATION 26520d6e and the frame-count fix), 25 Oct 2026, project `MXKIT_ROT1` (Kits migrated from the Parts, every pattern pointed one Kit along, `ot_kits.py rotate 1`). `ot_fuzz.py` `mix` sequence, seed 21 (`~/octa/matrix/fuzzkit_seed21_mix56.json`): the audio on USB channels 0/1 (track 1 pre-fader, TRACKS PRE) stopped at about 716 s and the check failed at 719.0 to 719.5 s ("silent for 3 s while the transport plays"). Three runs failed at ops 951, 948 and 949, the third after a fresh project load. LOAD METER read healthy afterwards (frame count advancing, `bad` 2): the DSP kept running.
-- **State at 707.6 s (the transport start before the failure):** 125 BPM; crossfader CC48 = 15, scene A CC55 = 76, scene B CC56 = 11; 59 other CC values set earlier. The program changes before it: layout 2 at +1.6 s, layout 4 (program 16) at +2.3 s, layout 21 (program 81) at +3.1 s, taking effect at the pattern end.
-- **Reproduced short:** `~/octa/matrix/state707_l21.json` sends the 59 CCs' final values and the tempo, then START and those three program changes: fails at 16 s.
-- **Not reproduced:** layout 21 alone or after layout 20 on a freshly loaded `MXKIT_ROT1` (audible, -39.4 and -40.4 dB); T1's six knob CCs alone then layout 21 (no failure in 51 s); the same layouts in `MXKIT_IDENT` or `MXMOD01`.
-- **Not established:** which of the CC values or the tempo is needed. The earlier reading of -138.5 dB for layout 21 (an `ot_matrix.py run --only 20-23`) was taken after a stress run, on the unit's changed in-memory state, and is not evidence about Kits.
-- **Cause:** open. **Check:** reload the project, then the short sequence with groups of the CCs.
-
 ## The DSP's frame count stops while the ColdFire and USB keep running 🟡 idle stop fixed in LOAD METER; the stops under overload are open (a power-cycle cleared each so far)
 
 - **Seen:** Sam's MKII, `octabam-inserts` image I1, 24 Oct 2026, three times through LOAD METER over USB: 10:40 after the fourth run of EUCLID FX1 + LOFI2 FX2 `dear` (the frame count `lm_dsp[0]` constant at 4,189,348; the frame interrupt still ran 2,756 a second but with a mean of 0.6 µs; `bad` 14,701); 11:03 after `ot_matrix.py switch` had sent program changes during play between layouts of MXEUC_01 (frame count constant at 7,090,409; the ColdFire share 69 %); and after the 10:0x overloads. Each time the panel and USB answered.
