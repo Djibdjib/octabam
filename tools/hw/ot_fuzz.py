@@ -221,16 +221,26 @@ def cmd_run(a):
     try:
         with sd.InputStream(device=dev, channels=nch, samplerate=44100, dtype="float32", callback=cb):
             clock.start()
-            nxt_check = t_start
-            for i, o in enumerate(ops):
-                while time.monotonic() - t_start < o["t"]:
-                    if time.monotonic() >= nxt_check:
-                        why = check()
-                        nxt_check += HEALTH_EVERY_S
+            health_stop = threading.Event()
+
+            def health():
+                # check() takes 0.4 s (load_meter.healthy waits for the frame counter to move); inline in the
+                # sender it delayed every operation up to 0.4 s and sent them in bursts (25 Oct 2026)
+                nxt = time.monotonic()
+                while not health_stop.is_set() and not state["fail"]:
+                    if time.monotonic() >= nxt:
+                        nxt += HEALTH_EVERY_S
+                        try:
+                            why = check()
+                        except Exception as e:  # noqa: BLE001
+                            why = f"the health check raised {e!r}"
                         if why:
                             state["fail"] = why
-                            break
                     time.sleep(0.01)
+            threading.Thread(target=health, daemon=True).start()
+            for i, o in enumerate(ops):
+                while time.monotonic() - t_start < o["t"] and not state["fail"]:
+                    time.sleep(0.002)
                 if state["fail"]:
                     break
                 state["idx"] = i
@@ -244,6 +254,7 @@ def cmd_run(a):
                     state["played_at"] = time.monotonic(); last_audio["t"] = time.monotonic()
                 elif o["op"] == "stop":
                     state["played_at"] = None
+            health_stop.set()
             if not state["fail"]:
                 # a final look after the last operation
                 time.sleep(1.0)
