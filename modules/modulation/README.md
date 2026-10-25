@@ -3,7 +3,7 @@
 A modulation pedal: Juno chorus, Dimension, through-zero flanger, a tuned
 comb and a phaser, with a LOFI stage.
 
-On stock CHORUS's id 0x12, FX1 only. Every mode is a transcription of a
+On id 0x0e (stock CHORUS keeps 0x12), FX1 only. Every mode is a transcription of a
 published, permissively licensed source (Modes and Sources, below;
 licences in `THIRD_PARTY.md`). Every mode outputs the wet only and MIX
 blends, so MIX 0 is an exact passthrough and MIX 127 the wet outright.

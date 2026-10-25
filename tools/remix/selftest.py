@@ -964,7 +964,7 @@ def main():
     _rig = ("FILTER", "SPATIALIZER", "EQUALIZER", "PHASER", "FLANGER", "CHORUS",
                  "PLATE REV", "SPRING REV", "DARK REV", "COMPRESSOR", "LO-FI",
                  "DJ EQ", "COMB FILTER")
-    _want = {"midi-loopback": (), "midi-scales": (), "mods": (), "ata-write-guard": (), "octabam-core": (), "usb-out-tracks-main-cue": ("PLATE REV",), "usb-out-tracks": (), "usb-out-master": (),
+    _want = {"midi-loopback": (), "midi-scales": (), "mods": (), "ata-write-guard": (), "usb-out-tracks-main-cue": ("PLATE REV",), "usb-out-tracks": (), "usb-out-master": (),
              "usb-out-tracks-post": (),
              "remix-switch": (), "remix-switch-trace": (),   # REMIX SWITCH's park in dead vectors, no region words
              "usb-io-stock14": (),   # USB's RX inject at payload A's tail (DspSection.tail), no region words
@@ -984,12 +984,13 @@ def main():
                                   "scope",  # SCOPE: ColdFire window, no DSP words
                                   "cxosc", "cxosc-core")},  # CX OSC (+ CORE handoff); ColdFire, no DSP words
              "trackpatterns": (),   # pgstath's ColdFire module on the stock effects, no DSP words
-             "trackpatterns-core": (),   # TRACK PATTERNS on octabam-core, which gives up nothing
+             "trackpatterns-core": (),   # TRACK PATTERNS on the core modules and the 14 stock effects, which gives up nothing
              # the twelve io remixes: the IN module's RX inject is placed in SPATIALIZER's words
              **{f"usb-io-{o}-{i}": ("SPATIALIZER",) for o in ("tracks", "tracks-main-cue", "main-cue", "main") for i in ("ab", "cd", "abcd")},
              "octatrick": ("SPATIALIZER",),   # USB's ABCD input inject, as in the io remixes
              "pext-probe": ("EQUALIZER", "PLATE REV", "SPRING REV"),   # the probe takes EQUALIZER's id and the two reverbs' words
              "window-mod": ("CHORUS", "PLATE REV", "SPRING REV", "DARK REV"), "window-ctl": ("CHORUS", "PLATE REV", "SPRING REV", "DARK REV"),   # MODULATION takes CHORUS's id; the reverbs' words hold LOAD METER and CORE
+             "octabam": (),   # all 14 stock effects stay; ours and LOAD METER run from the window
              "stock-meter-a": ("PHASER",), "stock-meter-b": ("SPATIALIZER",),   # LOAD METER's DSP half in the given-up effect's words
              "sos-capture": ("SPATIALIZER",),   # usb-io-tracks-ab + the recorder fixes
              "cfmeter": ("DARK REV",), "cfmeter-port": ("DARK REV",), "cfmeter-post": ("DARK REV",), "cfmeter-tracks": ("DARK REV",),   # the readout insert's words
@@ -1012,8 +1013,7 @@ def main():
              "euclid": ("SPATIALIZER", "FLANGER", "CHORUS", "COMB FILTER"),
              "rig": _rig,
              "character-txtr": _rig,   # octabam-bus with the TXTR station
-             "octabam-bus": _rig,
-             "octabam-inserts": _rig,   # COMPRESSOR's id is undisturbed since SIDECHAIN_COMPRESSOR was dropped (4dacb61d)
+             "octabam-bus": ("PLATE REV", "SPRING REV", "DARK REV"),   # FX2 is locked, so no row for the reverbs; nothing is harvested
              "stations-fx2": _rig}
     for _n in registry.remix_names():
         _r = registry.remix(_n)
