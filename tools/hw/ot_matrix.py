@@ -794,6 +794,10 @@ class LmFeed:
             return
         except (SystemExit, Exception) as e:  # noqa: BLE001
             self.err = str(e) or type(e).__name__
+            self.dev = None
+            if getattr(e, "errno", None) == 32:         # STALL: the image answers but carries no LOAD METER
+                self.err = "the image has no LOAD METER (0xc0/0x57 STALLs)"
+                return
         import os
         import subprocess
         if os.path.exists("/usr/local/bin/python3"):
