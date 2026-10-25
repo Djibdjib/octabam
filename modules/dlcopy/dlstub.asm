@@ -9,9 +9,9 @@
 ; Every path that selects an effect ends in INIT[id] and PROCESS[id], so nothing
 ; on the ColdFire side has to guard the setters.
 ;
-; The effect's entry in the window, x:$33d80 + 8 k (k = 0 here; DLCOPY writes it):
-;   x:$33d80  BOUND  $b0a5ed when the code is resident, anything else if not
-;   x:$33d81  the real init   x:$33d82  the real proc
+; The effect's entry in the window, x:$33da3 + 8 k (k = 0 here; DLCOPY writes it):
+;   x:$33da3  BOUND  $b0a5ed when the code is resident, anything else if not
+;   x:$33da4  the real init   x:$33da5  the real proc
 ; Per core (X, private): x:$3f00..$3f3f one word per instance, 1 once its init
 ; has run; x:$3f40..$3f4b the registers kept across the init and the entry a.
 ; ---------------------------------------------------------------------------
@@ -29,7 +29,7 @@ init:
 
 proc:
         move    a1,x:>$3f4b              ; proc is called with a = 0 or 1 in a: kept for the real code
-        move    x:>$33d80,a
+        move    x:>$33da3,a
         move    #>$b0a5ed,x0
         cmp     x0,a
         bne     dl_pass
@@ -50,7 +50,7 @@ proc:
         move    n7,x:>$3f44
         move    m0,x:>$3f45
         move    m1,x:>$3f46
-        move    x:>$33d81,r2
+        move    x:>$33da4,r2
         jsr     (r2)
         move    x:>$3f40,r0
         move    x:>$3f41,n0
@@ -64,7 +64,7 @@ proc:
         move    x0,x:(r2)
 dl_run:
         move    x:>$3f4b,a
-        move    x:>$33d82,r2
+        move    x:>$33da5,r2
         jmp     (r2)
 dl_pass:
         move    r0,r1

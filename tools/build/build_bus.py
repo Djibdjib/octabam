@@ -145,7 +145,7 @@ WINDOW = dict(REMIX.window)
 WINDOW_KEYS = {_k.removesuffix(":B") for _k in WINDOW}   # modules with window code; "KEY:B" is payload B's own copy
 DEMAND = {_dk: (_i, _da) for _i, (_dk, _da) in enumerate(REMIX.window_demand)}   # key -> (index k, stub address)
 if len(DEMAND) > 4:
-    sys.exit(f"Remix.window_demand: {len(DEMAND)} effects; the entry table at x:$33d80 holds 4")
+    sys.exit(f"Remix.window_demand: {len(DEMAND)} effects; the entry table at x:$33da3 holds 4")
 for _dk, (_di, _da) in DEMAND.items():
     if _dk not in WINDOW:
         sys.exit(f"Remix.window_demand names {_dk!r}, which Remix.window does not place")
@@ -3242,7 +3242,7 @@ hostquit:
                 if name in DEMAND:
                     # the id's dispatch entries point at the stub; the real code is loaded on demand
                     _sk, _sa = DEMAND[name]
-                    _ssrc = re.sub(r"\$33d8([012])", lambda m: f"${0x33D80 + 8 * _sk + int(m.group(1)):x}",
+                    _ssrc = re.sub(r"\$33da([345])", lambda m: f"${0x33DA3 + 8 * _sk + int(m.group(1)) - 3:x}",
                                    pathlib.Path("modules/dlcopy/dlstub.asm").read_text())
                     _sw, _ssyms = assemble_syms(_ssrc, _sa, label=name + " stub")
                     if name + " stub" not in window_records:

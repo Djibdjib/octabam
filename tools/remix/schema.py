@@ -2045,7 +2045,7 @@ class Remix:
     # upload: its words, address, entry points and id go to out/dsp/demand_records.json for the ColdFire
     # loader. Its id's dispatch entries point at a stub (modules/dlcopy/dlstub.asm, assembled at the given
     # address and uploaded) that passes the audio through until DLCOPY has published the code. The
-    # position in this tuple is the effect's index k, 0..3 (the entry at x:$33d80 + 8 k).
+    # position in this tuple is the effect's index k, 0..3 (the entry at x:$33da3 + 8 k).
     window_demand: tuple[tuple[str, int], ...] = ()
     # THE HOST PAGE DRAWS ITS FIRST SLOTS ONLY (26 Sep 2026, Sam: "want
     # all the tracks to look the same"): (key, n) pairs. The hidden

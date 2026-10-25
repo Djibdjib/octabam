@@ -16,7 +16,7 @@
 ;   x:$2906.. 2 N words: each 24-bit code word as its high 16 bits, then its low 8
 ; The doorbell is cleared when the block is consumed.
 ;
-; The effect's entry in the window, x:$33d80 + 8 k (five words used):
+; The effect's entry in the window, x:$33da3 + 8 k (five words used):
 ;   +0 BOUND  $b0a5ed while the code is resident   +1 the real init   +2 the real proc
 ;   +3 the first window word the code occupies     +4 the word after its last
 ; BOUND is cleared before any other word of the entry or the code changes and set
@@ -33,7 +33,7 @@ dlc_start:
         bne     dlc_exit
         move    x:>$2901,a
         asl     #$3,a,a
-        move    #>$33d80,x0
+        move    #>$33da3,x0
         add     x0,a
         move    a1,r1                    ; the entry
         clr     a
@@ -68,7 +68,7 @@ dlc_cpy:
         move    #>$30000,x1
         move    x:>$2901,a
         asl     #$3,a,a
-        move    #>$33d80,x0
+        move    #>$33da3,x0
         add     x0,a
         move    a1,r1
         lua     (r1+1),r1

@@ -95,7 +95,7 @@ def main():
             sys.exit(f"verify_dlload: stage_card failed:\n{r.stdout[-800:]}{r.stderr[-800:]}")
         lines = [f"{ms} poke {p}" for ms, p in later] + [f"{a.ms} quit"]
         (OUT / f"{tag}.script").write_text("\n".join(lines) + "\n")
-        peeks = ";".join(f"{c}:X:{STAGE:x},1;{c}:X:33d80,5;{c}:P:{rec['addr']:x},{len(rec['words'])}" for c in (0, 1))
+        peeks = ";".join(f"{c}:X:{STAGE:x},1;{c}:X:33da3,5;{c}:P:{rec['addr']:x},{len(rec['words'])}" for c in (0, 1))
         cmd = [EMU, "--image", image, "--card", card, "--set", a.set_name, "--project", a.name, "--load-ms", "90000",
                "--mkii", "--dsp", "--frame", "--live-script", OUT / f"{tag}.script", "--dsp-peek", peeks]
         if first:
@@ -119,7 +119,7 @@ def main():
     n = len(rec["words"])
     print("used:")
     for c in (1, 0):
-        entry = peek("used", c, "X", 0x33D80)
+        entry = peek("used", c, "X", 0x33DA3)
         check(f"core {c}: effect 0 is bound with its entries and span",
               entry == [0xB0A5ED, rec["init"], rec["proc"], rec["addr"], rec["addr"] + n], f"{[hex(w) for w in entry]}")
         code = peek("used", c, "P", rec["addr"])
@@ -127,12 +127,12 @@ def main():
               f"{len(code)} of {n} words read")
     check("the doorbell was consumed", peek("used", 1, "X", STAGE) == [0])
     print("withdrawn:")
-    entry = peek("withdrawn", 1, "X", 0x33D80)
+    entry = peek("withdrawn", 1, "X", 0x33DA3)
     check("effect 0 is unbound and its span empty", entry[:1] == [0] and entry[3:5] == [0, 0], f"{[hex(w) for w in entry]}")
     print("unused:")
-    check("effect 0 was never bound", peek("unused", 1, "X", 0x33D80)[:1] == [0])
+    check("effect 0 was never bound", peek("unused", 1, "X", 0x33DA3)[:1] == [0])
     print("blocked:")
-    check("effect 0 is not loaded over a stock reverb's block", peek("blocked", 1, "X", 0x33D80)[:1] == [0])
+    check("effect 0 is not loaded over a stock reverb's block", peek("blocked", 1, "X", 0x33DA3)[:1] == [0])
     print("runs:")
     for tag, core in (("runs-b", 1), ("runs-a", 0)):
         m = re.search(r"dsp pcwatch:[^\n]*\n((?: +\d+ [^\n]*\n)*)", texts[tag])

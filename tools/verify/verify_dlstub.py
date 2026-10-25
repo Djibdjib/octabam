@@ -20,8 +20,8 @@ import send_probe  # noqa: E402
 from remix import registry  # noqa: E402
 
 MAGIC = 0xB0A5ED
-SHARED = 0x33D80                         # effect 0's entry: BOUND, real init, real proc (modules/dlcopy/dlcopy.asm)
-DLC = 0x33DA3                            # DLCOPY's hook entry, called as an init
+SHARED = 0x33DA3                         # effect 0's entry: BOUND, real init, real proc (modules/dlcopy/dlcopy.asm)
+DLC = 0x33DC3                            # DLCOPY's hook entry, called as an init
 HOST = "vendor/dsp56300/build/source/dsp_host/dsp_host"
 FRAMES, BLOCKS = 16, 200
 TMP = pathlib.Path("out/_dlstub")
