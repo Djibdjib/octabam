@@ -87,10 +87,10 @@ a dispatch table.
 Internal P is contiguous with no gaps: A 66 modules, 8,159 words, top
 `P:0x01fdf`; B 46 modules, 7,583 words, top `P:0x01d9f`. P ends at
 `P:0x1fff` on the default map ✅ (PEXT PROBE, 25 Oct 2026, `modules/pextprobe`,
-on the unit): a control at the spare `P:0x1fe0` wrote and read back on core 1,
-and `P:0x2000`, `0x2100`, `0x2400`, `0x2800`, `0x3000`, `0x3800` did not hold a
-written word (core 1); `P:0x3fe0`, `0x5fe0` .. `0xffe0` did not on either
-core, and nothing wrapped onto `P:0x1fe0`. ❌ Retracted: "`P:0x2000` is
+on the unit): a control at the spare `P:0x1fe0` wrote and read back on both
+cores, and `P:0x2000`, `0x2100`, `0x2400`, `0x2800`, `0x3000`, `0x3800` did not
+hold a written word on either; `P:0x3fe0`, `0x5fe0` .. `0xffe0` did not on
+either core, and nothing wrapped onto `P:0x1fe0`. ❌ Retracted: "`P:0x2000` is
 executable (CHORUS relocated there ran on the unit,
 `git show dc788d3a:tools/build_dsptest.py`)": a direct write and read-back
 at `P:0x2000` finds no memory there, and the CHORUS result is not
