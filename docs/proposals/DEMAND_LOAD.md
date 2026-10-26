@@ -104,11 +104,12 @@ records are left out of payload A's upload and written to `out/dsp/demand_record
 - The code runs, from the per-slot costs of LOAD METER (`tools/hw/load_meter.py`; a dry slot costs 89..147 counts): CHARACTER on core A FX1 5,147; SPECTRUM on core B FX1 4,062; TRANSIENT on core A FX2 3,616; MODULATION on core B FX1 323 (module defaults). So code core B copied is executed by core A.
 - SPECTRUM and CHARACTER on an FX2 slot cost a dry slot's 116..119 counts: they are `fx1_only` and render dry there. `octabam` had no FX1 list, so it offered them on FX2 only; it lists them on FX1 now.
 - Each project load makes the pump withdraw and reload every effect (the load passes through default ids; the boot also loads the previous project): 8 loads and 4 withdrawals in one session.
-- The frames the unit loses with a send on every frame (`dl-probe-any`) are not measured yet. The unit did freeze once during the first rounds (13:27); it was on `DLPROBEJ3`, the build with the stale-byte bug, and the cause was not found.
+- Sending on every frame (`DLPANYJ9`, `test/dl-probe-any`, the same project): the copier refused blocks for their sum on the unit (MODULATION received 4, refused 3, published 1; SPECTRUM received 2, refused 2, published 0; TRANSIENT received 2, refused 1, published 1; CHARACTER received nothing) and ran no bad copy. The ping-0 rule holds on the unit as in the port; with it, no block was refused in the rounds on `DLPROBEJ5` and `J7` (about 16 blocks over several loads).
+- A repeat send that is refused leaves the effect unbound: the copier clears BOUND before it copies and publishes nothing for a bad sum, and the ColdFire cannot see the counters to send again. Not seen with the ping-0 gate. The unit did freeze once during the first rounds (13:27); it was on `DLPROBEJ3`, the build with the stale-byte bug, and the cause was not found.
 
 ## Open
 
-- The unit: which frames lose a chunk (`dl-probe-any`), the stock extents at other knob settings, the audible dropout while an effect loads (about 25 ms), and a reverb meeting a loaded effect's block.
+- The unit: the stock extents at other knob settings, the audible dropout while an effect loads (about 25 ms), and a reverb meeting a loaded effect's block.
 - Core A's stall when sent to, and the mask at the frames that lose their chunk.
 - The wording of the toasts and how long the deferred ones wait for a page key.
 - A dry instance that had run its init (state 3) resuming is not covered by a gate: `dsp_host` cannot change the published span between blocks.
