@@ -11,6 +11,74 @@ The firmware facts behind items 1 and 2 are in
 [SAMPLE_SAVE.md section 8](../../docs/firmware/SAMPLE_SAVE.md#8-the-attribute-file-ot-and-the-tempo),
 read from the image on 9 Oct 2026.
 
+## Yves's notes of 26 Oct 2026, for the next iteration
+
+From four takes on his MKII (`261026-2133` to `2137`, in his own folder,
+not the repository), on the local image `LMSTEMS1` (`octabam` + STEM REC,
+LOAD METER's refusal lifted in the build only). Since 9 Oct, STEMS has
+moved from MAIN MENU to its own window, opened by UP + REC (`47013ec7`), and
+takes go to `<set>/AUDIO/STEMS/<project>/<YYMMDD-HHMM>/` (`5822ebcc`).
+
+1. **The tempo is wrong and the gain is 0 dB: no `.ot` was written** (item
+   1). `LMSTEMS1` was built from main, and the `.ot` writer exists only on
+   the online session's branch (`claude/bold-feynman-5y3cli` on the fork:
+   `5b175689` the tempo, `635b719b` the gain). The four take folders hold
+   no `.ot`, so the unit guessed, as item 1 predicts: `2133` 16 bars,
+   129.90 BPM; `2135` 8 bars, 83.83 BPM; `2136` 16 bars, 103.26 BPM;
+   `2137` 1 bar, 119.90 BPM. "1.5 BPM too high" fits `2133` at a project
+   tempo of 128.4, for example. Next: bring the writer in, with the tempo
+   read from `0x8000181c` (the word the stock recorder stores, not
+   `0x80001814`), and MAIN's and CUE's gain at the tracks' +12 dB until it's
+   measured: a measured 8 Oct take has MAIN equal to the sum of the stems
+   to within 7 steps, so +24 dB on MAIN would play it 12 dB above its stems.
+   Check every field against a stock `.ot` first (item 2 A).
+2. **UP + REC works, but the window doesn't refresh while recording**
+   (item 3). Two faults. When the window opens, `stems_enter` resets rows 1
+   and 2 to `REC` and `READY` whatever the take is doing, until a key is
+   pressed (`47013ec7`; the version flashed as STEMS1 to STEMS7 didn't).
+   And nothing redraws it on a timer. The window is TUNER-shaped now, so
+   TUNER's redraw from the UI task is the precedent (item 3 A).
+   `verify_stems_menu` needs a check on the screen itself: it reads the
+   labels from memory, which is why it passed.
+3. **Our own load figures, or BRAIN's?** STEM REC measures itself:
+   `STATS.TXT` (the hook's mean and longest time, the card's writes and
+   rates, the writer's longest sleep) and the PEAK row (the ring's largest
+   fill). BRAIN's PERFORMANCE already shows the frame interrupt's share and
+   WORST FRAME (LOAD, with LOAD METER), each task's share (CPU) and the
+   card's reads, writes and slowest command (CARD). Compare the two field
+   by field. What BRAIN lacks, propose there instead of keeping it here.
+   Likely candidates: the ring's fill, the hook's own time (it runs in the
+   level-6 transfer chain, so CPU charges it to the task it interrupts), and
+   STEM REC's writer as a named task (it isn't among BRAIN's 11 TCBs, so it
+   lands in OTHER).
+4. **Double tap YES to arm when the sequencer is stopped** (item 4). One
+   YES already arms the stock recorders' one-shot buffers, so a second tap
+   arming STEMS follows from it. Item 4's design stands. Yves's scope:
+   arming when stopped.
+5. **Logs in one place, the way BRAIN keeps them.** BRAIN writes
+   `/BRAIN/debug.txt` (its MIDI debug log) and keeps its settings in
+   `/BRAIN/card.work`. STEM REC writes `STATS.TXT` into each take's folder.
+   Options: `/BRAIN/STEMS/<YYMMDD-HHMM>.txt`, one file a take, or one
+   appended log under `/BRAIN/`. Read first how BRAIN writes (through the
+   engine task) against how STEM REC writes (its own task, through the
+   file layer's raw sector routines), so a log write can't block a take.
+6. **A flatter folder.** Now:
+   `<set>/AUDIO/STEMS/<project>/<YYMMDD-HHMM>/T1.wav`. Yves would prefer
+   `/STEMS/<YYMMDD-HHMM>-T1.wav`. To settle first:
+   - **Where the browser can reach.** Whether the unit's file browser
+     reaches a folder at the card's root, outside the set.
+   - **Large folders.** How the browser handles a folder that collects 14
+     files a take.
+   - **The project name.** Whether it goes into the file name instead.
+   - **Ilia's layout.** Agree the change with Ilia, who chose the nested
+     layout in `5822ebcc`.
+
+   A flat folder also needs fewer folders made per take. That may fix
+   verify_stems' take runs, which have failed on main since `5822ebcc`
+   (bisected 21 Oct 2026). The likely cause is inferred, not measured:
+   each take now checks for two more folders, and on a fresh card creates
+   them, before it records.
+
 ## 1. The tempo isn't written to the stems
 
 **Now.** STEM REC writes a bare WAV and no `.ot` file. The `.ot` is the
