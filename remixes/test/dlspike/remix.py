@@ -2,7 +2,7 @@
 
 A port-only instrument (docs/proposals/DEMAND_LOAD.md): MODULATION's id dispatches to a stub that is dry until DLCOPY
 has published the code, which DLPUMP stages when a track uses MODULATION. The guard wrappers front PLATE REV, DARK REV and SPRING REV."""
-from remix.schema import Proof, Remix
+from remix.schema import Pin, Proof, Remix
 REMIX = Remix(family="effects", proof=Proof.CHECK, proof_note="",
               name="dlspike", doc="Demand-load spike: MODULATION loaded on demand.",
               modules=("USB", "LOAD METER", "DLPUMP", "DLCOPY", "MODULATION",
@@ -15,6 +15,6 @@ REMIX = Remix(family="effects", proof=Proof.CHECK, proof_note="",
               window_guard=("PLATE REV", "DARK REV", "SPRING REV"),
               window_loader=0x33E56,
               fallback="NONE",
-              settings={("octabam.usb", "TRACKS"): "PRE", ("octabam.usb", "MAIN"): 0,
+              settings={("octabam.dlpump", "GRACE"): Pin("2 S"), ("octabam.usb", "TRACKS"): "PRE", ("octabam.usb", "MAIN"): 0,
                         ("octabam.usb", "CUE"): 0, ("octabam.usb", "MASTER"): 0,
                         ("octabam.usb", "IN"): "OFF"})

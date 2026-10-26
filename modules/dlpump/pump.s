@@ -31,7 +31,6 @@
         .equ    STAGE1, 0x2901                  | the first word of a staged message
         .equ    TOAST,  0x4005a2b8              | the firmware's message popup (text, duration)
         .equ    TOAST_TIME, 48
-        .equ    GRACE,  2756                    | idle calls (ping-0 frames, 1,378 a second) an unused effect stays loaded: 2 s
         .equ    REPEAT, 30                      | idle calls (ping-0 frames) between a load and its second send
         .equ    RING,   0xa55a
         .equ    PING,   0                       | the frames whose host writes the port delivers (below)
@@ -214,6 +213,17 @@ idle:
         adda.l  %d1,%a1
         tst.l   %d3
         bne.w   dg_used
+        move.l  %a2@(4),%d1                     | unused: a stock reverb on its block takes it at once
+        lea     LIVE+8,%a0
+        move.b  %a0@(0,%d1:l),%d1
+        cmp.b   #DL_PLATE,%d1
+        beq.w   dg_now
+        cmp.b   #DL_SPRING,%d1
+        beq.w   dg_now
+        cmp.b   #DL_DARK,%d1
+        bne.w   dg_wait
+dg_now: move.l  #GRACE,%a1@
+dg_wait:
         move.l  %a1@,%d1
         addq.l  #1,%d1
         move.l  %d1,%a1@
@@ -319,6 +329,16 @@ dl_veto:
         beq.w   7f
         cmp.l   %d7,%d3
         bne.w   7f
+        move.l  %a2@,%d2                        | ... that a track uses
+        lea     LIVE,%a0
+        moveq   #15,%d3
+dv_scan:
+        cmp.b   %a0@+,%d2
+        beq.w   dv_used
+        subq.l  #1,%d3
+        bpl.w   dv_scan
+        bra.w   7f                              | unused: it is about to be withdrawn, not a holder
+dv_used:
         cmp.b   #DL_PLATE,%d1
         beq.w   6f
         cmp.b   #DL_SPRING,%d1

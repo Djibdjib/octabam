@@ -12,6 +12,8 @@ Remix.window_demand (k):
                                                           word for word, seen from both cores
   withdrawn  the same, T1's FX1 back to FILTER at 2 s  -> effect 0 unbound after the 2 s grace, its span empty, the rest bound
   grace      effect 0 unused at 2 s and used again at 3 s -> still bound, loaded once
+  reverb-takes  effect 0 unused at 2 s, a reverb on its block at 2.5 s -> unbound by 3.4 s, well inside the grace
+  pick-reverb-unused  effect 0 loaded and unused: the FX2 chooser accepts a reverb on its block, no toast, effect withdrawn
   unused     no track uses any                          -> none bound
   runs-b<k> / runs-a<k>  T1 (core B) / T5 (core A) uses effect k -> its loaded proc is reached on that core (--dsp-pcwatch)
   reverb-late effect 0 in use and loaded, then at 2 s the FX2 of its block's track becomes PLATE REV (a route the choosers do not guard) -> effect 0 stays loaded, the reverb is dry
@@ -109,6 +111,10 @@ def main():
         "pick": (poke(live, part, 1, 0), []),
         "pick-blocked": (poke(live, part, 1, 0) + ";" + poke(FX2_LIVE, FX2_PART, block_track, PLATE), []),
         "pick-reverb": (every_first + ";" + poke(FX2_LIVE, FX2_PART, block_track, 0), []),
+        "pick-reverb-unused": (every_first + ";" + poke(FX2_LIVE, FX2_PART, block_track, 0),
+                               [(2000, poke(FX1_LIVE, FX1_PART, 0, FILTER))]),         # loaded, but no track uses it
+        "reverb-takes": (poke(FX1_LIVE, FX1_PART, 0, mod_id),                           # unused at 2 s, a reverb arrives at 2.5 s
+                         [(2000, poke(FX1_LIVE, FX1_PART, 0, FILTER)), (2500, poke(FX2_LIVE, FX2_PART, block_track, PLATE))]),
     }
     watch = {}
     for k, r in enumerate(recs):                                   # every effect, on a track of each core
@@ -125,19 +131,19 @@ def main():
             sys.exit(f"verify_dlload: stage_card failed:\n{r.stdout[-800:]}{r.stderr[-800:]}")
         lines = [f"{ms} poke {p}" for ms, p in later]
         if tag.startswith("pick"):
-            t = 1500 if tag != "pick-reverb" else 3500               # after the load has landed
-            if tag == "pick-reverb":
+            t = 1500 if not tag.startswith("pick-reverb") else 3500   # after the load has landed
+            if tag.startswith("pick-reverb"):
                 keys = (("t8", 400), ("fx2", 160), ("fx2", 800)) + (("down", 500),) * reverb_row + (("yes", 1500),)
             else:
                 keys = (("no", 400), ("t2", 400), (chooser, 160), (chooser, 800)) + (("down", 500),) * row + (("yes", 1500),)
-            if tag == "pick-reverb":
+            if tag.startswith("pick-reverb"):
                 lines += [f"1500 key {KEYS['no']:#x} down", f"1540 key {KEYS['no']:#x} up"]
             for k, gap in keys:
                 lines += [f"{t} key {KEYS[k]:#x} down", f"{t + 40} key {KEYS[k]:#x} up"]
                 t += 40 + gap
         if tag in ("used", "blocked", "reverb-late"):               # a page key after the decision: where a deferred toast shows
             lines += [f"{a.ms - 800} key {KEYS['fx1']:#x} down", f"{a.ms - 760} key {KEYS['fx1']:#x} up"]
-        lines.append(f"{a.ms} quit")
+        lines.append(f"{3400 if tag == 'reverb-takes' else a.ms} quit")
         (OUT / f"{tag}.script").write_text("\n".join(lines) + "\n")
         dump = OUT / f"{tag}_ids.bin"
         peeks = ";".join(f"{c}:X:{STAGE:x},1;{c}:X:{0x33DA3 + 8 * k:x},8;{c}:P:{r['addr']:x},{len(r['words'])}"
@@ -218,6 +224,17 @@ def main():
     check(f"a stock reverb chosen on the FX2 slot of {recs[0]['key']}'s block is refused while it is loaded",
           rv[8 + block_track] == 0, f"FX2 of track {block_track + 1} = 0x{rv[8 + block_track]:02x}")
     check("and the refusal shows a toast", toasts("pick-reverb") >= 1, f"toast calls: {toasts('pick-reverb')}")
+    print("pick-reverb-unused:")
+    rv = (OUT / "pick-reverb-unused_ids.bin").read_bytes()
+    check("a reverb chosen on the block of a loaded effect that no track uses is accepted, without a toast",
+          rv[8 + block_track] == PLATE and toasts("pick-reverb-unused") == 0,
+          f"FX2 of track {block_track + 1} = 0x{rv[8 + block_track]:02x}, toast calls {toasts('pick-reverb-unused')}")
+    check(f"and {recs[0]['key']} is withdrawn for it",
+          peek("pick-reverb-unused", 1, "X", 0x33DA3)[:1] == [0])
+    print("reverb-takes:")
+    entry = peek("reverb-takes", 1, "X", 0x33DA3)
+    check(f"a reverb arriving on an unused loaded effect's block takes it at once: {recs[0]['key']} is unbound 0.9 s later, inside the grace",
+          entry[:1] == [0], f"{[hex(w) for w in entry]}")
     print("runs:")
     for k, r in enumerate(recs):
         for tag, core in ((f"runs-b{k}", 1), (f"runs-a{k}", 0)):
