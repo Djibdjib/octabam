@@ -1147,6 +1147,12 @@ def main():
     for _c, _b in _plan:
         if _c.cave_addr is not None and OVERFLOW_RUN <= _c.cave_addr < OVERFLOW_RUN_END:
             _ovf_top = max(_ovf_top, (_c.cave_addr + len(_b) + 3) & ~3)
+    # Floating code starts past any bytes a module keeps stock here (DELAY
+    # reads the run's first 16 as the tail of its table, stock.DELAY_TABLE_END).
+    for _k in REMIX.modules:
+        for _kp in getattr(remix_modules()[_k], "keeps", ()):
+            if OVERFLOW_RUN <= _kp.addr < OVERFLOW_RUN_END:
+                _ovf_top = max(_ovf_top, (_kp.addr + len(_kp.expect) + 3) & ~3)
     # ROM-placed linked units go FIRST, so a cave may name a unit's global
     # (cc-map's CC_MODEDEF*, resolved to mode-defaults' cc_fx2 / cc_fx1 when
     # the module is in the image, its stub `rts` otherwise). Floating caves
@@ -1246,13 +1252,20 @@ def main():
                 f"[PROJ]). Place the cave in the decoded 0x400d2000..0x400d8000 "
                 f"free region.")
         _inside = CLONE_BASE <= _c.cave_addr < cave_limit
-        if _floating and _inside and _c.cave_addr + len(_b) > cave_limit \
+        if _floating and _c.cave_addr + len(_b) > cave_limit \
                 and ((_ovf_top + 3) & ~3) + len(_b) <= OVERFLOW_RUN_END:
             # A floating cave past the clone window goes to the second zero
-            # run, as a linked source cave that outgrows it does below.
+            # run, as a linked source cave that outgrows it does below. Test
+            # its end, not _inside: the 128-byte rounding can put its start
+            # past cave_limit already, on the chooser list.
             _c = dataclasses.replace(_c, cave_addr=(_ovf_top + 3) & ~3)
             _inside = False
             print(f"  {_c.label}: past the clone window, placed in the overflow run")
+        elif _floating and not _inside:
+            # past the window, and the overflow run is too full for it
+            sys.exit(f"{_c.label}: {len(_b)} B fits neither the clone window "
+                     f"(full to 0x{cave_limit:08x}) nor the overflow run (next free "
+                     f"0x{(_ovf_top + 3) & ~3:08x}, ends 0x{OVERFLOW_RUN_END:08x})")
         if _inside:
             if _c.cave_addr < _cave_top:
                 sys.exit(f"{_c.label} at 0x{_c.cave_addr:08x} overlaps what precedes it "
@@ -1802,8 +1815,13 @@ def main():
             _dsym, _, _doff = _desc.partition("+")
             if _dsym not in _exports:
                 sys.exit(f"{name}: no linked unit exports {_dsym} for its MODE renames")
-            print(f"  {name} MODE renames -> {_desc} 0x{_exports[_dsym] + int(_doff or '0', 0):08x}")
-            _desc = _exports[_dsym] + int(_doff or "0", 0)
+            # A DRAM clone's CLONE_<key> in _exports is its staging address,
+            # repointed only at the end; the runtime's formatter was linked
+            # against the clone's final address, which is in _psyms.
+            _dv = (_psyms[_dsym] if _dram_clones and _dsym == _clone_sym(name)
+                   else _exports[_dsym])
+            print(f"  {name} MODE renames -> {_desc} 0x{_dv + int(_doff or '0', 0):08x}")
+            _desc = _dv + int(_doff or "0", 0)
         if _ren:
             _bytes = mode_names.emit(_p.labels, _desc, _ren)
             mode_names.verify(_p.labels, _desc, _ren)
