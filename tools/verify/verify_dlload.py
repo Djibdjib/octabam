@@ -10,7 +10,8 @@ Remix.window_demand (k):
 
   used       T1.. use effects 0.. on FX1 from the start -> each bound, its entry and code in the window
                                                           word for word, seen from both cores
-  withdrawn  the same, T1's FX1 back to FILTER at 2 s  -> effect 0 unbound, its span empty, the rest bound
+  withdrawn  the same, T1's FX1 back to FILTER at 2 s  -> effect 0 unbound after the 2 s grace, its span empty, the rest bound
+  grace      effect 0 unused at 2 s and used again at 3 s -> still bound, loaded once
   unused     no track uses any                          -> none bound
   runs-b<k> / runs-a<k>  T1 (core B) / T5 (core A) uses effect k -> its loaded proc is reached on that core (--dsp-pcwatch)
   reverb-late effect 0 in use and loaded, then at 2 s the FX2 of its block's track becomes PLATE REV (a route the choosers do not guard) -> effect 0 stays loaded, the reverb is dry
@@ -53,7 +54,7 @@ def main():
     ap.add_argument("--project", default=os.environ.get("OT_PROJECT", ""))
     ap.add_argument("--set-name", default="BRAINSET")
     ap.add_argument("--name", default="BRAINPRJ")
-    ap.add_argument("--ms", type=int, default=4000)
+    ap.add_argument("--ms", type=int, default=7000)
     a = ap.parse_args()
     project = a.project
     if not project and pathlib.Path("~/.octabam_project").expanduser().is_file():
@@ -101,6 +102,8 @@ def main():
         "used": (every, []),
         "withdrawn": (every, [(2000, poke(FX1_LIVE, FX1_PART, 0, FILTER))]),
         "unused": ("", []),
+        "grace": (poke(FX1_LIVE, FX1_PART, 0, mod_id),            # unused at 2 s, used again at 3 s: inside the 2 s grace
+                  [(2000, poke(FX1_LIVE, FX1_PART, 0, FILTER)), (3000, poke(FX1_LIVE, FX1_PART, 0, mod_id))]),
         "reverb-late": (poke(FX1_LIVE, FX1_PART, 0, mod_id), [(2000, poke(FX2_LIVE, FX2_PART, block_track, PLATE))]),
         "blocked": (poke(FX1_LIVE, FX1_PART, 0, mod_id) + ";" + poke(FX2_LIVE, FX2_PART, block_track, PLATE), []),
         "pick": (poke(live, part, 1, 0), []),
@@ -181,6 +184,10 @@ def main():
     check(f"{recs[0]['key']} is unbound and its span empty", entry[:1] == [0] and entry[3:5] == [0, 0], f"{[hex(w) for w in entry]}")
     for k, r in enumerate(recs[1:], 1):
         check(f"{r['key']} stays bound", peek("withdrawn", 1, "X", 0x33DA3 + 8 * k)[:1] == [0xB0A5ED])
+    print("grace:")
+    entry = peek("grace", 1, "X", 0x33DA3)
+    check(f"{recs[0]['key']} stays loaded through a short gap in use, and is not loaded a second time",
+          entry[:1] == [0xB0A5ED] and entry[5:8] == [2, 0, 2], f"{[hex(w) for w in entry]}")
     print("unused:")
     for k, r in enumerate(recs):
         check(f"{r['key']} was never bound", peek("unused", 1, "X", 0x33DA3 + 8 * k)[:1] == [0])
