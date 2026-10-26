@@ -27,8 +27,10 @@ Each carries one module, or one combination, for that module's gates: `make chec
 | [`dl-probe-any`](dl-probe-any/README.md) | octabam with DLPROBE on FX1 in place of EQUALIZER, and the loader sending on every frame. | `make check` |
 | [`dlspike`](dlspike/README.md) | Demand-load spike: MODULATION loaded on demand. | `make check` |
 | [`erase-empty-trigless-locks`](erase-empty-trigless-locks/README.md) | stock effects with ERASE_EMPTY_TRIGLESS_LOCKS: an emptied trigless lock disappears. | `make check` |
-| [`euclid`](euclid/README.md) | Euclid rhythmic modulation: 12 dB LP/BP/HP or AMP, both FX slots. | port-gated: Shared event migration: firmware/render validation |
+| [`euclid`](euclid/README.md) | Euclid rhythmic modulation: 12 dB LP/BP/HP or AMP, both FX slots. | port-gated: EVENTS: firmware/render gates |
 | [`euclid-fill`](euclid-fill/README.md) | stock effects with EUCLID FILL: TRACK+PAGE Euclidean trig-fill page. | `make check` |
+| [`events-clients`](events-clients/README.md) | EVENTS with EUCLID in both FX slots, PLOCKS P2, USB MAIN/CUE and LOAD METER. | `make check`: Tested on radiohagen's MKII (25 Oct 2026): controlled trig undo, CONTINUE and 600-second audio capture. |
+| [`events-empty`](events-empty/README.md) | EVENTS with no clients: no event hooks or dispatcher code. | `make check`: Empty EVENTS selection: stock boundaries checked in the built image. |
 | [`gateverb`](gateverb/README.md) | GATE VERB alone: the fixture of its render gate. | local render: `verify_gateverb`; not flashed |
 | [`ids64`](ids64/README.md) | BBD on FX2 id 0x25 in a 64-id image (DSP dispatch and ColdFire tables grown). | `make check`: port only; not flashed |
 | [`kits`](kits/README.md) | KITS (255 Kits per project) on the stock effects. | port-gated: verify_kits under the port |
@@ -98,7 +100,7 @@ Each carries one module, or one combination, for that module's gates: `make chec
 | [`vocoder`](vocoder/README.md) | VOCODER beside the stock effects (all but PLATE REV, whose words it takes, and DJ EQ, so its table sits in X). | on hardware: Ignorato's MKII, OCTABAM12 (the earlier positions T1 T2 T5 T6), 4 Oct 2026; the current positions (T2 T4 T6 T8) not flashed |
 | [`vocoder-usb`](vocoder-usb/README.md) | The vocoder remix plus USB MIDI and USB audio out, TRACKS MAIN CUE (20 channels over USB: the tracks, MAIN, CUE). | port-gated: make check under the ColdFire port, 10 Oct 2026; not flashed |
 | [`void`](void/README.md) | VOID replaces COMB FILTER; PLATE REV words host its DSP. | on hardware: MKII VOID V9 (COLR/HPF tables tip dd89e2e2+); verify_void.py 3s rail |
-| [`wave`](wave/README.md) | Experiment: a 4-voice wavetable synth on FX2, played by a sine on its track; SCALE QUANTIZER, page-2 tools, USB out; DARK and SPRING REV give up their words. | on hardware: Sam's MKII, image 93, 3 Oct 2026: plays, PTCH and the CHROMATIC keys move the pitch |
+| [`wave`](wave/README.md) | Experiment: a 4-voice wavetable synth on FX2, played by a sine on its track; SCALE QUANTIZER, page-2 tools, USB out; DARK and SPRING REV give up their words. | port-gated: Sam's MKII, image 93, 3 Oct 2026: plays, PTCH and the CHROMATIC keys move the pitch |
 | [`waveload`](waveload/README.md) | CF METER + WAVE LOAD on stock: T8's FX2 BURN = K 4-voice wave engines per frame interrupt, read over USB. | on hardware: image 92, Sam's MKII, 3 Oct 2026 |
 | [`waveload-port`](waveload-port/README.md) | waveload without the idle loop: the port gate for the wave engines in the frame interrupt. | port-gated: the load path under the port |
 | [`window-ctl`](window-ctl/README.md) | CORE with LOAD METER and MODULATION in the shared window beside the stock effects (all but CHORUS, whose id it takes, and the three reverbs). | `make check` |

@@ -58,6 +58,10 @@ The same set is in [`octabam-bus`](../octabam-bus/README.md), with LOFI AMF FIX
 
 Port gates only: `make check REMIX=octabam`, which loads, withdraws and runs each of the four effects on both cores. Nothing of the loader has run on a unit: the host write to the DSP, copying code into the window and running it from there, the window's wait-state cost, and the stock effects' buffer extents at other settings are open.
 
+EDIT EVENTS/PLOCKS: radiohagen, Octatrack MKII, PLK858/build 98, 22 October 2026:
+held-edit and trig/track/pattern checks passed
+([results](../../modules/plocks-p2/DEVELOPMENT.md#edit-events-hardware-results-22-october-2026)).
+
 ## How to flash
 
 [BUILDING.md](../../docs/guide/BUILDING.md) has every step, from what to
