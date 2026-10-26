@@ -7,26 +7,52 @@
 ; 16-sample frame (the signs of the 32 samples; the layout of PEXT PROBE) and
 ; reads the loader's entries in the window, x:$33da3 + 8 k, which both cores see.
 ;
-; A cycle of 17 frames:
+; A cycle of 21 frames:
 ;   frame 0       the value $00d1a5
 ;   frame 1 + 4 k + j  entry k's word 0 (BOUND), 5 (blocks received), 6 (refused for
 ;                 their sum) and 7 (published), j = 0..3, k = 0..3
+;   frame 17      frames in which x:$2900 (the staging doorbell word) was not 0
+;   frame 18      the last non-zero value it held
+;   frame 19      frames in which x:$2902 (the staging N word) was not 0
+;   frame 20      the last non-zero value it held
+; The four staging frames read this core's X, so they mean something only with the probe on a core B
+; track (T1..T4): the ColdFire's host write lands there.
 ; Each frame: L word = the value's low 16 bits; R word = $c000 + 256 i + the
 ; value's bits 16..23, i the frame's index in the cycle. One bit per sample slot,
 ; L sample j = bit j of the L word, R sample j = bit j of the R word; a one is +0.5,
 ; a zero -0.5.
 ; ---- r7 slots ---------------------------------------------------------------
 ;   $10 i, the frame's index   $11 the address of the next word   $12 the value
-;   $15 the L word   $16 the R word
+;   $15 the L word   $16 the R word   $18..$1b the four staging counters (frames 17..20)
 ; ---------------------------------------------------------------------------
 
 init:
         clr     a
         move    a,x:(r7+$10)
+        move    a,x:(r7+$18)
+        move    a,x:(r7+$19)
+        move    a,x:(r7+$1a)
+        move    a,x:(r7+$1b)
         rts
 
 proc:
         move    #$1,n0
+        move    x:>$2900,a               ; what the host write has left in the staging words
+        tst     a
+        beq     pb_q
+        move    a1,x:(r7+$19)
+        move    x:(r7+$18),a
+        add     #>$1,a
+        move    a1,x:(r7+$18)
+pb_q:
+        move    x:>$2902,a
+        tst     a
+        beq     pb_r
+        move    a1,x:(r7+$1b)
+        move    x:(r7+$1a),a
+        add     #>$1,a
+        move    a1,x:(r7+$1a)
+pb_r:
         move    x:(r7+$10),a
         tst     a
         bne     pb_c
@@ -39,14 +65,22 @@ pb_c:
         move    x:(r7+$11),r2
         move    x:(r2),x0
         move    x0,x:(r7+$12)            ; the word
+        cmp     #>17,a
+        bge     pb_a                     ; the staging counters are consecutive
         and     #>$3,a
         cmp     #>$1,a
         beq     pb_b
+pb_a:
         lua     (r2+1),r2                ; word 5 -> 6 -> 7 -> the next entry's word 0
         bra     pb_s
 pb_b:
         lua     (r2+5),r2                ; word 0 -> 5
 pb_s:
+        move    x:(r7+$10),a
+        cmp     #>16,a
+        bne     pb_t
+        lua     (r7+$18),r2              ; after the entries, the four staging counters
+pb_t:
         move    r2,x:(r7+$11)
 pb_w:
         move    x:(r7+$12),a             ; the L word
@@ -61,9 +95,9 @@ pb_w:
         add     x1,a
         add     #>$c000,a
         move    a1,x:(r7+$16)
-        move    x:(r7+$10),a             ; next frame; the cycle is 17 long
+        move    x:(r7+$10),a             ; next frame; the cycle is 21 long
         add     #>$1,a
-        cmp     #>17,a
+        cmp     #>21,a
         bne     pb_k
         clr     a
 pb_k:

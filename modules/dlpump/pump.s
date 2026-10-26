@@ -41,7 +41,18 @@
         .text
         .globl  dl_pump
 dl_pump:
-        move.l  dl_state,%d0
+        lea     dl_dg,%a1
+        addq.l  #1,%a1@                         | DL_DIAG[0]: calls
+        move.l  0x800000e0,%d1
+        beq.w   dg_p0
+        subq.l  #1,%d1
+        beq.w   dg_p1
+        addq.l  #1,%a1@(12)                     | [3]: ping neither 0 nor 1
+        bra.w   dg_ok
+dg_p0:  addq.l  #1,%a1@(4)                      | [1]: ping 0
+        bra.w   dg_ok
+dg_p1:  addq.l  #1,%a1@(8)                      | [2]: ping 1
+dg_ok:  move.l  dl_state,%d0
         beq.w   idle
         .if     PHASE_ANY == 0
         moveq   #PING,%d1
@@ -59,6 +70,8 @@ dl_pump:
         move.l  dl_src,%a0
         move.l  %d2,%d5
         bsr.w   dl_xfer
+        lea     dl_dg,%a1
+        addq.l  #1,%a1@(28)                     | [7]: chunks sent
         lea     dl_dest,%a1
         add.l   %d5,%a1@                        | dest += n
         lea     dl_src,%a1
@@ -77,6 +90,8 @@ dl_pump:
         lea     dl_bell,%a0
         moveq   #1,%d2
         bsr.w   dl_xfer
+        lea     dl_dg,%a1
+        addq.l  #1,%a1@(32)                     | [8]: doorbells sent
         clr.l   dl_state
 8:      moveq   #0,%d0
         move.b  %d0,CSEL                        | the frame code expects core A selected
@@ -103,8 +118,19 @@ idle:
         beq.w   4f                              | withdrawn meanwhile: dropped
         move.l  dl_rsrc,%d1
         move.l  dl_rlen,%d2
+        lea     dl_dg,%a1
+        addq.l  #1,%a1@(36)                     | [9]: repeats armed
         bra.w   arm
-4:      lea     dl_tab,%a2
+4:      lea     dl_dg,%a1
+        addq.l  #1,%a1@(16)                     | [4]: idle passes on a delivering frame
+        move.l  dl_loaded,%d0
+        move.l  %d0,%a1@(40)                    | [10]: loaded bits
+        lea     LIVE,%a0
+        move.l  %a0@+,%a1@(48)                  | [12..15]: the 16 live ids
+        move.l  %a0@+,%a1@(52)
+        move.l  %a0@+,%a1@(56)
+        move.l  %a0@+,%a1@(60)
+        lea     dl_tab,%a2
         moveq   #0,%d6                          | the effect's index
 3:      cmp.l   #DL_N,%d6
         bcc.w   9b
@@ -178,12 +204,16 @@ idle:
         move.l  %d6,dl_rk
         move.l  #REPEAT,%d3
         move.l  %d3,dl_rwait
+        lea     dl_dg,%a1
+        addq.l  #1,%a1@(20)                     | [5]: loads armed
         bra.w   arm
 6:      tst.l   %d3                             | loaded
         bne.w   7f
         move.l  %a2@(16),%d1                    | the withdraw message
         moveq   #5,%d2
         bclr    %d6,%d0
+        lea     dl_dg,%a1
+        addq.l  #1,%a1@(24)                     | [6]: withdrawals armed
         bra.w   arm
 7:      lea     %a2@(28),%a2
         addq.l  #1,%d6
@@ -355,4 +385,9 @@ dl_rlen:  .long 0
 dl_ta:    .long 0                       | bit k: the NEEDS toast for effect k has been queued for this collision
 dl_tb:    .long 0                       | the same for HOLDS
 dl_pend:  .long 0                       | the message waiting for a page key (0: none)
+        .globl  dl_dg, DL_DIAG
+dl_dg:                                          | DL_DIAG: read over USB (0xc0/0x57, block 3), 16 longs
+DL_DIAG:
+        .long   0, 0, 0, 0, 0, 0, 0, 0          | calls; ping 0, 1, other; idle passes; loads, withdrawals, chunks, bells
+        .long   0, 0, 0, 0, 0, 0, 0, 0          | repeats; loaded bits; (spare); (spare); the 16 live FX ids as 4 longs
 dl_bell:  .word RING

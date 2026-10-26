@@ -9,7 +9,7 @@ CORE = ("BRAIN", "STORE", "KITS", "MIDI SCENES", "SCENES P2", "PLOCKS P2",
         "RECORDER LOOP FIX", "BATCH_BUGFIXES", "ERASE_EMPTY_TRIGLESS_LOCKS",
         "QUANTIZE_LIVE_REC_TOGGLE", "REC_TRIG_MUTE", "MUTE_MODES",
         "SCALE QUANTIZER", "TUNER", "DIRECT_JUMP_KYOTI", "RELOAD_FROM_PROJECT", "RLEN PLEN",
-        "ATA WRITE GUARD", "SEQUENCER EVENTS",
+        "ATA WRITE GUARD", "EVENTS",
         "LOAD METER")
 STOCK14 = ("FILTER", "DJ EQ", "PHASER", "FLANGER", "CHORUS", "SPATIALIZER",
            "COMB FILTER", "COMPRESSOR", "LO-FI", "DELAY", "PLATE REV", "SPRING REV", "DARK REV")
@@ -20,7 +20,8 @@ REMIX = Remix(
     family="mods", proof=Proof.CHECK, proof_note="",
     doc="octabam with DLPROBE on FX1 in place of EQUALIZER, and the loader sending on every frame.",
     modules=CORE + ("LOFI AMF FIX", "MODE DEFAULTS", "DLPUMP", "DLCOPY", "DLPROBE") + STOCK14 + OURS,
-    fx1=("DLPROBE", "FILTER", "DJ EQ", "PHASER", "FLANGER", "CHORUS", "SPATIALIZER", "COMB FILTER", "COMPRESSOR", "LO-FI"),
+    fx1=("DLPROBE", "SPECTRUM", "CHARACTER", "MODULATION", "FILTER", "DJ EQ", "PHASER", "FLANGER", "CHORUS", "SPATIALIZER",
+         "COMB FILTER", "COMPRESSOR", "LO-FI"),
     # The window words no stock effect writes (docs/proposals/DEMAND_LOAD.md): the top of each FX2
     # slot from 0x3da3 up, and below 0x37f00, where payload B's boot zero loop starts. DLCOPY is the
     # lowest upload; the stub and the reverb guards follow it (window_loader); LOAD METER's DSP half
@@ -30,7 +31,7 @@ REMIX = Remix(
             ("SPECTRUM", 0x31000), ("MODULATION", 0x35000), ("CHARACTER", 0x39000), ("TRANSIENT", 0x3D000)),
     window_demand=("MODULATION", "SPECTRUM", "CHARACTER", "TRANSIENT"),
     window_guard=("PLATE REV", "DARK REV", "SPRING REV"),
-    window_loader=0x33E50,
+    window_loader=0x33E56,
     fallback="NONE",
     settings={("octabam.usb", "TRACKS"): "PRE", ("octabam.usb", "MAIN"): 1,
               ("octabam.usb", "CUE"): 1, ("octabam.usb", "MASTER"): 0,

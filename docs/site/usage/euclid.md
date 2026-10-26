@@ -7,7 +7,8 @@ resets its phase.
 ## Access
 
 An effect on a track: select the track, press FX1 or FX2, and pick EUCLID
-from the chooser. In Octabam Inserts only.
+from the chooser. Select a remix carrying EUCLID, such as the `euclid` or
+`events-clients` test remix; standard Octabam Inserts no longer includes it.
 
 ## Operation
 
@@ -49,7 +50,7 @@ from the chooser. In Octabam Inserts only.
 | Setup | OUT mode | ENV, GATE, RAND, LOOP |
 | Setup | MIX | dry/wet; 0 is an exact dry passthrough |
 
-SEQUENCER EVENTS coordinates PLAY/resume notifications with other selected modules. EUCLID retains its own phase-reset policy.
+EVENTS coordinates PLAY/resume notifications with other selected modules. EUCLID retains its own phase-reset policy.
 
 ## Hardware evidence
 
