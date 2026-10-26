@@ -31,6 +31,14 @@ Each check's first run on a fixture shares one boot with the others'
 it sets a boot option (PRE_BOOT: a block dump, an audio capture, a write
 watch, dirty DSP RAM, a card latency). `--alone` boots every run on its
 own, as before; same_as_alone checks the two give the same takes.
+
+What it cannot see: the unit's card speed (the port's card latency is a
+model, so RING FULL margins and the time a take needs to reach IDLE are the
+port's), the hook's cost in microseconds (the port counts instructions),
+the order of the level-6 transfer chain against the frame interrupt on the
+chip (the port has its own), and how a take plays back (its level, its
+tempo). A run ends at a fixed frame count, so a writer that got slower
+fails it before its files are complete (21 Oct 2026, the take folder).
 """
 import json
 import os

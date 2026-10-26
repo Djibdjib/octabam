@@ -6,11 +6,16 @@
 Boots the remix (NOR's bootstrap version preloaded, so the entry takes the
 hardware's path) and watches the trace routine's entry: the note it is
 called with, in order, must be 2..6 then the frame interrupt's 7 and 8
-(the port takes frames with --frame; 6 and the first frame race), and REMIX SWITCH's inline note 1 (when
-it is in the image) must run first. The run mounts an empty card, so it
-goes on past the port's M6a gate, which note 6 also races. The port arms its UART write watch only
-after the boot, so the notes are read from the calls, not the wire; notes
-4..6 were also seen on UART0's transmit register (29 Sep 2026).
+(the port takes frames with --frame; 6 and the first frame race), and
+REMIX SWITCH's inline note 1 (when it is in the image) must run first. The
+run mounts an empty card, so it goes on past the port's M6a gate, which
+note 6 also races. The port arms its UART write watch only after the boot,
+so the notes are read from the calls, not the wire; notes 4..6 were also
+seen on UART0's transmit register (29 Sep 2026).
+
+What it cannot see: the MIDI OUT wire (the notes are read from the calls),
+and the unit's own timing (on the port a timer tick's phase decides
+whether note 6 or a task switch comes first).
 """
 import os, pathlib, re, subprocess, sys, tempfile
 
