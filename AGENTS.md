@@ -11,8 +11,8 @@ The repo is organised as **modules** (`modules/<name>/manifest.py` declares one
 contribution) composed into **remixes** (`remixes/<name>/remix.py` selects a
 set, `README.md` beside it says where it has run; `remixes/test/<name>/`
 carries one module for its gates).
-`make modules` lists them, with the compatibility matrix; `make remix`
-composes one. `docs/contributing/MODULES.md` is the contributor guide and
+`make modules` lists them, with the compatibility matrix.
+`docs/contributing/MODULES.md` is the contributor guide and
 `CONTRIBUTING.md` the contract. The build refuses to start when two selected
 modules claim the same cave, hook or detour span, poke, table or
 symbol ref, runtime write, kept stock bytes, grown stock table,
