@@ -63,15 +63,22 @@ takes go to `<set>/AUDIO/STEMS/<project>/<YYMMDD-HHMM>/` (`5822ebcc`).
    engine task) against how STEM REC writes (its own task, through the
    file layer's raw sector routines), so a log write can't block a take.
 6. **A flatter folder.** Now:
-   `<set>/AUDIO/STEMS/<project>/<YYMMDD-HHMM>/T1.wav`. Yves would prefer
-   `/STEMS/<YYMMDD-HHMM>-T1.wav`. To settle first:
-   - **Where the browser can reach.** Whether the unit's file browser
-     reaches a folder at the card's root, outside the set.
+   `<set>/AUDIO/STEMS/<project>/<YYMMDD-HHMM>/T1.wav`. Yves wants a flat
+   folder of files named by take: `/STEMS/<YYMMDD-HHMM>-T1.wav`, or
+   `<set>/AUDIO/_STEMS/<YYMMDD-HHMM>-T1.wav` if that's easier. Yves
+   decided this on 26 Oct 2026: we go for our layout, which replaces the
+   nested one from `5822ebcc`. To settle first:
+   - **Where the browser can reach.** `<set>/AUDIO/` is the set's own
+     sample pool, which the unit's file browser shows. A folder at the
+     card's root is outside the set; whether the browser reaches it is
+     unknown. `_STEMS` under AUDIO is the safe choice if it doesn't.
    - **Large folders.** How the browser handles a folder that collects 14
      files a take.
-   - **The project name.** Whether it goes into the file name instead.
-   - **Ilia's layout.** Agree the change with Ilia, who chose the nested
-     layout in `5822ebcc`.
+   - **The project name.** Dropped from the path. Whether it goes into
+     the file name instead.
+   - **Takes already on cards.** Takes under `AUDIO/STEMS/<project>/` and
+     `AUDIO/<YYMMDD-HHMM>/` stay where they are; only new takes use the
+     new layout.
 
    A flat folder also needs fewer folders made per take. That may fix
    verify_stems' take runs, which have failed on main since `5822ebcc`
