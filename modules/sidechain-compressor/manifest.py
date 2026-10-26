@@ -1,7 +1,7 @@
 """SIDECHAIN_COMPRESSOR -- stock COMPRESSOR with a side-chain KEY from any track and a base-width key filter: MON, KEY, KGN, KBAS and KWID on page 2.
 
 Source: `upstream/` is Zac Kyoti's repository (Zac-Kyoti/octatrack-kyoti-fw,
-submodule, pinned to `554ca1c`). The declaration is
+submodule, pinned to `b0d49bf`). The declaration is
 `upstream/octabam-modules/sidechain-compressor/manifest.py`: two linked units
 (`patch_sidechain.s`, and `ui_switch.s`: KEY's 9-position rotary switch and KWID's link clip),
 placed in a ROM cave or DRAM by the `PLACE` setting
@@ -27,4 +27,4 @@ MODULE = runpy.run_path(str(_UPSTREAM), run_name="remix_manifest_sidechain_compr
 # are added here rather than in the author's manifest.
 MODULE = dataclasses.replace(
     MODULE, category=Category.TRACK, author="Zac Kyoti", author_url="https://github.com/Zac-Kyoti",
-    proof=Proof.CHECK, proof_note="this version's octabam form: make check, not flashed. The author's standalone image (140C_SCKF4) and KYOTI V1.6 on the author's MKI, 22 Oct 2026, and KEY's rotary switch and KWID's clip in the standalone image, 23 Oct 2026: page 2, KBAS/KWID ranges and readouts, a kick fundamental keyed at short attack and release, MON and KEY declick, load with 1 + 7 and 4 + 4 COMPRESSOR/DJ EQ per core. The previous version's octabam form ran on the unit on 4 Oct 2026")
+    proof=Proof.CHECK, proof_note="this pin's octabam form: make check; its key-filter table fix ran on the author's MKI as OCTABAM32 (25 Oct 2026), MON 2/3 and KEY's step handler in the standalone image 140C_SCKD3 (25 Oct 2026), not yet in this form. The author's standalone image (140C_SCKF4) and KYOTI V1.6 on the author's MKI, 22 Oct 2026, and KEY's rotary switch and KWID's clip in the standalone image, 23 Oct 2026: page 2, KBAS/KWID ranges and readouts, a kick fundamental keyed at short attack and release, MON and KEY declick, load with 1 + 7 and 4 + 4 COMPRESSOR/DJ EQ per core. The previous version's octabam form ran on the unit on 4 Oct 2026")

@@ -20,6 +20,13 @@ cross-core memory overlaps, and the build refuses the pair.
 
 *FX2 SETUP with COMPRESSOR selected, showing RMS, MON, KEY (here T2), KGN, KBAS and KWID.*
 
+## Changed on 25 Oct 2026
+
+MON shows OFF on the left and ON on the right. A COMPRESSOR saved with any
+earlier version comes up with MON OFF. KEY moves one position per detent
+even with the encoder pressed. The earlier octabam form of this filter
+gave silence, level jumps and squeals on KBAS and KWID; that is fixed.
+
 ## Changed on 22 Oct 2026
 
 The base-width filter replaced an earlier one-knob filter (KFLT), and page 2
@@ -34,7 +41,8 @@ affected.
 
 - KEY chooses what drives the detector: OFF (the track's own signal, as
   stock) or T1-T8. It is drawn as a nine-position switch, OFF pointing
-  left and T8 right. Choosing the compressor's own track keys it from its own
+  left and T8 right, and moves one position per detent, also with the
+  encoder pressed. Choosing the compressor's own track keys it from its own
   signal through the filter.
 - KBAS is the filter's base: a high-pass at OFF or 20 Hz to 19.6 kHz. Its
   readout is in Hz (`1.2k` is 1.2 kHz).
@@ -45,10 +53,16 @@ affected.
 - The two cannot cross: raising KBAS moves the whole band up.
 - For a kick: KBAS about 30-40 Hz, KWID about 1.2-1.5.
 - KGN is the key's gain, about -24 to +24 dB.
-- MON lets you hear the processed key in place of the track. Switching it,
-  or changing KEY while it is on, fades instead of clicking.
+- MON lets you hear the processed key in place of the track: OFF on the
+  left, ON on the right. Switching it, or changing KEY while it is on,
+  fades (about 6 ms) instead of clicking.
+- A key on the same DSP core and earlier in the order (T1 keying T2-T4, T5
+  keying T6-T8) reaches the detector with no delay, so a trig on both
+  tracks at once clicks less at short attack than a key from the other
+  core.
 - A COMPRESSOR saved on stock firmware comes up with MON OFF, KEY OFF, KGN
-  centred and both filters OFF.
+  centred and both filters OFF; one saved with an earlier version of this
+  module comes up with MON OFF.
 - The key works across the two DSP cores in both directions.
 - Beside MUTE_MODES a muted key track keeps feeding the key, as stock mute
   does (MUTE_MODES' SC_KEY build).
@@ -69,5 +83,6 @@ Tested on the author's MKI on 22 Oct 2026 in the author's standalone image:
 page 2 and its readouts, a kick's fundamental keyed at short attack and
 release, MON and KEY declick. The author's KYOTI V1.6 image, which carries it,
 ran on the unit the same day. KEY's switch and the KBAS-KWID bracket ran
-there in the standalone image on 23 Oct 2026. This octabam form has not been
-flashed.
+there in the standalone image on 23 Oct 2026. In this octabam form, the
+key-filter fix ran on the author's MKI on 25 Oct 2026; MON's switch and
+KEY's pressed turn ran in the standalone image the same day.
