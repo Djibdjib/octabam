@@ -54,7 +54,7 @@ Idempotent. What to install before it: [BUILDING.md section 0](../guide/BUILDING
 |---|---|---|
 | `dsp_asm` | `vendor/dsp56300` | the DSP56300 assembler. It mis-encodes some instructions silently (see [TRAPS.md](TRAPS.md#trap-asm)). `tools/patches/dsp56300.patch` adds the chip's one-word displaced move (displacement −64..63, data-ALU register); a word or cycle figure recorded before 14 Sep 2026 counts such a move as 2 |
 | `dsp_host` | `tools/harness/dsp_host/` (staged into `vendor/dsp56300` and built there) | the emulator harness written here: runs assembled effects on the dsp56300 emulator core. `tools/harness/README.md` |
-| `emu_bringup.py` | `tools/emu/` | Tier-0 ColdFire bring-up: boots the MAIN OS image on Unicorn's CFV4E core to the RTOS handoff (the remixer's emulator view). Needs `unicorn`: `make emu-setup` (uv, the `emu` extra). `tools/emu/README.md` |
+| `emu_bringup.py` | `tools/emu/` | Tier-0 ColdFire bring-up: boots the MAIN OS image on Unicorn's CFV4E core to the RTOS handoff. Needs `unicorn`: `make emu-setup` (uv, the `emu` extra). `tools/emu/README.md` |
 | `ot_emu` | `tools/emu/ot_emu/` (`make emu-cf`) | the headless C++ port of the machine: boots the built image, loads a project from a staged card, runs the sequencer and both DSP cores. `tools/emu/README.md` |
 | `ot_brain` | `tools/hw/ot_brain.py` | brain files (`.work`, `.strd`, `.brain`): `dump` to JSON, `build` from JSON (a record it cannot read kept as its bytes, so a round trip is byte for byte), `pair` (what the core does with a directory's `.work` / `.strd`; `docs/proposals/BRAIN.md` section 6.2) |
 | `ot_spec` | `tools/hw/ot_spec.py` | one JSON spec over a project's parts and patterns: `apply` (FX ids by module name, every knob by name, machine type, part names; per pattern track: length, scale, trigs, locks on every page by knob name — PLAYBACK, LFO, AMP, FX1, FX2 — with `clear`; the lock-trig mask follows), `report` (the same shape back), `diff` (two projects, field by field); checksum + read-back on `.work` and `.strd` |
@@ -200,8 +200,8 @@ the default m68k core does not decode this CPU.
 
 `tools/build/build_bus.py` is the builder (`make bus` = `XBUS=1 SPEC=1`).
 It builds a remix: a named selection of modules (`make bus REMIX=<name>`,
-no default; `make modules` lists the modules and the remixes,
-`make remix` composes one interactively). Each `modules/<name>/manifest.py`
+no default; `make modules` lists the modules and the remixes).
+Each `modules/<name>/manifest.py`
 declares one contribution against `tools/remix/schema.py`, and
 `tools/remix/ledger.py` refuses a selection whose modules collide.
 `docs/contributing/MODULES.md` is the contributor guide. The builder assembles

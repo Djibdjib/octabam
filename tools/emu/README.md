@@ -11,7 +11,6 @@ There are two ways to run the Octatrack's OS without flashing it:
   - the label gates in `make check` (`verify_labels`, `verify_mode_names`,
     `verify_hidden`) and CC MAP's `verify_cc_map`;
   - `tools/build/stock_labels.py`;
-  - the remixer's UNIT pane.
 
 The records of how they were built:
 - the port: `git show 3ceba41:docs/history/COLDFIRE_PORT.md` (O1–O14) and

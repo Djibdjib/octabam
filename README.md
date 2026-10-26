@@ -37,7 +37,7 @@ responsible for any damage to your Octatrack. See
 | put a remix on your Octatrack | [docs/guide/BUILDING.md](docs/guide/BUILDING.md): a fresh machine to a flashed unit, step by step, with the recovery path |
 | see what remixes exist and what is in each | [remixes/README.md](remixes/README.md), then the remix's own page in `remixes/<name>/README.md` |
 | see every module and how far it is proven | the table below; each module's `modules/<name>/README.md` has the measurements |
-| compose your own selection | [docs/guide/REMIXER.md](docs/guide/REMIXER.md): `make remix`, the interactive remixer, or a `remix.py` by hand |
+| compose your own selection | [docs/guide/COMPOSING.md](docs/guide/COMPOSING.md): a `remix.py` by hand |
 | write a module or port an existing mod | [CONTRIBUTING.md](CONTRIBUTING.md) (the contract), [docs/contributing/MODULES.md](docs/contributing/MODULES.md) (the guide), [docs/contributing/TESTING.md](docs/contributing/TESTING.md) (what the gates prove) |
 | understand the firmware | [docs/firmware/ARCHITECTURE.md](docs/firmware/ARCHITECTURE.md) and its neighbours; [docs/contributing/TOOLING.md](docs/contributing/TOOLING.md) for the tools |
 | find any other doc | [docs/README.md](docs/README.md) |
