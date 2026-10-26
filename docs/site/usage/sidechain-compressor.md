@@ -83,6 +83,6 @@ Tested on the author's MKI on 22 Oct 2026 in the author's standalone image:
 page 2 and its readouts, a kick's fundamental keyed at short attack and
 release, MON and KEY declick. The author's KYOTI V1.6 image, which carries it,
 ran on the unit the same day. KEY's switch and the KBAS-KWID bracket ran
-there in the standalone image on 23 Oct 2026. In this octabam form, the
-key-filter fix ran on the author's MKI on 25 Oct 2026; MON's switch and
-KEY's pressed turn ran in the standalone image the same day.
+there in the standalone image on 23 Oct 2026. This octabam form, with
+the key-filter fix, MON's switch and KEY's pressed turn, ran on the author's
+MKI on 26 Oct 2026: all good.

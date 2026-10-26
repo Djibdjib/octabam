@@ -29,7 +29,8 @@ This version replaces the previous one, whose page 2 was RMS · KEY · KFLT · K
 
 - 22 Oct 2026, on the author's MKI, in the author's standalone image (`140C_SCKF4`): page 2 and its readouts, a kick fundamental keyed at short attack and release, MON and KEY declick, the load with 1 + 7 and 4 + 4 COMPRESSOR / DJ EQ per core. The author's KYOTI V1.6 image (with MUTE_MODES' SC_KEY) ran on the unit the same day.
 - 24 Oct 2026, this octabam form at `554ca1c` (OCTABAM31): ducking worked, KBAS and KWID broken (the table bug above). 25 Oct 2026, with the table fix (OCTABAM32): KBAS and KWID work.
-- 25 Oct 2026, the author's standalone image `140C_SCKD3`: MON's new switch and its OFF on older projects, KEY's pressed turn, the longer fades. Not yet in this octabam form.
+- 25 Oct 2026, the author's standalone image `140C_SCKD3`: MON's new switch and its OFF on older projects, KEY's pressed turn, the longer fades.
+- 26 Oct 2026, this pin's octabam form (`test/sidechain-compressor`, OCTABAM33): KBAS and KWID, MON's switch and its OFF on older projects, KEY's pressed turn and the fades, all good.
 
 ## Notes
 
