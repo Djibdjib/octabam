@@ -95,10 +95,20 @@ records are left out of payload A's upload and written to `out/dsp/demand_record
 
 `dsp_host` keeps P and Y apart, so the guard is shown to decide correctly, not to prevent an overwrite on the chip.
 
+## Measured on a unit (26 Oct 2026, MKII, images DLPROBEJ1..J7, project MXDLPR01 / MXDLPR02)
+
+- DLPUMP runs on the unit: the pump's counters (`tools/hw/dl_state.py`, USB request `0xc0/0x57` block 3) show the frame interrupt calling it 2,756 times a second, the ping word alternating 0 and 1 as in the port, and the loads, chunks and doorbells it armed and sent.
+- The host write lands in core B's `X:0x2900..`: DLPROBE on T1 read `X:$2902` = `0x00d000` (TRANSIENT's destination offset).
+- The byte above a host word's 16 bits is stale on the unit: the doorbell read `0x40a55a`. The port leaves it 0. The first image compared the doorbell as a full word and never took a block (received 0, doorbell non-zero for ~77,000 frames). The copier now masks the doorbell and header words (`verify_dlstub`, "stale high byte").
+- With the mask: all four effects BOUND, every block's sum matched (refused 0), published equal to received.
+- The code runs, from the per-slot costs of LOAD METER (`tools/hw/load_meter.py`; a dry slot costs 89..147 counts): CHARACTER on core A FX1 5,147; SPECTRUM on core B FX1 4,062; TRANSIENT on core A FX2 3,616; MODULATION on core B FX1 323 (module defaults). So code core B copied is executed by core A.
+- SPECTRUM and CHARACTER on an FX2 slot cost a dry slot's 116..119 counts: they are `fx1_only` and render dry there. `octabam` had no FX1 list, so it offered them on FX2 only; it lists them on FX1 now.
+- Each project load makes the pump withdraw and reload every effect (the load passes through default ids; the boot also loads the previous project): 8 loads and 4 withdrawals in one session.
+- The frames the unit loses with a send on every frame (`dl-probe-any`) are not measured yet. The unit did freeze once during the first rounds (13:27); it was on `DLPROBEJ3`, the build with the stale-byte bug, and the cause was not found.
+
 ## Open
 
-- The unit: host write reaching `X:0x2900..0x3d55`, which frames of the unit deliver (the port's ping-0 rule), P stores into the
-  window and execution of copied code, and the stock extents at other knob settings.
+- The unit: which frames lose a chunk (`dl-probe-any`), the stock extents at other knob settings, the audible dropout while an effect loads (about 25 ms), and a reverb meeting a loaded effect's block.
 - Core A's stall when sent to, and the mask at the frames that lose their chunk.
 - The wording of the toasts and how long the deferred ones wait for a page key.
 - A dry instance that had run its init (state 3) resuming is not covered by a gate: `dsp_host` cannot change the published span between blocks.

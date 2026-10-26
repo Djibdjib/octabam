@@ -7,7 +7,8 @@
 ; withdrawn. The window is one memory for both cores, so a copy made here is
 ; resident for the tracks of core A as well.
 ;
-; Staging (X, written by the ColdFire's host transfer, 16 bits a word):
+; Staging (X, written by the ColdFire's host transfer, 16 bits a word: the byte above them is whatever
+; the port last held, so every word is read through a 16-bit mask):
 ;   x:$2900  doorbell, written last: $a55a when the block is complete
 ;   x:$2901  the effect's index k, 0..3
 ;   x:$2902  destination, as an offset into the window (the host carries 16 bits)
@@ -31,9 +32,16 @@
 
 dlc_start:
         move    x:>$2900,a
+        and     #>$ffff,a                ; the host write delivers 16 bits; the byte above them is whatever it was (0x40 measured)
         move    #>$a55a,x0
         cmp     x0,a
         bne     dlc_exit
+        move    #>$2901,r0               ; the header words, cleaned the same way
+        do      #5,>dlc_hn
+        move    x:(r0),a
+        and     #>$ffff,a
+        move    a1,x:(r0)+
+dlc_hn:
         move    x:>$2901,a
         asl     #$3,a,a
         move    #>$33da3,x0

@@ -21,6 +21,8 @@ CORE = ("BRAIN", "STORE", "KITS", "MIDI SCENES", "SCENES P2", "PLOCKS P2",
 STOCK14 = ("FILTER", "EQUALIZER", "DJ EQ", "PHASER", "FLANGER", "CHORUS", "SPATIALIZER",
            "COMB FILTER", "COMPRESSOR", "LO-FI", "DELAY", "PLATE REV", "SPRING REV", "DARK REV")
 OURS = ("MODULATION", "SPECTRUM", "CHARACTER", "TRANSIENT")
+STOCK_FX1 = ("FILTER", "EQUALIZER", "DJ EQ", "PHASER", "FLANGER", "CHORUS", "SPATIALIZER",
+             "COMB FILTER", "COMPRESSOR", "LO-FI")
 
 REMIX = Remix(
     name="octabam",
@@ -32,11 +34,12 @@ REMIX = Remix(
     # lowest upload; the stub and the reverb guards follow it (window_loader); LOAD METER's DSP half
     # fills the next gap. The four effects sit at offset 0x1000 of the four slots (core A tracks 7
     # and 8, core B tracks 3 and 4) and are not uploaded.
+    fx1=("SPECTRUM", "CHARACTER", "MODULATION") + STOCK_FX1,   # the stations run on FX1 only (an FX2 instance renders dry)
     window=(("DLCOPY", 0x33DC3), ("LOAD METER", 0x37DA3), ("LOAD METER:B", 0x37E50),
             ("SPECTRUM", 0x31000), ("MODULATION", 0x35000), ("CHARACTER", 0x39000), ("TRANSIENT", 0x3D000)),
     window_demand=("MODULATION", "SPECTRUM", "CHARACTER", "TRANSIENT"),
     window_guard=("PLATE REV", "DARK REV", "SPRING REV"),
-    window_loader=0x33E50,
+    window_loader=0x33E56,
     fallback="NONE",
     settings={("octabam.usb", "TRACKS"): "PRE", ("octabam.usb", "MAIN"): 1,
               ("octabam.usb", "CUE"): 1, ("octabam.usb", "MASTER"): 0,
