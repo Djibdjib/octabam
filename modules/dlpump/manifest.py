@@ -23,7 +23,8 @@ def table_inc(modules, remix):
     recs = json.loads(RECORDS.read_text()) if RECORDS.is_file() else {}
     keys = list(remix.window_demand)
     phase_any = modules["DLPUMP"].build_values.get("PHASE", "PING0") == "ANY"
-    rows = [f"        .equ    DL_N, {len(keys)}", f"        .equ    PHASE_ANY, {int(phase_any)}"]
+    grace = {"10 S": 13780, "2 S": 2756}[modules["DLPUMP"].build_values.get("GRACE", "10 S")]   # idle calls: 1,378 a second
+    rows = [f"        .equ    DL_N, {len(keys)}", f"        .equ    PHASE_ANY, {int(phase_any)}", f"        .equ    GRACE, {grace}"]
     for key in REVERBS:
         rows.append(f"        .equ    DL_{key.split()[0]}, 0x{stock.BY_KEY[key].menu.fx2_id:02x}")
     rows.append("dl_tab:")
@@ -76,6 +77,9 @@ MODULE = Module(
     store=Store("octabam.dlpump"),
     settings=(Setting(1, "PHASE", Option("PING0", "ANY"), default="PING0", apply=Apply.BUILD,
                       doc="PING0: send on the frames whose ping word is 0 (the port's delivering frames); ANY: on every "
-                          "frame (a measurement build: the copier's counters show what the unit loses)"),),
+                          "frame (a measurement build: the copier's counters show what the unit loses)"),
+              Setting(2, "GRACE", Option("10 S", "2 S"), default="10 S", apply=Apply.BUILD,
+                      doc="how long an unused effect stays loaded before it is withdrawn; a project load leaves every id at its "
+                          "default for about 4 s (measured on a unit), so 10 S keeps the effects through it; 2 S is for the port gates"),),
     gates=(Gate("tools/verify/verify_dlload.py", venv=True),),
 )

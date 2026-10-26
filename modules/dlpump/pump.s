@@ -99,7 +99,7 @@ dg_ok:  move.l  dl_state,%d0
 
 | Idle: compare the effects the tracks use with the ones loaded, on the frames the port delivers.
 | One message is armed per call: a load (the effect is used, not loaded, and its block is not
-| under a stock reverb) or a withdrawal (loaded and used by no track). Whoever holds a block
+| under a stock reverb) or a withdrawal (loaded and used by no track for GRACE idle calls). Whoever holds a block
 | keeps it: a loaded effect is not withdrawn for a reverb, and a reverb is not moved for an effect.
 idle:
         .if     PHASE_ANY == 0
@@ -207,14 +207,37 @@ idle:
         lea     dl_dg,%a1
         addq.l  #1,%a1@(20)                     | [5]: loads armed
         bra.w   arm
-6:      tst.l   %d3                             | loaded
-        bne.w   7f
+6:      lea     dl_gone,%a1                     | loaded: unused for GRACE idle calls in a row withdraws it
+        move.l  %d6,%d1
+        lsl.l   #2,%d1
+        adda.l  %d1,%a1
+        tst.l   %d3
+        bne.w   dg_used
+        move.l  %a2@(4),%d1                     | unused: a stock reverb on its block takes it at once
+        lea     LIVE+8,%a0
+        move.b  %a0@(0,%d1:l),%d1
+        cmp.b   #DL_PLATE,%d1
+        beq.w   dg_now
+        cmp.b   #DL_SPRING,%d1
+        beq.w   dg_now
+        cmp.b   #DL_DARK,%d1
+        bne.w   dg_wait
+dg_now: move.l  #GRACE,%a1@
+dg_wait:
+        move.l  %a1@,%d1
+        addq.l  #1,%d1
+        move.l  %d1,%a1@
+        cmp.l   #GRACE,%d1
+        bcs.w   7f                              | still within it
+        clr.l   %a1@
         move.l  %a2@(16),%d1                    | the withdraw message
         moveq   #5,%d2
         bclr    %d6,%d0
         lea     dl_dg,%a1
         addq.l  #1,%a1@(24)                     | [6]: withdrawals armed
         bra.w   arm
+dg_used:
+        clr.l   %a1@                            | used again: the grace starts over
 7:      lea     %a2@(28),%a2
         addq.l  #1,%d6
         bra.w   3b
@@ -306,6 +329,16 @@ dl_veto:
         beq.w   7f
         cmp.l   %d7,%d3
         bne.w   7f
+        move.l  %a2@,%d2                        | ... that a track uses
+        lea     LIVE,%a0
+        moveq   #15,%d3
+dv_scan:
+        cmp.b   %a0@+,%d2
+        beq.w   dv_used
+        subq.l  #1,%d3
+        bpl.w   dv_scan
+        bra.w   7f                              | unused: it is about to be withdrawn, not a holder
+dv_used:
         cmp.b   #DL_PLATE,%d1
         beq.w   6f
         cmp.b   #DL_SPRING,%d1
@@ -378,6 +411,7 @@ dl_dest:  .long 0
 dl_src:   .long 0
 dl_left:  .long 0
 dl_loaded: .long 0                      | bit k: effect k is loaded
+dl_gone:  .long 0, 0, 0, 0              | per effect: idle calls it has been loaded and unused
 dl_rwait: .long 0                       | idle calls until the load of effect dl_rk is sent again (0: none)
 dl_rk:    .long 0
 dl_rsrc:  .long 0

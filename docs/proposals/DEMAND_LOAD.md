@@ -47,7 +47,7 @@ takes the block: the pump loads X, and a dry reverb resumes (it runs the stock i
 
 - **DLPUMP** (ColdFire, `modules/dlpump`), called from LOAD METER's entry code (`lm_in`, weak symbol) every frame interrupt.
   Idle: on ping-0 frames it compares the ids on the 16 live FX slots with the effects loaded and arms one message: a load when
-  an effect is used, not loaded, and its block is not under a reverb; a withdrawal when it is loaded and no slot uses it.
+  an effect is used, not loaded, and its block is not under a reverb; a withdrawal when it is loaded and no slot uses it for 10 s in a row (a project load leaves every id at its default for about 4 s, measured on a unit; the `GRACE` build setting, 2 S for the port gates), or at once when a stock reverb is on the FX2 slot of its block.
   Sending: 100 halfwords per ping-0 frame to core B's `X:0x2901..`, then the doorbell `0xa55a` to `X:0x2900` two frames later.
   A load is sent twice, 30 idle calls apart, if the effect is still loaded then. The table of effects, their blocks and the toast
   strings is generated per remix (`remix.inc`, `Linked.include`) from `out/dsp/demand_records.json`; the unit reserves 2,600 code
@@ -91,7 +91,7 @@ records are left out of payload A's upload and written to `out/dsp/demand_record
 |---|---|---|
 | `verify_dlstub` | for each effect: the stub unbound equals the null stub, bound equals the effect's own render (0 of 6,400 samples differ), a wrong magic, a missing doorbell or a wrong block sum stays dry; DLCOPY binds a staged block and the stub runs it; a withdraw message makes it dry again | `dsp_host`, test/dlspike and octabam |
 | `verify_dlwrap` | for each reverb, payload and published span: the guard equals the stock render and Y writes where the buffer is clear, passes the audio through and writes nothing where it covers the code; a dry instance whose init never ran runs the stock init when the range is clear and then equals the stock render | `dsp_host`, same |
-| `verify_dlload` | with live ids poked: the four effects load (entry and every code word, read from both cores), one is withdrawn while the others stay, none loads unused, a reverb that arrives on a loaded effect's block leaves it loaded, none loads over a reverb's block, the choosers pick an effect that can load and refuse one that cannot, and refuse a reverb on a loaded effect's block, each with a toast (counted at the popup call), the deferred toasts appear at the next page key and not when nothing collides, the loaded proc is reached on core B and on core A (`--dsp-pcwatch`) | port, test/dlspike and octabam |
+| `verify_dlload` | with live ids poked: the four effects load (entry and every code word, read from both cores), one is withdrawn while the others stay, none loads unused, a reverb that arrives on a loaded effect's block leaves it loaded, none loads over a reverb's block, the choosers pick an effect that can load and refuse one that cannot, and refuse a reverb on the block of a loaded effect that a track uses (not on an unused one, which is withdrawn), each with a toast (counted at the popup call), the deferred toasts appear at the next page key and not when nothing collides, the loaded proc is reached on core B and on core A (`--dsp-pcwatch`) | port, test/dlspike and octabam |
 
 `dsp_host` keeps P and Y apart, so the guard is shown to decide correctly, not to prevent an overwrite on the chip.
 
@@ -103,12 +103,13 @@ records are left out of payload A's upload and written to `out/dsp/demand_record
 - With the mask: all four effects BOUND, every block's sum matched (refused 0), published equal to received.
 - The code runs, from the per-slot costs of LOAD METER (`tools/hw/load_meter.py`; a dry slot costs 89..147 counts): CHARACTER on core A FX1 5,147; SPECTRUM on core B FX1 4,062; TRANSIENT on core A FX2 3,616; MODULATION on core B FX1 323 (module defaults). So code core B copied is executed by core A.
 - SPECTRUM and CHARACTER on an FX2 slot cost a dry slot's 116..119 counts: they are `fx1_only` and render dry there. `octabam` had no FX1 list, so it offered them on FX2 only; it lists them on FX1 now.
-- Each project load makes the pump withdraw and reload every effect (the load passes through default ids; the boot also loads the previous project): 8 loads and 4 withdrawals in one session.
-- The frames the unit loses with a send on every frame (`dl-probe-any`) are not measured yet. The unit did freeze once during the first rounds (13:27); it was on `DLPROBEJ3`, the build with the stale-byte bug, and the cause was not found.
+- A project load leaves every id at its default for about 3.8 s (polled over USB every 0.25 s: ids reset at 36.2 s, back at 40.05 s). With a 2 s grace the pump withdrew all four effects at 38.3 s and loaded them again at 40.05 s; the grace is 10 s.
+- Sending on every frame (`DLPANYJ9`, `test/dl-probe-any`, the same project): the copier refused blocks for their sum on the unit (MODULATION received 4, refused 3, published 1; SPECTRUM received 2, refused 2, published 0; TRANSIENT received 2, refused 1, published 1; CHARACTER received nothing) and ran no bad copy. The ping-0 rule holds on the unit as in the port; with it, no block was refused in the rounds on `DLPROBEJ5` and `J7` (about 16 blocks over several loads).
+- A repeat send that is refused leaves the effect unbound: the copier clears BOUND before it copies and publishes nothing for a bad sum, and the ColdFire cannot see the counters to send again. Not seen with the ping-0 gate. The unit did freeze once during the first rounds (13:27); it was on `DLPROBEJ3`, the build with the stale-byte bug, and the cause was not found.
 
 ## Open
 
-- The unit: which frames lose a chunk (`dl-probe-any`), the stock extents at other knob settings, the audible dropout while an effect loads (about 25 ms), and a reverb meeting a loaded effect's block.
+- The unit: the stock extents at other knob settings, the audible dropout while an effect loads (about 25 ms), and a reverb meeting a loaded effect's block.
 - Core A's stall when sent to, and the mask at the frames that lose their chunk.
 - The wording of the toasts and how long the deferred ones wait for a page key.
 - A dry instance that had run its init (state 3) resuming is not covered by a gate: `dsp_host` cannot change the published span between blocks.

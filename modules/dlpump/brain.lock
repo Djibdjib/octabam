@@ -12,6 +12,14 @@
    ],
    "name": "PHASE",
    "type": "option"
+  },
+  "2": {
+   "labels": [
+    "10 S",
+    "2 S"
+   ],
+   "name": "GRACE",
+   "type": "option"
   }
  },
  "store": {
