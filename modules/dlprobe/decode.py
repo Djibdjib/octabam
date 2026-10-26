@@ -4,7 +4,7 @@
     python3 modules/dlprobe/decode.py CAPTURE.raw|CAPTURE.wav [--channels L R] [--invert]
 
 Each 16-sample frame carries 32 bits, one per sample slot (L sample j = bit j of the L word, R sample j =
-bit j of the R word); only the sign is read. A cycle is 17 frames (layout at the head of dlprobe.asm). The
+bit j of the R word); only the sign is read. A cycle is 21 frames (layout at the head of dlprobe.asm). The
 stream is not aligned to the DSP's frames: the phase is the one where the R words' high byte follows
 0xc0 + i most often. Prints the last complete cycle's counters per effect.
 
@@ -15,7 +15,7 @@ import pathlib
 import struct
 import sys
 
-CYCLE = 17
+CYCLE = 21
 MAGIC = 0xD1A5
 
 
@@ -51,7 +51,7 @@ def decode_frames(L, R, invert=False):
 
 
 def last_cycle(frames):
-    """The last run of frames 0..16 in order -> {i: value}, or None."""
+    """The last run of frames 0..20 in order -> {i: value}, or None."""
     for end in range(len(frames), CYCLE - 1, -1):
         run = frames[end - CYCLE:end]
         if [i for i, _ in run] == list(range(CYCLE)) and run[0][1] == MAGIC:
@@ -61,6 +61,8 @@ def last_cycle(frames):
 
 def report(cycle, names=("effect 0", "effect 1", "effect 2", "effect 3")):
     lines = []
+    lines.append(f"staging on this core: X:$2900 non-zero in {cycle[17]} frames (last 0x{cycle[18]:06x}); "
+                 f"X:$2902 non-zero in {cycle[19]} frames (last 0x{cycle[20]:06x})")
     for k, name in enumerate(names):
         bound, got, bad, pub = (cycle[1 + 4 * k + j] for j in range(4))
         lines.append(f"{name}: {'BOUND' if bound == 0xB0A5ED else 'unbound (0x%06x)' % bound}, "
@@ -87,7 +89,7 @@ def main():
     cycle = last_cycle(frames)
     print(f"phase {ph}, {len(frames)} frames")
     if cycle is None:
-        print("no complete cycle (is DLPROBE on this track, and is the capture long enough: 17 frames = 6 ms?)")
+        print("no complete cycle (is DLPROBE on this track, and is the capture long enough: 21 frames = 8 ms?)")
         return 1
     print("\n".join(report(cycle)))
     return 0

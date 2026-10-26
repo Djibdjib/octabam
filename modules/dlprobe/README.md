@@ -9,7 +9,7 @@ place of EQUALIZER.
 
 The copier ([DLCOPY](../dlcopy/README.md)) keeps three counters in each demand effect's entry in the
 window (`x:$33da3 + 8 k`, words 5, 6, 7): blocks received, blocks refused for their sum, blocks
-published. DLPROBE sends them with each entry's BOUND word, in a cycle of 17 frames (6 ms).
+published. DLPROBE sends them with each entry's BOUND word, and four counters of what the host write has left in the staging words of the core it runs on (X:$2900 and X:$2902: frames in which each was not 0, and the last non-zero value), in a cycle of 21 frames (8 ms). The staging counters mean something only with the probe on a core B track (T1..T4).
 
 ## What the counters say
 
@@ -17,7 +17,8 @@ Every load is sent twice, so a healthy load reads received 2, refused 0, publish
 
 | reading | what it means |
 |---|---|
-| received 0 | no doorbell reached `X:0x2900` on core B: the host write did not land there, or the copier hook is not running |
+| received 0, staging counters 0 | nothing the host wrote reached this core's `X:0x2900..`: the pump did not run or send (read it with `tools/hw/dl_state.py`), or the host write does not land there |
+| received 0, staging counters not 0 | the host write lands and the copier does not take it: the hook at `P:0x76` is not running, or the doorbell value is not `0xa55a` |
 | received > 0, published 0, refused > 0 | the staging area was reached and the data did not arrive whole: lost chunks or a wrong address |
 | published > 0, the effect silent or the unit crashing | the block arrived and was published; a P store into the window or running it from there failed |
 | received 1, published 1 | one of the two sends was lost |

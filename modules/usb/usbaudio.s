@@ -1893,7 +1893,7 @@ audio_ctrl_shim:
     bra     .Lctrl_send
     | 0xc0/0x57 reads LOAD METER's published figures (modules/load-meter), the
     | block wValue low names: 0 lm_stats (5 longs), 1 lm_dsp (12), 2 lm_ot
-    | (16 slots of {last, sum, count, max}), from byte wIndex low on. Each
+    | (16 slots of {last, sum, count, max}), 3 DLPUMP's counters (16 longs, modules/dlpump), from byte wIndex low on. Each
     | LM_* is 0 without that module, and a request for a block it does not
     | have STALLs as stock does.
     |
@@ -1924,9 +1924,13 @@ audio_ctrl_shim:
     movel   #256,%d1
     movel   #LM_OT,%d3
     cmpil   #2,%d0
+    beqs    3f
+    moveq   #64,%d1                 | block 3: DLPUMP's counters (16 longs)
+    movel   #DL_DIAG,%d3
+    cmpil   #3,%d0
     bne     9f
 3:  tstl    %d3
-    beq     9f                      | the remix has no LOAD METER
+    beq     9f                      | the remix has no LOAD METER (or, for block 3, no DLPUMP)
     mvzb    SETUP_WIDXL,%d0         | byte offset into the block
     cmpl    %d1,%d0
     bcc     9f                      | at or past its end

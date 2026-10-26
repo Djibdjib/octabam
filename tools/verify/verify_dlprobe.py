@@ -4,7 +4,7 @@
     python3 tools/verify/verify_dlprobe.py [REMIX]       (default test/dl-probe)
 
 Each demand effect's entry (x:$33da3 + 8 k) is seeded with a BOUND word and three counters; the probe runs for
-three cycles and modules/dlprobe/decode.py reads them back, also with the signal inverted (a track with its
+three cycles, with X:$2900 and X:$2902 holding a doorbell and an N as the host write leaves them, and modules/dlprobe/decode.py reads them back, also with the signal inverted (a track with its
 polarity flipped) and at half gain.
 """
 import pathlib
@@ -41,12 +41,13 @@ rec = b""
 for k, (bound, got, bad, pub) in want.items():
     words = [bound, 0, 0, 0, 0, got, bad, pub]
     rec += struct.pack("<BII", 1, 0x33DA3 + 8 * k, 8) + b"".join(struct.pack("<I", w) for w in words)
+rec += struct.pack("<BII", 1, 0x2900, 3) + b"".join(struct.pack("<I", w) for w in (0xA55A, 0, 0x619))   # staging as the host write leaves it
 (TMP / "seeded.mem").write_bytes(blob[:end] + rec + blob[end:])
 inp = TMP / "in.raw"
 inp.write_bytes(b"\x00" * (4 * 2 * 16 * 80))
 out = TMP / "out.raw"
 r = subprocess.run([HOST, "-mem", str(TMP / "seeded.mem"), "-init", f"{init:x}", "-proc", f"{proc:x}", "-inst", "1",
-                    "-r7", "1", "-alloc", "0", "-inmask", "1", "-frames", "16", "-blocks", "60", "-in", str(inp),
+                    "-r7", "1", "-alloc", "0", "-inmask", "1", "-frames", "16", "-blocks", "90", "-in", str(inp),
                     "-out", str(out), "-params", "0"], capture_output=True, text=True)
 if r.returncode:
     sys.exit(f"dsp_host failed:\n{r.stdout[-600:]}\n{r.stderr[-600:]}")
@@ -62,5 +63,8 @@ for label, (l, r_, inv) in (("as emitted", (L, R, False)), ("inverted", ([-x for
         continue
     got = {k: tuple(cyc[1 + 4 * k + j] for j in range(4)) for k in range(4)}
     check(f"{label}: the counters read back", got == want, f"{got}")
+    check(f"{label}: the staging words seen: X:$2900 = 0xa55a, X:$2902 = 0x619, on every frame since the start",
+          cyc[18] == 0xA55A and cyc[20] == 0x619 and cyc[17] > 20 and cyc[19] > 20,
+          f"{[hex(cyc[i]) for i in (17, 18, 19, 20)]}")
 print("PASS" if not fails else f"{fails} FAIL")
 sys.exit(1 if fails else 0)

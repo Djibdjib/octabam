@@ -12,7 +12,7 @@ Remix.window_demand (k):
                                                           word for word, seen from both cores
   withdrawn  the same, T1's FX1 back to FILTER at 2 s  -> effect 0 unbound, its span empty, the rest bound
   unused     no track uses any                          -> none bound
-  runs-b / runs-a  T1 (core B) / T5 (core A) uses effect 0 -> its loaded proc is reached on that core (--dsp-pcwatch)
+  runs-b<k> / runs-a<k>  T1 (core B) / T5 (core A) uses effect k -> its loaded proc is reached on that core (--dsp-pcwatch)
   reverb-late effect 0 in use and loaded, then at 2 s the FX2 of its block's track becomes PLATE REV (a route the choosers do not guard) -> effect 0 stays loaded, the reverb is dry
   blocked    effect 0 in use, and the FX2 of the track whose slot shares its block is PLATE REV -> effect 0 not loaded
   pick / pick-blocked  T2's chooser (FX1, else FX2; NONE, DOWN to its row, YES) picks effect 0; with the block's track on PLATE REV
@@ -106,10 +106,12 @@ def main():
         "pick": (poke(live, part, 1, 0), []),
         "pick-blocked": (poke(live, part, 1, 0) + ";" + poke(FX2_LIVE, FX2_PART, block_track, PLATE), []),
         "pick-reverb": (every_first + ";" + poke(FX2_LIVE, FX2_PART, block_track, 0), []),
-        "runs-b": (poke(FX1_LIVE, FX1_PART, 0, mod_id), []),      # T1 is on core B
-        "runs-a": (poke(FX1_LIVE, FX1_PART, 4, mod_id), []),      # T5 is on core A
     }
-    watch = {"runs-b": f"1:{rec['proc']:x}", "runs-a": f"0:{rec['proc']:x}"}
+    watch = {}
+    for k, r in enumerate(recs):                                   # every effect, on a track of each core
+        scenarios[f"runs-b{k}"] = (poke(FX1_LIVE, FX1_PART, 0, r["id"]), [])      # T1 is on core B
+        scenarios[f"runs-a{k}"] = (poke(FX1_LIVE, FX1_PART, 4, r["id"]), [])      # T5 is on core A
+        watch[f"runs-b{k}"], watch[f"runs-a{k}"] = f"1:{r['proc']:x}", f"0:{r['proc']:x}"
     procs = {}
     for tag, (first, later) in scenarios.items():
         card = OUT / f"{tag}.img"
@@ -210,11 +212,12 @@ def main():
           rv[8 + block_track] == 0, f"FX2 of track {block_track + 1} = 0x{rv[8 + block_track]:02x}")
     check("and the refusal shows a toast", toasts("pick-reverb") >= 1, f"toast calls: {toasts('pick-reverb')}")
     print("runs:")
-    for tag, core in (("runs-b", 1), ("runs-a", 0)):
-        m = re.search(r"dsp pcwatch:[^\n]*\n((?: +\d+ [^\n]*\n)*)", texts[tag])
-        arrivals = len(m.group(1).splitlines()) if m else None
-        check(f"core {core}: the loaded code runs on a track of that core", bool(arrivals),
-              f"arrivals at P:0x{rec['proc']:x}: {arrivals}")
+    for k, r in enumerate(recs):
+        for tag, core in ((f"runs-b{k}", 1), (f"runs-a{k}", 0)):
+            m = re.search(r"dsp pcwatch:[^\n]*\n((?: +\d+ [^\n]*\n)*)", texts[tag])
+            arrivals = len(m.group(1).splitlines()) if m else None
+            check(f"core {core}: {r['key']}'s loaded proc is reached on a track of that core", bool(arrivals),
+                  f"arrivals at P:0x{r['proc']:x}: {arrivals}")
     print("PASS" if not FAILS else "FAIL")
     return 1 if FAILS else 0
 
