@@ -243,3 +243,7 @@ git show <sha>:dsp/baseprobe.asm
 Leave those citations alone — rewriting one to remove a filename erases
 how the number was obtained. A citation of a removed file uses the form
 `git show <sha>:<path>` (`docs/history/` records: sha `3ceba41`).
+
+- [A MIDI-only fixture leaves audio frame checks with no playing Part](docs/contributing/TRAPS.md#trap-midi-only-frame-fixture) — activate an audio trig within the probe and use the selected module's actual parameters.
+
+- [Audio and MIDI playing Parts are independent](docs/contributing/TRAPS.md#trap-part-engine-context) — use the matching STORE context reader; seed different engine Parts in fixtures.
