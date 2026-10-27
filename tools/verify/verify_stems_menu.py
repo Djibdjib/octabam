@@ -54,6 +54,8 @@ import verify_stems as vs  # noqa: E402
 from stems_panel import MENU_FOCUS, MenuPort, diff_box  # noqa: E402
 
 ROOT_DESC, PROJECT_DESC, SYSTEM_DESC, SEL = 0x400cbd8c, 0x400cbcac, 0x400cbd1c, 0x0c
+CARD_MOUNTED = 0x460d1cb8       # stems.s: long, 0 = no card
+ARM_WORDS = 0x46c803d4          # the stock arm word YES sets: 0xffff ARM ALL, a track's bit ARM TRK (MAINMENU.md 6)
 OS_UPGRADE = 1                  # SYSTEM's row 1 (MAINMENU.md 2)
 PROJECT_N = 15                  # stock PROJECT row count (unchanged)
 ENTER, CLOSE = "yes", "no"
@@ -337,10 +339,10 @@ def walk(model, s, fx):
         before = p.screen()
         shot("recording")
         lgen0 = p.long(s["stems_lgen"])
-        p.run(3000, wall=45)                            # no key, 1.09 s: the window redraws itself
+        p.run(3000, wall=45)                            # no key, 3 s: the window redraws itself
         idle = p.screen()
         drawn, lgen1 = p.long(s["stems_drawn"]), p.long(s["stems_lgen"])
-        vs.check(f"{model}: the window redraws itself while recording (no key in 3,000 frames)",
+        vs.check(f"{model}: the window redraws itself while recording (no key in 3 s)",
                  lgen1 > lgen0 and lgen1 - drawn <= 1 and diff_box(window(before), window(idle)) is not None
                  and shows_labels(p, s) is True,
                  f"labels written {lgen1 - lgen0} times, last drawn {drawn} of {lgen1}")
@@ -354,6 +356,17 @@ def walk(model, s, fx):
                  and t0[0] == "STOP" and t0[1].startswith("REC ")
                  and t1[1].startswith("REC ") and t1[1] > t0[1] and diff_box(before, after) is not None,
                  f"{t0[:2]} -> {t1[:2]}")
+        # Review Focus 4: TEMPO is a window of STEMS' class (5): it evicts STEMS,
+        # which must come down through its close routine (stems_win 0), or the
+        # UI task's redraw would draw into a destroyed window.
+        p.press("tempo", settle=300)
+        evicted = (p.long(s["stems_win"]), p.long(s["stems_live"]))
+        p.run(3000, wall=45)                            # 3 s: the labels move on under TEMPO
+        vs.check(f"{model}: TEMPO over STEMS closes it (stems_win 0), and the take runs on 3 s",
+                 evicted == (0, 0) and p.long(s["stems_state"]) == vs.ST_RECORDING,
+                 f"win {evicted[0]:#x}, live {evicted[1]}, state {p.long(s['stems_state'])}")
+        p.press(CLOSE, settle=300)                      # TEMPO closes on NO
+        reopen_stems(p, s, model)
         for _ in range(3):
             p.press("down")                             # REC -> T1 -> T2 -> T3
         p.press(ENTER)
@@ -363,12 +376,12 @@ def walk(model, s, fx):
         vs.check(f"{model}: NO closes STEMS while recording",
                  not stems_open(p, s),
                  f"win {p.long(s['stems_win']):#x}")
-        drawn0, lgen0 = p.long(s["stems_drawn"]), p.long(s["stems_lgen"])
-        p.run(3000, wall=45)                            # 1.09 s: labels move on; the closed window must not draw
-        drawn1, lgen1 = p.long(s["stems_drawn"]), p.long(s["stems_lgen"])
-        vs.check(f"{model}: a closed window is never drawn while the labels move on",
-                 lgen1 > lgen0 and drawn1 == drawn0 and not stems_open(p, s),
-                 f"labels written {lgen1 - lgen0} times, drawn {drawn0} -> {drawn1}")
+        lgen0 = p.long(s["stems_lgen"])
+        p.run(3000, wall=45)                            # 3 s: the labels move on with STEMS closed
+        lgen1 = p.long(s["stems_lgen"])
+        vs.check(f"{model}: closed with NO, STEMS stays closed (stems_win 0) while the labels move on 3 s",
+                 lgen1 > lgen0 and not stems_open(p, s) and p.long(s["stems_state"]) == vs.ST_RECORDING,
+                 f"labels written {lgen1 - lgen0} times, win {p.long(s['stems_win']):#x}")
         p.press("stop", settle=500)
         for _ in range(60):
             if p.long(s["stems_state"]) == vs.ST_IDLE:
@@ -409,9 +422,32 @@ def double_tap(model, s, fx):
     with MenuPort(vs.IMAGE, card, fx["set"], fx["project"], model == "mkii",
                   log_path=WORK / f"menu-{model}-yes.log") as p:
         p.settle()
+        # Before any take (no writer task yet): NO CARD must not outlive the card's
+        # return across a reopen (stems_enter keeps the labels since note 2).
+        mounted = p.peek(CARD_MOUNTED, 4)
+        p.poke(CARD_MOUNTED, bytes(4))
+        p.chord("up", "rec", settle=400)
+        p.press(ENTER, settle=200)
+        nocard = texts(p, s)[:2]
+        p.press(CLOSE, settle=200)
+        p.poke(CARD_MOUNTED, mounted)
+        p.chord("up", "rec", settle=400)
+        back = texts(p, s)[:2]
+        p.press(CLOSE, settle=200)
+        vs.check(f"{model}: NO CARD before any take, then the card back: STEMS reopens on REC and READY",
+                 nocard == ["REC", "NO CARD"] and back == ["REC", "READY"] and st() == vs.ST_IDLE,
+                 f"{nocard} -> {back}")
+        p.poke(ARM_WORDS, bytes(2))
         p.press("yes", settle=300)                     # the same delay as a pair's last press: ARM ALL still up
         one = st()
         single = p.screen()
+        arms = int.from_bytes(p.peek(ARM_WORDS, 2), "big")
+        p.run(1000)
+        pending = p.long(s["stems_yes_n"])
+        vs.check(f"{model}: one YES is still stock's ARM ALL (every track's arm bit)", arms == 0xFFFF,
+                 f"arm word {arms:#06x}")
+        vs.check(f"{model}: a lone YES's first tap lapses: 1 s later no tap waits (DTCN3 wraps every 32.5 s)",
+                 pending == 0, f"stems_yes_n {pending}")
         taps(p, 1000)
         slow = st()
         vs.check(f"{model}: one YES, or two 1 s apart, leave STEM REC idle", (one, slow) == (vs.ST_IDLE,) * 2,
@@ -421,19 +457,24 @@ def double_tap(model, s, fx):
         p.png(WORK / f"menu-{model}-yes-armed.png")
         vs.check(f"{model}: YES twice within 0.4 s arms STEM REC, and the toast differs from one YES's ARM ALL",
                  armed == vs.ST_ARMED and diff_box(single, p.screen()) is not None, f"state {armed}")
+        taps(p, 200)
+        vs.check(f"{model}: a double tap on an armed take leaves it armed (never cancels)", st() == vs.ST_ARMED,
+                 f"state {st()}")
         p.chord("up", "rec", settle=400)                # STEMS opens on CANCEL: cancel, close
         p.press(ENTER, settle=200)
         p.press(CLOSE, settle=200)
         vs.check(f"{model}: the armed take cancels from STEMS", st() == vs.ST_IDLE and not stems_open(p, s),
                  f"state {st()}")
+        p.poke(ARM_WORDS, bytes(2))
         p.key("t1", True)
         p.run(100)
         taps(p, 200)
         p.key("t1", False)
         p.run(300)
         held = st()
-        vs.check(f"{model}: with T1 held, a double tap stays stock's (ARM TRK), STEM REC idle",
-                 held == vs.ST_IDLE, f"state {held}")
+        arms = int.from_bytes(p.peek(ARM_WORDS, 2), "big")
+        vs.check(f"{model}: with T1 held, a double tap stays stock's (ARM TRK: T1's bit alone), STEM REC idle",
+                 held == vs.ST_IDLE and arms == 0x0001, f"state {held}, arm word {arms:#06x}")
         p.open_menu()
         while sel(p, ROOT_DESC) != 2:                   # CONTROL: its first row is AUDIO, a settings
             p.press("down")                             # page (SYSTEM's is USB DISK MODE)
