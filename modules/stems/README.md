@@ -9,8 +9,9 @@ name starts each file's name: `YYMMDD-HHMM-T1.wav` to `-T8.wav`,
 `-MAIN.wav`, `-CUE.wav`, and the inputs as `-AB.wav` and `-CD.wav`
 (stereo) or `-A.wav` to `-D.wav` (mono). A second take in the same minute
 is named `YYMMDD-HHMM-2`, a third `YYMMDD-HHMM-3`, and so on up to 99, so
-no take overwrites another. A name counts as taken when its log (see
-STATS.TXT below) is on the card, or any file the new take writes. Every
+no take overwrites another. A name counts as taken when its log
+(`/BRAIN/STEMS/<take>.TXT`, see STATS.TXT below) is on the card, or any
+file the new take writes. Every
 take that ends writes a log, so a second take with other sources gets a
 number too. Takes already
 on a card in an older layout (`AUDIO/STEMS/<project>/YYMMDD-HHMM/`, or
@@ -203,11 +204,17 @@ The error names: `RING FULL` (the card fell behind; the files still play),
 `SEEK FAILED`,
 `CLOSE FAILED` and `TASK FAILED`.
 
-### STATS.TXT
+### STATS.TXT, the take's log
 
-Each take's folder also gets `STATS.TXT`, a few lines of text about the
-take, written after its audio files are closed (not when a card write
-failed). It's there to tell why a take fell behind, without an emulator:
+Each take also gets a log, `/BRAIN/STEMS/<take>.TXT` at the card's root,
+where BRAIN keeps its files. It's a few lines of text about the take,
+written after its audio files are closed (not when a card write failed).
+STEM REC makes `/BRAIN` and `/BRAIN/STEMS` when they're missing. If it
+can't (a file in the way, or the card refuses), only the log is missing:
+the take's status and files don't change. The log is still called
+STATS.TXT in this document, its name before 27 Oct 2026, when it sat in
+the take's folder. It's there to tell why a take fell behind, without an
+emulator:
 
 ```
 STEM REC STATS 261007-2015

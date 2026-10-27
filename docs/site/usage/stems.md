@@ -56,4 +56,5 @@ still play), `SAME MINUTE` (a take already exists for this minute),
   take leaves T8 out, and MAIN is T8 alone. T1 to T7 and CUE are 32
   samples (0.73 ms) early against MAIN in that mode, and the track files do
   not sum to MAIN.
-- Each take's folder also holds a `STATS.TXT`.
+- Each take also writes a log, `/BRAIN/STEMS/<take>.TXT` at the card's
+  root, where BRAIN keeps its files.

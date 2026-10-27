@@ -775,8 +775,10 @@ b24_off:  .asciz "24 BIT [ ]"
 fmt_rec:        .asciz  "REC %02d:%02d"
 fmt_done:       .asciz  "DONE %02d:%02d"
 fmt_peak:       .asciz  "PEAK %d%s"         | "%" as an argument: %% is untested in the stock sprintf
-| STATS.TXT (perf design 3), a line each
-nm_stats:       .asciz  "-STATS.TXT"
+| The take's log (perf design 3), a line each, where BRAIN keeps its files
+fmt_log:        .asciz  "/BRAIN/STEMS/%s.TXT"
+nm_brain:       .asciz  "/BRAIN"
+nm_logdir:      .asciz  "/BRAIN/STEMS"
 lbl_ok:         .asciz  "OK"
 st_f_take:      .asciz  "STEM REC STATS %s\r\n"
 st_f_status:    .asciz  "status %s\r\n"
@@ -2407,19 +2409,35 @@ stems_make_file:
         bne.s   .Lm_name
         rts
 
-| ---- the take's log path into stems_fpath: stems_path + -STATS.TXT -----
-| Clobbers a0-a1.
+| ---- the take's log path into stems_fpath: /BRAIN/STEMS/<name>.TXT ----
+| At the card's root, where BRAIN keeps its files (note 5 of 26 Oct
+| 2026), so one log folder serves every set. Clobbers d0-d1/a0-a1.
 stems_log_path:
-        lea     stems_path,%a0
-        lea     stems_fpath,%a1
-.Llp_p1:
-        move.b  (%a0)+,(%a1)+
-        bne.s   .Llp_p1
-        subq.l  #1,%a1
-        lea     nm_stats,%a0
-.Llp_p2:
-        move.b  (%a0)+,(%a1)+
-        bne.s   .Llp_p2
+        pea     stems_name
+        pea     fmt_log
+        pea     stems_fpath
+        jsr     SPRINTF
+        lea     12(%sp),%sp
+        rts
+
+| ---- make /BRAIN and /BRAIN/STEMS if absent: the log's folders --------
+| BRAIN makes /BRAIN at its first write; a card BRAIN never ran on has
+| neither. d0 = 0, or -1 (a file in the way, or the card refused): then
+| only the log is not written. Clobbers d0-d1/a0-a1.
+stems_log_dirs:
+        pea     nm_brain
+        pea     stems_fpath
+        jsr     SPRINTF
+        addq.l  #8,%sp
+        bsr.w   stems_mkdir_missing
+        tst.l   %d0
+        bmi.s   .Lld_out
+        pea     nm_logdir
+        pea     stems_fpath
+        jsr     SPRINTF
+        addq.l  #8,%sp
+        bsr.w   stems_mkdir_missing
+.Lld_out:
         rts
 
 | ---- is the name in stems_path taken? d0 = 0 free, 1 taken -------------
@@ -3044,7 +3062,7 @@ stems_st_cline:
         bsr.w   stems_st_tail
         rts
 
-| ---- STATS.TXT: the readout, two sectors of text beside the take --------
+| ---- the take's log, /BRAIN/STEMS/<take>.TXT: two sectors of text -------
 | After the take's files are closed (stems_finish), unless a card write
 | failed: the card may refuse this one too. Built in sector-0 copies 0 and 1,
 | free by then (about 500 bytes; the file's length is the
@@ -3187,6 +3205,9 @@ stems_stats:
         bsr.w   stems_st_tail
         move.l  %a3,%d7
         sub.l   %a2,%d7                             | d7: the text's length
+        bsr.w   stems_log_dirs
+        tst.l   %d0
+        bmi.s   .Lo_out                             | no folder for it: no log, the take stands
         bsr.w   stems_log_path
         pea     MODE_W
         pea     stems_fpath

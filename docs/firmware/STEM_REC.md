@@ -8074,7 +8074,8 @@ start. A T1 take: 97 commands of 4 sectors, 4 FAT writes.
 
 ### 20.3 The readout ✅ under the port
 
-`STATS.TXT` in each take's folder (`modules/stems/README.md`): the take,
+`STATS.TXT` in each take's folder (since 27 Oct 2026 the take's log,
+`/BRAIN/STEMS/<take>.TXT`; `modules/stems/README.md`): the take,
 the ring's peak, the card writes, the writer's copy and sleeps, the hook
 and the frame routine's time on DTCN3, the card's DMA modes and its
 cluster (`0x46107990`, sectors a cluster: the raw write returns it << 9,

@@ -978,6 +978,32 @@ def take_file(fx, take, name):
     return f"{stems_pool(fx)}{take}-{name}"
 
 
+def log_file(take):
+    """Take `take`'s log, at the card's root where BRAIN keeps its files
+    (/BRAIN/...), no leading slash."""
+    return f"BRAIN/STEMS/{take}.TXT"
+
+
+def card_plus(card_in, out, root_files, fixture=FIXTURE):
+    """card_in's files rebuilt into a card image at `out`, of the same
+    size, with `root_files` ({card path: bytes}) added: a card the
+    fixtures don't make, such as a file where a folder should be. The set's
+    AUDIO folder is made again (an empty folder is not extracted)."""
+    import tempfile
+    import emu_card as ec
+    img = pathlib.Path(card_in).read_bytes()
+    fx = json.loads(pathlib.Path(fixture).read_text())
+    with tempfile.TemporaryDirectory() as d:
+        ec.extract_image(img, d)
+        (pathlib.Path(d) / fx["set"] / "AUDIO").mkdir(parents=True, exist_ok=True)
+        for rel, data in root_files.items():
+            p = pathlib.Path(d) / rel
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_bytes(data)
+        pathlib.Path(out).write_bytes(ec.build_image(d, len(img) // (1024 * 1024)))
+    return pathlib.Path(out)
+
+
 def take_clusters(card_path):
     """The first cluster of each take's T1.wav under the stems pool, {path: cluster}."""
     fx = json.loads(FIXTURE.read_text())
@@ -1414,8 +1440,10 @@ def take_files(card_path, fixture=FIXTURE):
 
 
 def stats_check(card_path, tag, nfr, nfiles, bits, status="OK", fixture=FIXTURE, fbytes=None):
-    """The readout (perf design 3): the take's STATS.TXT, at most
-    two sectors of text that name the take and agree with it: the frames,
+    """The readout (perf design 3): the take's log, /BRAIN/STEMS/<take>.TXT
+    where BRAIN keeps its files (note 5 of 26 Oct 2026), and none beside
+    the take's WAVs; at most two sectors of text that name the take and
+    agree with it: the frames,
     the files, the width and the status; card writes counted and timed; the
     hook timed on (about) every recorded frame, its mean at most its
     longest. With `fbytes` (one file's bytes a frame, every file alike):
@@ -1427,10 +1455,12 @@ def stats_check(card_path, tag, nfr, nfiles, bits, status="OK", fixture=FIXTURE,
     files = card_files(card_path)
     fx = json.loads(pathlib.Path(fixture).read_text())
     names = new_entries(files, fixture)
-    text = (card_get(files, take_file(fx, names[0], "STATS.TXT"))
-            if len(names) == 1 else None)
-    check(f"{tag}: STATS.TXT is beside the take, at most two sectors", text is not None and 0 < len(text) <= 1024,
+    text = (card_get(files, log_file(names[0])) if len(names) == 1 else None)
+    check(f"{tag}: the log is /BRAIN/STEMS/<take>.TXT, at most two sectors", text is not None and 0 < len(text) <= 1024,
           f"{None if text is None else len(text)} bytes")
+    pool = stems_pool(fx).lower()
+    beside = [p for p in files if p.lower().startswith(pool) and p.upper().endswith(".TXT")]
+    check(f"{tag}: no log beside the take's WAVs", not beside, f"{beside}")
     if not text:
         return None
     t = text.decode("ascii", "replace")
@@ -1674,6 +1704,46 @@ def exists(s):
         check(f"exists: take {n}'s status is DONE", t is not None and t[1].startswith("DONE "),
               f"{t[:2] if t else None}")
         card_in = card
+
+
+def logblocked(s):
+    """Note 5's failure case: /BRAIN/STEMS is a FILE, so the log's folder
+    can't be made. The take is whole and OK; only its log is missing, and
+    the file in the way is left as it was."""
+    fx = json.loads(FIXTURE.read_text())
+    before = card_files(fx["card"])
+    check("logblocked: the fixture's card has no /BRAIN (BRAIN never ran on it)",
+          not any(p.lower().startswith("brain/") for p in before), f"{[p for p in before if 'brain' in p.lower()]}")
+    blocker = b"in the way\r\n"
+    card_in = card_plus(fx["card"], run_path("logblocked", "in.img"), {"BRAIN/STEMS": blocker})
+    log, dump, card, words, _ = port(s, 700, stop_at=400, tag="logblocked", card_in=str(card_in))
+    st, status, _, wr, rd, nfr = words
+    check("logblocked: the take finished (state IDLE, no error)", st == ST_IDLE and status == 0,
+          f"state {st}, status {status}")
+    wav_check(card, nfr, dump, "logblocked", g=gain_of(log, 0))
+    after = card_files(card)
+    check("logblocked: the file in the log's way is unchanged", card_get(after, "BRAIN/STEMS") == blocker)
+    new_txt = [p for p in after if p.upper().endswith(".TXT") and p not in before]
+    check("logblocked: no log anywhere", not new_txt, f"{new_txt}")
+
+
+def logtaken(s):
+    """A log alone takes its name: with /BRAIN/STEMS/000000-0000.TXT on the
+    card (a take of that minute in another set, its WAVs moved away), the
+    take is 000000-0000-2, and the old log is unchanged."""
+    fx = json.loads(FIXTURE.read_text())
+    old = b"STEM REC STATS 000000-0000\r\n"
+    card_in = card_plus(fx["card"], run_path("logtaken", "in.img"), {log_file("000000-0000"): old})
+    log, _, card, words, _ = port(s, 700, stop_at=400, tag="logtaken", card_in=str(card_in), dump_blocks=False)
+    st, status, _, wr, rd, nfr = words
+    after = card_files(card)
+    check("logtaken: the take is 000000-0000-2, state IDLE, no error",
+          st == ST_IDLE and status == 0 and new_entries(after) == ["000000-0000-2"],
+          f"state {st}, status {status}, takes {new_entries(after)}")
+    check("logtaken: the old log is unchanged", card_get(after, log_file("000000-0000")) == old)
+    mine = card_get(after, log_file("000000-0000-2"))
+    check("logtaken: the take's log is /BRAIN/STEMS/000000-0000-2.TXT",
+          mine is not None and mine.startswith(b"STEM REC STATS 000000-0000-2\r\n"), f"{mine[:40] if mine else None}")
 
 
 def overflow(s):
@@ -2063,6 +2133,7 @@ def main():
     runs += [(f"mask{m:02x}", lambda s, m=m: mask_take(s, m, f"mask{m:02x}"))
              for m in (0x01, 0x03, 0x0F, 0xFF, 0xA5)]
     runs += [("cost", cost), ("same_as_alone", same_as_alone), ("cut", cut), ("labels", labels), ("labelsbehind", labelsbehind), ("nocard", nocard), ("exists", exists),
+             ("logblocked", logblocked), ("logtaken", logtaken),
              ("overflow", overflow), ("cardfail", cardfail)]
     if "--long" in sys.argv:
         runs += [("limit", limit)]
