@@ -1069,6 +1069,21 @@ The cases that exit non-zero (`plain`, `marker`) have the report as their only
 line, so `tools/verify/refhash_compare.py` compares their logs with those two
 lines masked; any other difference in a refusal still fails.
 
+<a name="trap-stock-fallback"></a>
+
+### Id 0 is FX1 NONE too: a stock fallback ran on every empty FX1 slot
+
+**ALIASING ID 0 TO AN EFFECT RUNS IT ON EVERY EMPTY FX1 SLOT, NOT ONLY ON A
+FRESH FX2.** `fallback="FILTER"` passed the schema, then crashed the build
+(`fb_init` unbound) once a registry module was left out. A fix that pointed id
+0 and the omitted ids at FILTER's stock entries built, and on the unit the
+sequencer held its first step at play (27 Oct 2026); the same selection with
+`fallback="NONE"` played. SEND had the same exposure and needed its FX1
+guard (`FAILURE_MODES.md`, "id 0 is SEND"); a stock effect has none. Rule:
+the fallback is `NONE`, `SEND` or a module written for an FX1 r7;
+`registry.remix` refuses a stock effect. Gate: `selftest.py` probes the
+refusal.
+
 <a name="trap-nm-order"></a>
 
 ### Same-named labels across DRAM units resolve by nm table order

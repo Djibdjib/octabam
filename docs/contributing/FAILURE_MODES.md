@@ -748,3 +748,23 @@ Handover for another agent. Nothing here is fixed; `octabam` on `main` still has
 - **Recipe:** `tools/hw/ot_project.py` `set_fx` and `stamp_defaults` on a copy of a fresh project (MODULATION on T1's FX1, DELAY on T3 and T4's FX2, `octabam`), `tools/hw/ot_sampleslot.py` for the noise loop with `--trig-every 4 --transport-receive`. Poll with `tools/hw/dl_poll.py` while picking. Reading the pump: `tools/hw/dl_state.py` (`effects loaded (bits)`, `blocks holding code (bits)`: bit 2 is T3's block, bit 3 T4's). Images: `make image REMIX=octabam BUILD=<tag>`.
 - **Traps while testing:** the unit rewrites the project it loads (restore from a clean copy on the card each time); REMIX SWITCH boots the card's last saved choice (see the entry above: check the running name against the flashed one); a project load and a runtime pick are different paths, and only the pick froze.
 - **Related PRs:** #926 (homes, merged), #932 (bounded host-port wait, DL_DIAG words 3 and 11, gates for every home, `dl_poll.py`; open).
+
+## Sequencer stuck at play with a stock fallback: id 0 ran FILTER on every empty FX1 slot 🟡 cause inferred, refused at selection
+
+- **Seen:** the owner's unit, 27 Oct 2026, a 50-module selection with
+  `fallback="FILTER"` built with an unmerged build change that pointed id 0's
+  DSP init and proc at the stock effect's entries: PLAY lit one step and held
+  it (sometimes 2, then 1), no audio. The same selection with
+  `fallback="NONE"` (id 0 left on the null stub) played, with the same project
+  and no `stamp-defaults` between the two: the image was the only change
+  (owner report).
+- **Cause (🟡 inferred):** FX1 NONE is id 0 (see "Sequencer stuck on step 1
+  with every effect turned off: id 0 is SEND"), so the image ran FILTER on
+  every empty FX1 slot as well as every unassigned FX2 slot. Which part wedged
+  the frame (an init that never ran on those slots, a page byte the last effect
+  left, the cycles of up to eight extra instances per core) was not measured.
+- **Fix:** `registry.remix` refuses a stock effect as the fallback: `NONE`,
+  `SEND` or a module the remix carries. Before this the build also crashed on
+  a stock fallback (`fb_init` unbound) as soon as a registry module was left
+  out, so no image with one had reached a unit.
+- **Check:** `tools/remix/selftest.py` probes the refusal.

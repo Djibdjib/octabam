@@ -255,6 +255,14 @@ def remix(name: str | None):
                 f"{', '.join(sorted(on_bus))} -- an unassigned track would run "
                 f"nothing, so nobody would flip the rotation or clear the "
                 f"accumulators. Use fallback=\"SEND\".")
+    # A STOCK EFFECT CANNOT BE THE FALLBACK. The build places no code for it,
+    # and id 0 is also FX1 NONE, so aliasing id 0 to stock code runs that
+    # effect on every empty FX1 slot (docs/contributing/FAILURE_MODES.md,
+    # "Sequencer stuck at play with a stock fallback").
+    if r.fallback in known and known[r.fallback].is_stock:
+        raise SystemExit(
+            f"remix {name!r}: fallback {r.fallback!r} is a stock effect -- use "
+            f"\"NONE\", \"SEND\" or a module the remix carries.")
     # AN FX1-ONLY MODULE ON THE FX1 CHOOSER TAKES NO FX2 ROW.
     # Claims.fx1_only is the module's promise that an FX2 instance runs dry,
     # so an FX2 row for it would be a row that does nothing; the build's
