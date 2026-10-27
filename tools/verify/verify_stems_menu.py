@@ -251,10 +251,11 @@ def walk(model, s, fx):
         peak_box = diff_box(empty_peak, p.screen())
         p.poke(peak_ptr, peak_keep.to_bytes(4, "big"))
         redraw_peak_row()
-        # Panel y grows downward; PEAK is the bottom list row. Full glyph ≥ 5 px,
-        # and clear of the window frame (bottom ink ≤ 58 on a 64-tall panel).
+        # Panel y grows downward; PEAK is the bottom list row. Full glyph: at least 5 rows of ink, counted
+        # inclusively (until 27 Oct 2026 the count was one short, and only the flickering column 119
+        # inside the box made it pass), and clear of the window frame (bottom ink at most 58).
         vs.check(f"{model}: PEAK ink is on-screen (not clipped at the window bottom)",
-                 peak_box is not None and peak_box[3] - peak_box[2] >= 5
+                 peak_box is not None and peak_box[3] - peak_box[2] + 1 >= 5
                  and peak_box[3] <= 58,
                  f"box {peak_box}")
         for _ in range(last - vs.ROW_TRK0):
