@@ -2,6 +2,18 @@
 
 ## Flash J — `octabam` + STEM REC: STEMS drawn as PERSONALIZE (staged 27 Oct 2026)
 
+**Flashed** on Yves's MKII, reported 27 Oct 2026: "everything looking
+good". From the twelve takes' logs (his folder, not the repository):
+- The double tap armed on the unit: `yes gap 160 ms` to `171 ms`, up to
+  three double taps a boot.
+- Split pairs wrote `A.wav` to `D.wav`, each a mono file.
+- **A full `!STEMS` slowed each take's start.** Five takes with eleven
+  files at 24 bits on an emptied folder: the ring peaked at 36%, 37%,
+  60%, 89%, and with 88 files there the fifth filled it before its first
+  write (`RING FULL` after 2.9 s, `card rec 0 ms 0 KB`). Four of the seven
+  takes before that ended the same way. Fixed in the next image: a folder
+  for each take (README, "Why a folder for each take").
+
 `STEMS10`, the same remix as flash I, with the STEMS window Yves chose
 after flash H: SYSTEM > PERSONAL SETTINGS's look, from mockups the
 firmware drew. It carries flash I's fixes too, so if STEMS9 never went on

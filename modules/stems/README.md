@@ -3,20 +3,34 @@
 UP + REC opens STEMS and records to the card while the sequencer plays:
 every track after its fader, the main mix (MAIN), the cue mix (CUE) and
 the four inputs, 16 or 24 bits. It writes the take while it records, so a
-take can run until you stop it, up to 60 minutes. Each source lands as its
-own file in one folder, `<set>/AUDIO/!STEMS/`, at 44,100 Hz. The `!`
-puts the folder first in the file browser, which sorts by character code
-(`_` sorted after the letters on Yves's MKII, 27 Oct 2026). The take's
-name starts each file's name: `YYMMDD-HHMM-T1.wav` to `-T8.wav`,
+take can run until you stop it, up to 60 minutes. Each take gets a
+folder of its own in `<set>/AUDIO/!STEMS/`, named after the take
+(`YYMMDD-HHMM`), and each source lands in it as its own file at 44,100
+Hz. The `!` puts `!STEMS` first in the file browser, which sorts by
+character code (`_` sorted after the letters on Yves's MKII, 27 Oct
+2026). The take's name starts each file's name too, so a stem stays
+identifiable outside its folder: `YYMMDD-HHMM-T1.wav` to `-T8.wav`,
 `-MAIN.wav`, `-CUE.wav`, and the inputs as `-AB.wav` and `-CD.wav`
 (stereo) or `-A.wav` to `-D.wav` (mono). A second take in the same minute
 is named `YYMMDD-HHMM-2`, a third `YYMMDD-HHMM-3`, and so on up to 99, so
 no take overwrites another. A name counts as taken when its log
-(`/BRAIN/STEMS/<take>.TXT`, see STATS.TXT below) is on the card, or any
-file the new take writes. Every take that ends writes a log, so a second
-take with other sources gets a number too. Takes already on a card in an
-older layout (`AUDIO/_STEMS/` from STEMS8, `AUDIO/STEMS/<project>/YYMMDD-HHMM/`,
-or `AUDIO/YYMMDD-HHMM/`) stay where they are.
+(`/BRAIN/STEMS/<take>.TXT`, see STATS.TXT below) or its folder is on the
+card. Every take that ends writes a log, so a second take with other
+sources gets a number too. Takes already on a card in an older layout
+(flat in `AUDIO/!STEMS/` from STEMS8 to STEMS10, `AUDIO/_STEMS/`,
+`AUDIO/STEMS/<project>/YYMMDD-HHMM/`, or `AUDIO/YYMMDD-HHMM/`) stay
+where they are.
+
+**Why a folder for each take.** From STEMS8 to STEMS10 every take's files
+sat in `!STEMS` itself. On Yves's MKII (27 Oct 2026, eleven files at 24
+bits, on an emptied folder) each take's ring peaked higher as the folder
+filled: 36%, 37%, 60%, 89%, and with 88 files in it the next take filled
+the ring before its first card write, `RING FULL` after 2.9 s. A take
+starts by creating its files, and that got slower with every file
+already there (why each create slowed, a name alias searched among the
+others, is inferred, not measured). In a folder of its own a take
+creates its files among none. `verify_stems`' `crowded` run measures it
+under the port.
 
 Beside each WAV, STEM REC writes an attributes file with the same name
 and the extension `.ot`, as the stock recorder does for its own
@@ -30,8 +44,8 @@ gets no `.ot`. The fields follow the firmware's writer
 hasn't checked them yet. A track's file is
 its share of MAIN: the track's audio times the gain the mix gives it, so
 the level, MAIN LEVEL, the scenes and the crossfader are in it. At every
-boot the eight tracks are on, MAIN, CUE and the inputs off, both input
-pairs stereo, and the width 16 bits; the menu changes each. STEMS opens
+boot T1 alone is on, at 24 bits, both input pairs stereo (Yves, 27 Oct
+2026; all eight tracks at 16 bits before); the menu changes each. STEMS opens
 with UP + REC (no MAIN MENU row) so stock menus stay stock and BRAIN can
 own the root's fifth slot. The port has run every source, both widths and
 the menu key by key on the MKII and MKI panels (STEM_REC.md sections 15,
@@ -209,8 +223,8 @@ and RIGHT pick one, and its name is inverted.
   checkboxes line up whatever each pair is set to, and STEREO's sits in
   the value column.
 
-1. Choose the sources and the format. At boot the eight tracks are on,
-   MAIN, CUE and the inputs off, both pairs stereo, and 16 bits. The last
+1. Choose the sources and the format. At boot T1 alone is on, at 24
+   bits, and both pairs are stereo. The last
    source that's on stays on, and rows 3 to 15 are locked while a take
    records or saves.
    - With MASTER TRACK on, T8 is the master bus: MAIN is T8 alone, and
@@ -339,8 +353,9 @@ and STEM REC's writer named on the CPU tab (its task control block is
 - The choices reset at every boot. Nothing is saved.
 - **Set path length.** STEM REC's path buffers are `PATH_MAX` = 256 bytes.
   The set path may be up to 183 bytes (under `PATH_MAX` − 72). That leaves room
-  for the longest take file, `/AUDIO/!STEMS/YYMMDD-HHMM-99-MAIN.wav` (37
-  characters and the NUL). A longer set path fails with `PATH FAILED`.
+  for the longest take file,
+  `/AUDIO/!STEMS/YYMMDD-HHMM-99/YYMMDD-HHMM-99-MAIN.wav` (52 characters
+  and the NUL). A longer set path fails with `PATH FAILED`.
 - **99 takes in one minute.** A hundredth take in the same minute is
   refused with `SAME MINUTE`, and nothing is written.
 - At most 60 minutes.

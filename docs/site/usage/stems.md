@@ -1,9 +1,9 @@
 Records stems to the card while the sequencer plays: every track after its
 fader, the main mix (MAIN), the cue mix (CUE) and the four inputs, in 16
 or 24 bits. The take is written while it records, up to 60 minutes. Each
-source lands as its own WAV file at 44,100 Hz in one folder, `AUDIO/!STEMS/`,
-first in the file browser.
-The take's name, `YYMMDD-HHMM`, starts each file's name:
+take gets its own folder in `AUDIO/!STEMS/` (first in the file browser),
+named after the take, `YYMMDD-HHMM`, and each source lands in it as its
+own WAV file at 44,100 Hz. The take's name also starts each file's name:
 `YYMMDD-HHMM-T1.wav` to `-T8.wav`, `-MAIN.wav`, `-CUE.wav`, and the inputs
 as `-AB.wav` and `-CD.wav` (stereo) or `-A.wav` to `-D.wav` (mono). A
 second take in the same minute is `YYMMDD-HHMM-2`, a third
@@ -41,8 +41,8 @@ A pair row reads `AB` and `STEREO` in stereo (one stereo file), or `A`,
 one input can record alone). LEFT and RIGHT pick a checkbox, as on MIDI
 SYNC. The CD row works the same way with C and D.
 
-1. Choose the sources and the format. At boot the eight tracks are on,
-   MAIN, CUE and the inputs off, both pairs stereo, 16 bits. Nothing is
+1. Choose the sources and the format. At boot T1 alone is on, at 24
+   bits, both pairs stereo. Nothing is
    saved, and rows 3 to 15 are locked while a take records or saves.
 2. Press **YES** on STEM REC. With the sequencer stopped it arms and starts on the
    first frame the sequencer plays (press again to cancel); with it running

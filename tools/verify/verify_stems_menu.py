@@ -14,6 +14,7 @@ MKII (MAIN MENU = PROJ) and as an MKI (FUNC+MIXER). Each panel's walk:
   not MAIN MENU; NO closes it; UP+REC again toggles it closed;
 - DOWN skips PEAK onto T1 and UP comes back; DOWN reaches 24 BIT and stays,
   the pane scrolled to its last five rows;
+- at boot T1 alone is on, at 24 bits, and stays on; T2 to T8 turn on;
 - every track row turned off in turn leaves T8 on; with MAIN on, T8 can go
   off and MAIN can't; 24 BIT flips; on AB, RIGHT picks STEREO and YES
   splits the pair, LEFT picks B and YES leaves it out, so A records alone;
@@ -233,6 +234,16 @@ def walk(model, s, fx):
                  f"{walked}, top {top}")
         for _ in range(ROW_B24 - vs.ROW_TRK0):
             p.press("up")                               # back to T1
+        p.press(ENTER)                                  # T1 off: refused, the only source at boot
+        alone = (p.long(s["stems_tracks"]), p.long(s["stems_fmt"]) & 7, value(p, s, vs.ROW_TRK0))
+        for _ in range(7):
+            p.press("down")
+            p.press(ENTER)                              # T2 to T8 on
+        vs.check(f"{model}: at boot T1 alone records, at 24 bits, and stays on; T2 to T8 turn on",
+                 alone == (0x01, 0b111, BOX_ON) and p.long(s["stems_tracks"]) & 0xFFF == 0xFF,
+                 f"boot {alone}, then {p.long(s['stems_tracks']):#05x}")
+        for _ in range(7):
+            p.press("up")                               # back to T1
         for k in range(8):                              # every track off in turn, T1 to T8
             p.press(ENTER)
             if k < 7:
@@ -254,11 +265,11 @@ def walk(model, s, fx):
         for _ in range(ROW_B24 - 9):
             p.press("down")                             # T8 (row 9) -> 24 BIT (row 14)
         p.press(ENTER)
-        on24 = (p.long(s["stems_fmt"]) & 7, value(p, s, ROW_B24))
-        p.press(ENTER)                                  # 24 BIT on, then off
+        off24 = (p.long(s["stems_fmt"]) & 7, value(p, s, ROW_B24))
+        p.press(ENTER)                                  # 24 BIT off, then on
         vs.check(f"{model}: 24 BIT flips and its checkbox says so",
-                 on24 == (0b111, BOX_ON) and (p.long(s["stems_fmt"]) & 7, value(p, s, ROW_B24)) == (0b110, BOX_OFF),
-                 f"{on24}, {p.long(s['stems_fmt']) & 7:03b}")
+                 off24 == (0b110, BOX_OFF) and (p.long(s["stems_fmt"]) & 7, value(p, s, ROW_B24)) == (0b111, BOX_ON),
+                 f"{off24}, {p.long(s['stems_fmt']) & 7:03b}")
         p.press("up")
         p.press("up")                                   # AB (row 12)
         p.press(ENTER)                                  # AB on
@@ -269,7 +280,7 @@ def walk(model, s, fx):
         shot("pairs")
         tr, fmt = p.long(s["stems_tracks"]), p.long(s["stems_fmt"]) & 7
         vs.check(f"{model}: on AB, RIGHT picks STEREO and YES splits it; LEFT picks B and YES leaves it out",
-                 tr & 0xF400 == 0x2400 and fmt == 0b100 and p.long(s["stems_field"]) == 1,
+                 tr & 0xF400 == 0x2400 and fmt == 0b101 and p.long(s["stems_field"]) == 1,
                  f"sources {tr:#06x}, format {fmt:03b}, field {p.long(s['stems_field'])}")
         for _ in range(ROW_AB - 9):
             p.press("up")                               # AB (row 12) -> T8 (row 9)
@@ -458,13 +469,13 @@ def looks(s, fx):
             for k in names:
                 p.press(k, settle=100)
 
-        tracks, fmt = 0xFF, 0b110
+        tracks, fmt = 0x01, 0b111                       # the boot defaults: T1 alone at 24 bits
         p.chord("up", "rec", settle=400)
         compare("opened", model_rows(tracks, fmt))
         keys(*["down"] * 13)
         compare("scrolled", model_rows(tracks, fmt))
         keys(*["down"] * 11, ENTER, "right", ENTER)                         # AB on, STEREO off
-        tracks, fmt = tracks | 0x400, 0b100
+        tracks, fmt = tracks | 0x400, 0b101
         vs.check(f"{model}: looks: AB on and split", (p.long(s["stems_tracks"]), p.long(s["stems_fmt"])) ==
                  (tracks, fmt), f"{p.long(s['stems_tracks']):#06x} {p.long(s['stems_fmt']):03b}")
         compare("split", model_rows(tracks, fmt), field="ST")
@@ -472,7 +483,7 @@ def looks(s, fx):
         tracks |= 0x2000
         compare("b-out", model_rows(tracks, fmt), field=1)
         keys(*["down"] * 12, ENTER, "right", ENTER)                         # CD on, split
-        tracks, fmt = tracks | 0x800, 0b000
+        tracks, fmt = tracks | 0x800, 0b001
         compare("both-mono", model_rows(tracks, fmt), field="ST")
         p.press(ENTER, settle=200)                                          # STEM REC: armed
         p.press(CLOSE, settle=200)

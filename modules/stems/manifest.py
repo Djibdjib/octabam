@@ -6,11 +6,11 @@ the sequencer is running; again, it stops it, and so does the sequencer
 stopping or 60 minutes. On the main page a second YES within 0.5 s does
 what STEM REC's YES does when no take runs (stock's ARM ALL still runs on
 both). T1 to T8, MAIN, CUE and the pairs AB and CD turn sources on and off
-(the eight tracks at boot; locked during a take); a pair's STEREO (on at
-boot) records it as one stereo file, or each of its inputs that's on as a
-mono one (LEFT and RIGHT pick a checkbox on a pair's row); 24 BIT (off at
-boot) records 24-bit files. Each source is a file,
-<set>/AUDIO/!STEMS/YYMMDD-HHMM-<name>.wav: the tracks after the fader,
+(T1 alone at boot; locked during a take); a pair's STEREO (on at boot)
+records it as one stereo file, or each of its inputs that's on as a mono
+one (LEFT and RIGHT pick a checkbox on a pair's row); 24 BIT (on at boot)
+records 24-bit files. Each take is a folder and each source a file in it,
+<set>/AUDIO/!STEMS/YYMMDD-HHMM/YYMMDD-HHMM-<name>.wav: the tracks after the fader,
 MAIN and CUE as mixed, the inputs raw; a second take in one minute is
 YYMMDD-HHMM-2, and so on. stems_peak keeps the take's largest ring fill, for the
 menu's PEAK row. Design:

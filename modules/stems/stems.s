@@ -1,5 +1,5 @@
 | STEM REC -- the enabled tracks to the card while the sequencer plays. The
-| build records all eight by default (stems_tracks = 0xFF).
+| build records T1 alone at 24 bits by default (Yves, 27 Oct 2026).
 |
 | Design: git show 4d2d6456:docs/superpowers/specs/2026-09-22-stem-rec-streaming-design.md
 | (streaming), over git show 4d2d6456:docs/superpowers/specs/2026-09-10-stem-rec-poc-design.md.
@@ -114,8 +114,8 @@
         .equ    TASK_PRIO,     1
         .equ    PATH_MAX,      256
         | A set path of up to PATH_MAX-72 leaves 72 for the longest take
-        | file, /AUDIO/!STEMS/YYMMDD-HHMM-99-MAIN.wav (37 and the NUL); a
-        | longer set path fails PATH.
+        | file, /AUDIO/!STEMS/YYMMDD-HHMM-99/YYMMDD-HHMM-99-MAIN.wav (52 and
+        | the NUL); a longer set path fails PATH.
         .equ    TAKE_NUM_MAX,  99           | takes in one minute: -2 to -99 after the first
         .equ    ERR_OVERFLOW,  1
         .equ    ERR_PATH,      2
@@ -249,9 +249,10 @@ stems_frames:    .long   0          | frames recorded (= stems_wr)
 stems_peak:      .long   0          | the take's largest ring fill, frames; reset at the arm
         .global stems_tracks, stems_hold, stems_probe, stems_probe_res
         .global stems_fmt, stems_nf, stems_ftab, stems_fbytes
-stems_tracks:    .long   0xFF       | the sources: bits 0-7 T1-T8, 8 MAIN, 9 CUE, 10 AB, 11 CD;
+stems_tracks:    .long   0x01       | the sources: bits 0-7 T1-T8, 8 MAIN, 9 CUE, 10 AB, 11 CD;
                                     | 12-15 A, B, C, D left out while their pair is mono
-stems_fmt:       .long   6          | bit 0 24 BIT, bit 1 AB STEREO, bit 2 CD STEREO
+stems_fmt:       .long   7          | bit 0 24 BIT, bit 1 AB STEREO, bit 2 CD STEREO; T1 at 24 bits
+                                    | at boot (Yves, 27 Oct 2026; all eight at 16 bits before)
 stems_hold:      .long   0          | test seam: non-zero pauses the writer while RECORDING
         .global stems_trace, stems_trace_buf
 stems_trace:     .long   0          | test seam: 1..TRACE_N records that frame into stems_trace_buf, then counts on
@@ -352,8 +353,8 @@ stat_buf1:       .space  16
 peak_buf0:       .space  16
 peak_buf1:       .space  16
 stems_name:      .space  16         | YYMMDD-HHMM, or YYMMDD-HHMM-<n> for take n of a minute
-stems_path:      .space  PATH_MAX   | <set>/AUDIO/!STEMS/<name>: every file's prefix
-stems_fpath:     .space  PATH_MAX   | <set>/AUDIO/!STEMS/<name>-<file>.wav
+stems_path:      .space  PATH_MAX   | <set>/AUDIO/!STEMS/<name>/<name>: every file's prefix
+stems_fpath:     .space  PATH_MAX   | <set>/AUDIO/!STEMS/<name>/<name>-<file>.wav
 | The 44-byte header, little-endian as RIFF wants, sizes 0: the placeholder
 | every file starts with. The real sizes go into the sector-0 copy at the end.
 stems_hdr:
@@ -369,8 +370,8 @@ stems_hdr:
         .byte   16,0                | bits
         .ascii  "data"
         .long   0
-fmt_take:  .asciz  "/AUDIO/!STEMS/%s"       | the pool, then the take's name
-fmt_pool:  .asciz  "/AUDIO/!STEMS"          | one flat pool under AUDIO for every take
+fmt_take:  .asciz  "/AUDIO/!STEMS/%s/%s"    | the pool, the take's folder, its name
+fmt_pool:  .asciz  "/AUDIO/!STEMS"          | one pool under AUDIO, a folder in it for every take
 fmt_num:   .asciz  "-%d"                    | take n of a minute, after its 11 characters
 fmt_file:  .asciz  "-T%d.wav"
 probe_name: .asciz "/PROBE.BIN"
@@ -1095,18 +1096,18 @@ stems_rows:                                 | label, value, action; a pair row's
         .long   lbl_stemrec, lbl_ready, stems_action, 0, 0, 0
         .long   lbl_peak, lbl_pct0, 0, 0, 0, 0              | PEAK: no action, the cursor skips it
         .long   lbl_t1, box_on, stems_source_action, 0, 0, 0
-        .long   lbl_t2, box_on, stems_source_action, 0, 0, 0
-        .long   lbl_t3, box_on, stems_source_action, 0, 0, 0
-        .long   lbl_t4, box_on, stems_source_action, 0, 0, 0
-        .long   lbl_t5, box_on, stems_source_action, 0, 0, 0
-        .long   lbl_t6, box_on, stems_source_action, 0, 0, 0
-        .long   lbl_t7, box_on, stems_source_action, 0, 0, 0
-        .long   lbl_t8, box_on, stems_source_action, 0, 0, 0
+        .long   lbl_t2, box_off, stems_source_action, 0, 0, 0
+        .long   lbl_t3, box_off, stems_source_action, 0, 0, 0
+        .long   lbl_t4, box_off, stems_source_action, 0, 0, 0
+        .long   lbl_t5, box_off, stems_source_action, 0, 0, 0
+        .long   lbl_t6, box_off, stems_source_action, 0, 0, 0
+        .long   lbl_t7, box_off, stems_source_action, 0, 0, 0
+        .long   lbl_t8, box_off, stems_source_action, 0, 0, 0
         .long   lbl_main, box_off, stems_source_action, 0, 0, 0
         .long   lbl_cue, box_off, stems_source_action, 0, 0, 0
         .long   lbl_ab, 0, stems_pair_action, 0, 0, 0
         .long   lbl_cd, 0, stems_pair_action, 0, 0, 0
-        .long   lbl_b24, box_off, stems_switch_action, 0, 0, 0
+        .long   lbl_b24, box_on, stems_switch_action, 0, 0, 0
 | A pair row's fields (stems_draw_pair): their count, then each: its field
 | (stems_field), its name on the AB row and on the CD row, the name's x and
 | width, its box's x
@@ -2812,7 +2813,7 @@ stems_mkdir_missing:
         moveq   #-1,%d0
         rts
 
-| ---- ensure <set>/AUDIO/!STEMS, the one folder every take goes in -----
+| ---- ensure <set>/AUDIO/!STEMS, the folder every take's folder goes in -
 | Uses stems_fpath as scratch (files are not open yet). d0 = 0, or -1.
 stems_ensure_parents:
         lea     SET_PATH,%a0
@@ -2839,7 +2840,13 @@ stems_ensure_parents:
         moveq   #-1,%d0
         rts
 
-| ---- the take's prefix: <set>/AUDIO/!STEMS/<name> -----------------------
+| ---- the take's prefix: <set>/AUDIO/!STEMS/<name>/<name> ----------------
+| A folder for each take, its files named after it too (Yves, 27 Oct
+| 2026). Until then every take's files sat in !STEMS itself, and a take's
+| start slowed as that folder filled: on his MKII, eleven files at 24 bits,
+| each take's ring peaked higher (36%, 37%, 60%, 89%), and with 88 files
+| there the next take filled it before its first write (RING FULL). In a
+| folder of its own each take creates its files among none.
 | set = SET_PATH. d0 = 0, or -1 (empty, or too long).
 stems_make_prefix:
         lea     SET_PATH,%a0
@@ -2858,10 +2865,11 @@ stems_make_prefix:
         sub.l   #stems_path,%d0
         beq.s   .Lp_fail            | an empty set path: no set mounted
         pea     stems_name
+        pea     stems_name
         pea     fmt_take
         move.l  %a1,-(%sp)
         jsr     SPRINTF
-        lea     12(%sp),%sp
+        lea     16(%sp),%sp
         moveq   #0,%d0
         rts
 .Lp_fail:
@@ -2932,34 +2940,48 @@ stems_log_dirs:
 .Lld_out:
         rts
 
+| ---- the take's folder into stems_fpath: stems_path to its last / -------
+| Clobbers d0-d1/a0-a1.
+stems_take_dir:
+        lea     stems_path,%a0
+        lea     stems_fpath,%a1
+        moveq   #0,%d1
+.Ltd_copy:
+        move.b  (%a0)+,%d0
+        move.b  %d0,(%a1)+
+        beq.s   .Ltd_cut
+        cmpi.b  #0x2f,%d0                   | /
+        bne.s   .Ltd_copy
+        move.l  %a1,%d1                     | just past the last /
+        bra.s   .Ltd_copy
+.Ltd_cut:
+        movea.l %d1,%a1
+        clr.b   -1(%a1)                     | the last /: its folder's end
+        rts
+
 | ---- is the name in stems_path taken? d0 = 0 free, 1 taken -------------
 | Taken when its log is on the card (every take that ends writes one, so
-| an earlier take of the minute with other sources still counts), or any
-| file this take writes: so no take overwrites a file (Yves, 27 Oct 2026).
-| One lookup a file, as costly as an open under the port (27 Oct 2026),
-| so not the sixteen kinds. Clobbers d0-d1/a0-a1.
+| an earlier take of the minute with other sources still counts), or its
+| folder is: so no take overwrites a file (Yves, 27 Oct 2026). Two
+| lookups, each as costly as an open under the port (27 Oct 2026).
+| Clobbers d0-d1/a0-a1.
 stems_name_taken:
-        move.l  %d3,-(%sp)
         bsr.w   stems_log_path
-        moveq   #-1,%d3                     | the log first, then file d3
-.Lnt_look:
         movea.l FS_EXISTS_PTR,%a0
         pea     stems_fpath
         jsr     (%a0)
         addq.l  #4,%sp
         tst.l   %d0
         bne.s   .Lnt_taken
-        addq.l  #1,%d3
-        cmp.l   stems_nf,%d3
-        bcc.s   .Lnt_free
-        bsr.w   stems_make_file
-        bra.s   .Lnt_look
-.Lnt_free:
-        move.l  (%sp)+,%d3
-        moveq   #0,%d0
-        rts
+        bsr.w   stems_take_dir
+        movea.l FS_EXISTS_PTR,%a0
+        pea     stems_fpath
+        jsr     (%a0)
+        addq.l  #4,%sp
+        tst.l   %d0
+        bne.s   .Lnt_taken
+        rts                                 | d0 = 0: free
 .Lnt_taken:
-        move.l  (%sp)+,%d3
         moveq   #1,%d0
         rts
 
@@ -2994,7 +3016,8 @@ stems_hdr_fill:
         move.l  %d0,28(%a2)
         rts
 
-| ---- start: a free name, the pool, one file per entry of the file table -
+| ---- start: a free name, the pool, the take's folder, one file per entry
+| of the file table ---------------------------------------------------------
 | d0 = 0 with every file open, or -1 with stems_status set and none open.
 stems_start:
         lea     -12(%sp),%sp
@@ -3026,6 +3049,10 @@ stems_start:
         bsr.w   stems_make_prefix
         bra.s   .Ls_name
 .Ls_free:
+        bsr.w   stems_take_dir      | the take's own folder
+        bsr.w   stems_mkdir_missing
+        tst.l   %d0
+        bmi.w   .Ls_path
         moveq   #0,%d3              | file j
 .Ls_file:
         cmp.l   stems_nf,%d3

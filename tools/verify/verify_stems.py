@@ -249,9 +249,9 @@ def menu_static(s):
     check("no row has a getter, a child or a page id", all(r[3] == r[4] == r[5] == 0 for r in rows))
     on, off = "\x16", "\x15"                    # the small UI font's checkboxes
     texts = [(txt(r[0]), txt(r[1])) for r in rows]
-    check("the rows ship with the boot defaults (a pair row's value is drawn from the bits)",
-          texts == [("STEM REC", "READY"), ("PEAK", "0%")] + [(f"T{k}", on) for k in range(1, 9)]
-          + [("MAIN", off), ("CUE", off), ("AB", None), ("CD", None), ("24 BIT", off)],
+    check("the rows ship with the boot defaults, T1 alone at 24 bits (a pair row's value is drawn from the bits)",
+          texts == [("STEM REC", "READY"), ("PEAK", "0%"), ("T1", on)] + [(f"T{k}", off) for k in range(2, 9)]
+          + [("MAIN", off), ("CUE", off), ("AB", None), ("CD", None), ("24 BIT", on)],
           f"{texts}")
     check("the category is labelled STEMS", txt(s["stems_cat_label"]) == "STEMS")
     icon = [lng(s["stems_icon"] + 4 * k) for k in range(5)]
@@ -820,7 +820,11 @@ def _port_parts(s, frames, stop_at=None, extra=(), tag="run", ring_bytes=0, call
     tag = f"{tag}{SUFFIX}"
     before = (s["stems_action"],) if calls_before is None else tuple(calls_before)
     fx = json.loads(pathlib.Path(fixture or FIXTURE).read_text())
-    pokes_before = ([(s["stems_tracks"] + 3, mask)] if mask is not None else []) + list(pokes_before)
+    # The runs' starting point is the boot defaults before 27 Oct 2026, all
+    # eight tracks at 16 bits, both pairs stereo (T1 alone at 24 bits since):
+    # a run's own mask and pokes come after it and win.
+    base = [(s["stems_tracks"] + 2, 0x00), (s["stems_tracks"] + 3, 0xff), (s["stems_fmt"] + 3, 0b110)]
+    pokes_before = base + ([(s["stems_tracks"] + 3, mask)] if mask is not None else []) + list(pokes_before)
     work = pathlib.Path("out/stems_runs"); work.mkdir(parents=True, exist_ok=True)
     paths = {"log": work / f"{tag}.log", "dump": work / f"{tag}.dump", "card": work / f"{tag}.img",
              "mem": work / f"{tag}.mem", "ring": work / f"{tag}.ring", "ring_bytes": ring_bytes}
@@ -973,7 +977,7 @@ def tap(s):
 def card_files(card_path):
     """Every file on a card image, {path: bytes}, paths as the card spells
     them, without a leading slash
-    ('STEMS/AUDIO/!STEMS/000000-0000-T1.wav'). A folder with no file
+    ('STEMS/AUDIO/!STEMS/000000-0000/000000-0000-T1.wav'). A folder with no file
     in it does not appear: emu_card.extract_image lists files
     (verify_card_reader.py pins that)."""
     import emu_card as ec
@@ -989,19 +993,20 @@ def first_clusters(card_path):
 
 
 def stems_pool(fx):
-    """Where takes live: <set>/AUDIO/!STEMS/ (no leading slash), one flat
-    folder for every take of the set (note 6 of 26 Oct 2026)."""
+    """Where takes live: <set>/AUDIO/!STEMS/ (no leading slash), a folder in
+    it for each take of the set (note 6 of 26 Oct 2026; the folders since
+    27 Oct, when a full flat folder slowed a take's start to RING FULL)."""
     return f"{fx['set']}/AUDIO/!STEMS/"
 
 
-# A take's file in the pool: <YYMMDD-HHMM>[-<n>]-<file>. The number marks a
-# second (third, ...) take in one minute; no file name starts with a digit.
-TAKE_FILE = re.compile(r"^(\d{6}-\d{4}(?:-\d+)?)-([^/]+)$")
+# A take's file in the pool: <take>/<take>-<file>, the take <YYMMDD-HHMM>[-<n>].
+# The number marks a second (third, ...) take in one minute.
+TAKE_FILE = re.compile(r"^(\d{6}-\d{4}(?:-\d+)?)/\1-([^/]+)$", re.IGNORECASE)
 
 
 def take_file(fx, take, name):
     """The pool path of take `take`'s file `name` ('T1.wav'), no leading slash."""
-    return f"{stems_pool(fx)}{take}-{name}"
+    return f"{stems_pool(fx)}{take}/{take}-{name}"
 
 
 def log_file(take):
@@ -1805,7 +1810,9 @@ def exists(s):
     for n, (mask, name) in enumerate(((0x02, "T2.wav"), (0x01, "T1.wav")), start=2):
         tag = "exists" if n == 2 else f"exists{n}"
         files = card_files(card_in)
-        earlier.update({p: d for p, d in files.items() if TAKE_FILE.match(p.rsplit("/", 1)[-1])})
+        pool = stems_pool(fx).lower()
+        earlier.update({p: d for p, d in files.items()
+                        if p.lower().startswith(pool) and TAKE_FILE.match(p[len(pool):])})
         log, _, card, words, _ = port(s, 700, stop_at=400, tag=tag, card_in=str(card_in), mask=mask,
                                       dump_blocks=False, mems=ui_mems(s, "end"))
         st, status, _, wr, rd, nfr = words
@@ -1824,6 +1831,52 @@ def exists(s):
         check(f"exists: take {n}'s status is DONE", t is not None and t[0] == ("STEM REC", "DONE"),
               f"{t[0] if t else None}")
         card_in = card
+
+
+CROWD_SRC = ["AB", "CD", "CUE", "MAIN"] + [f"T{k}" for k in range(1, 8)]   # Yves's eleven files, 27 Oct 2026
+CROWD_SOURCES, CROWD_FMT = 0xf7f, 0b111         # T1-T7, MAIN, CUE, AB, CD; 24 bits, both pairs stereo
+CROWD_FRAMES, CROWD_STOP = 16000, 8000          # past the ring's 2.9 s at that size (7,922 frames), then the save
+
+
+def crowded(s):
+    """A take's start against a full !STEMS (Yves's STEMS10 takes of 27 Oct
+    2026, in his own folder, not the repository): with eleven files at 24
+    bits, each take's ring peaked higher as the one flat folder filled, 36%,
+    37%, 60%, 89%, and then RING FULL with 88 files in it, the writer having
+    written nothing while it recorded. The same take three times: on the
+    fixture's card, with !STEMS empty; with the 88 files of his first four
+    takes there, flat (261027-2151-T1.wav ...); and with 40 takes of eleven
+    files in folders of their own, the layout since then. Each must finish
+    OK, its ring's peak within an eighth of the ring of the empty card's.
+    The files are empty: a name costs what it costs, a file's bytes don't."""
+    fx = json.loads(FIXTURE.read_text())
+    pool = stems_pool(fx)
+    flat = [f"261027-{t}" for t in ("2151", "2152", "2152-2", "2152-3")]
+    cards = {"crowd0": None,
+             "crowd88": {f"{pool}{t}-{n}.{e}": b"" for t in flat for n in CROWD_SRC for e in ("wav", "ot")},
+             "crowd40": {f"{pool}{t}/{t}-{n}.{e}": b""
+                         for t in (f"261027-{1000 + k:04d}" for k in range(40)) for n in CROWD_SRC for e in ("wav", "ot")}}
+    peaks = {}
+    for tag, extra in cards.items():
+        card_in = card_plus(fx["card"], run_path(tag, "in.img"), extra) if extra else None
+        log, _, card, words, _ = port(s, CROWD_FRAMES, stop_at=CROWD_STOP, tag=tag, mask=None, dump_blocks=False,
+                                      **({"card_in": str(card_in)} if card_in else {}),
+                                      pokes_before=[(s["stems_tracks"] + 2, CROWD_SOURCES >> 8),
+                                                    (s["stems_tracks"] + 3, CROWD_SOURCES & 0xff),
+                                                    (s["stems_fmt"] + 3, CROWD_FMT)],
+                                      mems=((s["stems_peak"], 4, "peak"), (s["stems_rframes"], 4, "cap")))
+        st, status = words[0], words[1]
+        raw = [run_path(tag, x) for x in ("peak", "cap")]
+        peak, cap = (int.from_bytes(r.read_bytes(), "big") if r.exists() else None for r in raw)
+        peaks[tag] = (peak, cap)
+        check(f"{tag}: eleven files at 24 bits, the take finished OK", st == ST_IDLE and status == 0,
+              f"state {st}, status {status}, ring peak {peak} of {cap} frames")
+    p0, cap = peaks["crowd0"]
+    for tag in ("crowd88", "crowd40"):
+        p, _ = peaks[tag]
+        check(f"{tag}: the ring's peak within an eighth of the ring of the empty card's",
+              None not in (p, p0, cap) and p <= p0 + cap // 8,
+              f"{p} frames against {p0}, of {cap}")
 
 
 def logblocked(s):
@@ -2233,8 +2286,9 @@ def main():
     regions(s)
     check("the card-out parse reads upstream's line and refuses crosscheck's",
           card_out_sectors(CARD_OUT_UPSTREAM) == 23 and card_out_sectors(CARD_OUT_CROSSCHECK) is None)
-    check("the build records all eight tracks by default", runtime_long(s, "stems_tracks") == 0xFF,
-          f"0x{runtime_long(s, 'stems_tracks'):02x}")
+    check("the build records T1 alone at 24 bits by default, both pairs stereo (Yves, 27 Oct 2026)",
+          (runtime_long(s, "stems_tracks"), runtime_long(s, "stems_fmt")) == (0x01, 0b111),
+          f"0x{runtime_long(s, 'stems_tracks'):02x}, {runtime_long(s, 'stems_fmt'):03b}")
     check("stems_peak is in the runtime, 0 at boot", "stems_peak" in s and runtime_long(s, "stems_peak") == 0)
     check("stems_gtab is the stock slice's gain table, word for word (STEM_REC.md 18.4)",
           "stems_gtab" in s and runtime_at(s, s["stems_gtab"], GTAB_LEN) == stock[GTAB_OFF:GTAB_OFF + GTAB_LEN])
@@ -2253,7 +2307,7 @@ def main():
     runs += [(f"mask{m:02x}", lambda s, m=m: mask_take(s, m, f"mask{m:02x}"))
              for m in (0x01, 0x03, 0x0F, 0xFF, 0xA5)]
     runs += [("cost", cost), ("same_as_alone", same_as_alone), ("cut", cut), ("labels", labels), ("labelsbehind", labelsbehind), ("nocard", nocard), ("exists", exists),
-             ("logblocked", logblocked), ("logtaken", logtaken), ("tempochange", tempochange),
+             ("logblocked", logblocked), ("logtaken", logtaken), ("tempochange", tempochange), ("crowded", crowded),
              ("overflow", overflow), ("cardfail", cardfail)]
     if "--long" in sys.argv:
         runs += [("limit", limit)]

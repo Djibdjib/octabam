@@ -93,10 +93,13 @@ runs (`verify_stems`) and the menu on both panels (`verify_stems_menu`).
 The unit hasn't run any of it yet: flash H in FLASH.md lists what only the
 unit can show.
 
-- **Note 6, the flat folder:** `<set>/AUDIO/!STEMS/<take>-T1.wav`. A
+- **Note 6, the flat folder,** then a folder for each take (27 Oct 2026,
+  after flash J: a full `!STEMS` slowed each take's start until a take at
+  24 bits filled its ring before its first write; README, "Why a folder for
+  each take"): `<set>/AUDIO/!STEMS/<take>/<take>-T1.wav`. A
   second take in one minute is `<take>-2`, up to 99 (Yves, 27 Oct 2026: a
   number instead of `SAME MINUTE`). A name is taken by its log or any file
-  the take writes. Measured under the port: a check of all sixteen file
+  the take writes (since the folders, by its log or its folder). Measured under the port: a check of all sixteen file
   kinds made 17 card lookups at every start, each as long as an open (1.6
   M instructions), and 36 checks ran out of frames, so the check is one
   lookup and one a file. On `stems-next` the take runs passed before the
