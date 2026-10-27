@@ -1,80 +1,111 @@
 # SIDECHAIN_COMPRESSOR beside the demand loader
 
-28 Oct 2026. DRAFT, for review before any code. ✅ measured / read from the tree, 🟡 inferred, ⬜ not looked at.
-Nothing here has been built or run: the session that wrote it had no m68k toolchain, no `vendor/` and no 1.40C image.
+28 Oct 2026. DRAFT, for review before any code. ✅ read from the tree (file and line given), 🟡 inferred, ⬜ not looked at.
+Nothing here has been built or run: the session that wrote it had no m68k toolchain, no `vendor/` and no 1.40C image, so
+every word count below is an estimate until a build report prints it.
 Follows octabam#934 (Zac Kyoti agreed to test a port).
 
 ## Why the resident placement does not fit
 
-| need | words | where it could go | status |
+| need | words | status |
+|---|---|---|
+| SC's DSP section, `patch_sc_dsp3.asm` | 612 code + 16 (`ptable`) + 49 (`ptable2`) = 677 a copy | ✅ upstream README |
+| as written, one copy per payload: the `@COREBASE@`, `@FCOREBASE@`, `@SBASE@`, `@FSBASE@`, `@GCNT@`, `@GSEED@` and `@FOREIGN_BR@` tokens differ per core | 1,354 | ✅ upstream manifest `subst` |
+| the cross-core key window, 4 tracks x 4 generations x 32 words, and GSEED/GCNT, on each core's half | 2 x `$202` = 1,028 | ✅ upstream manifest |
+| the resident gap left in `octabam` | 605 - 559 = 46 at `0x33fd3..`, 349 - 340 = 9 at `0x37ef7..`; the issue's "about 77" needs a build report to settle | ✅ `DEMAND_LOAD.md` |
+
+Resident code must sit below `0x37f00` (payload B's boot loop zeroes `Y:0x37f00..0x3ffff`) and at a slot offset of `0x3da3`
+or higher (DARK REV writes up to `0x3da2`). Zac's trial address `0x3effe` is offset `0x2ffe` of the fourth slot, which PLATE
+REV and DARK REV write (🟡 from `stock.SLOT_EXTENT`).
+
+## The design: a hooked demand block, reached through resident stubs
+
+The loader is keyed on an effect id; SC has no dispatch entry of its own (`MenuEntry.stock_dsp`: the row is COMPRESSOR's and
+COMPRESSOR's stock init/proc stay, `schema.py:552-557`). It is reached from four `DspHook`s instead. So the block is loaded
+like any demand effect, but the hooks, not the dispatch table, need something resident in front of it.
+
+### Hooks: one shared set of resident stubs
+
+| hook | stock words (both payloads) | runs | stub when SC is not loaded |
 |---|---|---|---|
-| SC code, `patch_sc_dsp3.asm` | 612, plus the 16- and 49-word tables = 677 per payload | resident, window words below `0x37f00` that no stock effect writes | ✅ upstream README |
-| the same, if the two payloads' copies cannot be one | up to 1,354 | | 🟡 the `subst` tokens differ per core; a core-independent form is not written |
-| the cross-core key window, 4 tracks x 4 generations x 32 words, plus GSEED/GCNT | `$202` = 514 on each core's half, 1,028 | offset `0x3da3` or higher of a slot, or a block nothing else holds | ✅ upstream manifest |
-| the resident gap | `0x33da3..0x33fff` (605) and `0x37da3..0x37eff` (349) = 954; the loader, its guards and LOAD METER use about 877-899 | | ✅ `DEMAND_LOAD.md`; Zac measured about 77 left |
+| `sctap` | `66f000 000208` `move x:>$208,r6` | dispatcher, every track, every block | replay, `rts`: nobody reads the keybus |
+| `moncommit` | `60f000 000206` `move x:>$206,r0` | dispatcher per-track commit | replay, `rts` (see the LOAD METER clash below) |
+| `scdet` | `221e00 346100` | COMPRESSOR proc+0 | replay both, `rts`: the detector reads its own track, as stock |
+| `scinit` | `44f400 0020c5` | COMPRESSOR init | replay, `rts` |
 
-Everything above `0x37f00` is zeroed by payload B's boot loop, so resident code cannot go in B's half; data can (GSEED is a
-sentinel and nothing needs the window cleared). The slot tops in B's half (`0x3bda3..`, `0x3fda3..`) are 605 words each and
-already hold TRANSIENT's homes at `0x3be00` and `0x3fe00` once loaded.
+✅ The stock words are one tuple per hook in the manifest, so the displaced instructions are the same on both payloads and one
+set of stubs in the shared window serves both cores (the sites differ; the build writes each payload's `jsr`).
 
-Zac's trial address `0x3effe` for core A's window is offset `0x2ffe` into the fourth slot: PLATE REV (`0x37ff`) and DARK REV
-(`0x3da2`) write there when one is on that FX2. 🟡 inferred from `stock.SLOT_EXTENT`, not tested.
+Each stub: load the entry's BOUND word, compare with `$b0a5ed`, `jmp >` the hook's body in the block if bound, else replay and
+`rts`. 🟡 About 9-10 words each with long addressing, 36-40 for four. Using only `a` keeps every stub inside its site's audited
+clobber set (`sctap`'s is a, b, r0, r1, n1, x0, r6, per the source).
 
-`Remix.window` also refuses a module with hooks, a second table or a tail (`schema.py`, the comment on `window`), and SC has
-four hooks and two tables.
+**One home for SC** (first version). With one home the bodies' addresses are fixed at build time, so a stub jumps to an absolute
+address. More homes would need the stub to read the home's base from the entry and add an offset: more words, which the gap does
+not have.
 
-## Proposal: SC is a demand block, reached through resident stubs
+### The LOAD METER clash at `P:0x50e` / `P:0x303`
 
-The loader already does the hard part for effects: a block of the window is copied in while a track uses the effect, a stub
-passes the audio through until then, the stock reverbs are guarded off the code, and a chooser refuses what cannot load. SC is
-different in one way: it is not reached by its own id. Its four entry points are hooks:
+✅ `moncommit` and LOAD METER's `otop_e2` hook the same site with the same stock words (`modules/load-meter/manifest.py:87`,
+`COSTS.md`). ✅ `schema.Override` composes ColdFire `Detour`s only (`site: int`, `schema.py:1466`); nothing composes two
+`DspHook`s, and the ledger refuses the pair. octabam carries LOAD METER (the pump is called from its entry code), so this has to
+be solved. Two options:
 
-| hook | site | runs | if SC is not resident |
-|---|---|---|---|
-| `sctap` | dispatcher, `A 0x4a7`, `B 0x29c` | every track, every block | do nothing: nobody reads the keybus |
-| `moncommit` | dispatcher per-track commit, `A 0x50e`, `B 0x303` | every track, every block | do nothing |
-| `scdet` | COMPRESSOR proc+0, `A 0x1ab1`, `B 0x1871` | each COMPRESSOR | skip it: the detector reads its own track, as stock |
-| `scinit` | COMPRESSOR init, `A 0x1aa4`, `B 0x1864` | each COMPRESSOR init | skip it |
+- **A DSP hook bridge** (the `Override` idea for `DspHook`s): the SC stub at that site does `jsr` moncommit's body when bound, then
+  `jmp >otop_e2`, which replays the displaced instruction. Costs two words in the stub and a schema field. MON's fade then lands
+  before LOAD METER's end stamp, so the meter counts SC.
+- **Move `otop_e2`** to another dispatcher site. This changes LOAD METER's figures, which `COSTS.md` is built on. Not recommended.
 
-1. **Four resident stubs**, each: test the entry's BOUND word (as `dlstub.asm` does), if bound `jmp` into the loaded body,
-   else replay the displaced instruction and return. 🟡 about 8-12 words each, 32-48 in all, which fits the 77 left. The
-   keybus and MON words stay claimed in core-private Y (`$7f0..$9ff`) as now.
-2. **SC as a fifth demand block.** Trigger: any live FX slot holds COMPRESSOR's id (the pump already compares live ids, so
-   `dl_tab` gets a row whose id is COMPRESSOR's, not SC's own). Withdrawn when none does, after the same 10 s grace.
-3. **One block holds the code and both key windows.** The block is exclusively SC's while loaded, so the windows need no
-   separate safe address. 🟡 677 words of code plus 1,028 of window is 1,705, which fits the 2,016 words above offset
-   `0x3820` of the third or fourth block if the two payloads can share one copy of the code. If they cannot (1,354 + 1,028 =
-   2,382) it does not, and the code has to be made core-independent first (open question 1).
-4. **Reverb collision.** Same as any demand effect: a block where a stock reverb reaches the code is not used, the guard makes
-   that reverb run dry, a chooser pick that would collide is refused with the existing toast. SC would use the block homes
-   not taken by MODULATION, SPECTRUM, CHARACTER and TRANSIENT, so four blocks now serve five effects. 🟡 Possible demand
-   pressure: whether five effects ever collide in a realistic project is not measured.
-5. **What the user sees while SC is not resident:** COMPRESSOR with KEY set works as stock COMPRESSOR (self-keyed) for the
-   load time (about 25 ms for MODULATION) and whenever the block is taken. A toast would name why, as for the others.
+### The block: one copy of the code and one key window
 
-## Open questions, in the order they decide the work
+**Make the code core-independent** (Zac's source, the one change on his side). 🟡 Every per-core token can be computed from
+`x:$420` (the track, 0..7; core A is tracks 4-7):
+- `@COREBASE@` is `track & 4`; `sctap`'s "local track 0" test becomes `track & 3 == 0`.
+- `@SBASE@`/`@FSBASE@`: index the window by **absolute** track, `slot(t, gen) = WBASE + t*$80 + gen*$20` (8 x 4 x 32 = `$400`
+  words, the same as two `$200`), so "own" and "foreign" are one formula.
+- `@FOREIGN_BR@`: `(my track xor KEY track) & 4` is non-zero for a foreign key: one `bne` on both cores.
+- `@GCNT@`/`@GSEED@` are read only by their own core (Zac, #934), so they move to core-private Y next to the MON words.
+Then one copy is 677 words + `$400` = 1,701.
 
-1. **Can the two payloads share one copy of the code?** `@COREBASE@`, `@FCOREBASE@`, `@SBASE@`, `@FSBASE@`, `@GCNT@`,
-   `@GSEED@` and `@FOREIGN_BR@` differ per core. Turning them into a read of a core-id cell is a change to Zac's DSP source and
-   costs cycles on every block (his measure: 2,475-2,652 cycles a sample on core 1). Needs his view.
-2. **Load cost.** SC is called from the dispatcher every block, so code run from the window pays the window's wait state
-   (Zac measured one extra cycle per instruction word fetched from P in the window, about +47 cycles per sample per core, on
-   an MKI; `KYOTI_BP303_SCOPE.md` section 3a) against a copy-frame peak already at 99.8 %. Not measured on octabam.
-3. **Stub cost and the `P:0x50e` site.** `docs/contributing/COSTS.md` says SC's `moncommit` and LOAD METER's `otop_e2` patch
-   the same dispatcher site. ⬜ I have not read both patches; one of them must chain to the other, and the ledger refuses two
-   hooks on one site.
-4. **Cross-core timing** is a hardware question; the emulator runs one core (Zac).
-5. **A load in flight:** `sctap` and `scdet` must never see a half-copied body. The copier's order (BOUND cleared first, set
-   last) covers a code block; whether it covers the data windows (written by the running code, not the copier) needs the
-   window to be zeroed or generation-stamped at publish. 🟡
+**Where.** The blocks' free space above offset `0x3820` (only DARK REV reaches it) is 1,411 words in blocks 0 and 1 (the loader
+and LOAD METER above) and 2,016 in blocks 2 and 3. 🟡 SC's 1,701 fits blocks 2 and 3 only (`0x3b820` or `0x3f820`), the same
+ones MODULATION (1,561) needs. With SC's single home there, TRANSIENT's home at offset `0x3e00` of that block is shared with SC's
+span, so the pump must treat them as one block holder (it already allows one demand effect a block).
 
-## Work breakdown
+### The loader changes
 
-1. Read `tools/build/dsp_modmap.py` and `tools/remix/dsp_ranges.py`: how a `DspSection` with hooks is placed today, and what
-   a hook into a demand block needs. Decide where the four stubs are generated.
-2. Extend the build: a demand block that is not an FX id's effect (stubs at hook sites, trigger id from another module's menu).
-3. `dlpump`: a trigger id separate from the module's own id; the toast text.
-4. Zac: question 1, then `--manifest`/`--org` runs of his three emulator tools on the block's addresses.
-5. Gates: extend `verify_dlstub`, `verify_dlwrap`, `verify_dlload` for the fifth block; refhash for the build change
-   (`scripts/refhash.sh check`, in CI only).
-6. Docs: `docs/site/` pages, the module README, `DEMAND_LOAD.md`, `CHANGELOG.md` and, only after a flash, the proof note.
+| piece | change | where |
+|---|---|---|
+| the entry table | ✅ `x:$33da3 + 8 k` holds exactly 4 (DLCOPY starts at `0x33dc3`; the build exits above 4, `build_bus.py:151`). A fifth entry moves DLCOPY and everything after it up 8 words | `remixes/octabam/remix.py` `window`, `build_bus.py:151`, DLPROBE readers |
+| the build: a hooked demand module | the window path already plants hooks into window code (`build_bus.py:3346`; the comment on `Remix.window` saying "no hooks" is stale). For a `window_demand` module it must instead emit the resident stubs and point the hooks at them, and record the bodies for the pump | `build_bus.py` around 3346; `schema.py` comment |
+| the build: `ptable2` | ✅ the window path refuses a second table (`build_bus.py:3287`); place it behind `ptable` as the harvested path does (`build_bus.py:3583`) | `build_bus.py` |
+| the trigger | ✅ `dl_tab` uses `modules[key].menu.fx2_id` (`dlpump/manifest.py`); for a `stock_dsp` module use the replaced effect's stock id (COMPRESSOR's), which is what the Part saves | `modules/dlpump/manifest.py` `table_inc` |
+| the choosers | a `stock_dsp` demand module must never be refused: COMPRESSOR still works as stock when SC is not loaded. Toast only (`EVICT ... 1ST` text to settle) | `modules/dlpump/pump.s` `dl_sel_fx1/2` |
+| no init/proc | SC has none; the message's init/proc offsets can point at its `sctap` body (unused: the stubs read nothing but BOUND) | `build_bus.py`, `dlcopy.asm` unchanged |
+
+Total resident cost: 8 (entry) + 36-40 (stubs) + 2 (the bridge) = 46-50 words against 55 free (46 + 9, in two gaps). 🟡 It
+fits only if the build report confirms the 55 and the stubs come in at the low end. It is the deciding number.
+
+## Open, in the order they decide the work
+
+1. **The resident words.** Assemble the four stubs and read the octabam build report's gap figures. If they do not fit, nothing
+   below matters.
+2. **Zac: the core-independent source.** Small and testable with his `emu_sc_dsp3.py`, `emu_sc_sctap.py` and
+   `emu_sc_dsp3_xcore.py` under `--manifest`/`--org`. Its cycle cost on every block is the price.
+3. **Cold key window.** The block is a reverb's buffer before SC loads, so for two generations after a load the foreign read can
+   return stale words: a few blocks of wrong key, a duck glitch. GSEED in private Y survives a withdraw and does not reseed. Either
+   the copier zeroes the `$400` words (one more frame of core B work, at a copy-frame peak already measured at 99.8 %) or the code
+   keeps a per-core "warm" count reset when it first runs after a load. 🟡
+4. **Load cost.** The bodies run from the window, about +47 cycles a sample a core on an MKI (Zac, `KYOTI_BP303_SCOPE.md` 3a), plus
+   the stubs on every track every block. Not measured on octabam.
+5. **Demand pressure.** Five demand effects over four blocks; SC and MODULATION want the same two. Which loses in a full project
+   is the pump's existing first-home rule; not measured.
+6. **Cross-core timing** is a hardware question (the emulator runs one core).
+
+## Rejected
+
+- **Load-time hook patching** (the copier writes the `jsr` into stock P when SC loads, restores it on withdraw: no resident
+  stubs). Core B cannot write core A's P, so core A would need its own patcher hook, and the instruction cache would have to be
+  shown not to hold the old words. More risk than the stubs save.
+- **SC on COMPRESSOR's dispatch** (route COMPRESSOR's id through the loader's stub). The stub's unbound path is a dry pass-through;
+  it would have to run stock COMPRESSOR instead, and the dispatcher hooks would still need resident stubs.
