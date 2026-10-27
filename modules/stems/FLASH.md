@@ -1,4 +1,48 @@
-# STEM REC: flashes A to G, and crosscheck's flash plan as a record
+# STEM REC: flashes A to H, and crosscheck's flash plan as a record
+
+## Flash H — `stems`: Yves's six notes of 26 Oct (staged 27 Oct 2026)
+
+**Not built yet.** The image is built from branch `stems-next` only after
+every gate passes under the port. It carries the six notes (TODO.md,
+"Where the six notes stand"): the flat folder, the log under
+`/BRAIN/STEMS`, the `.ot` files, the window that redraws itself and the
+double tap of YES. Planned: `make image REMIX=stems BUILD=8
+VERSION=STEMS8`.
+
+**Before you flash.** As flash E: power cycle first if REC was pressed
+since power-on, the stock `.syx` and a DIN MIDI interface at hand, the
+card backed up; power cycle once after the upgrade.
+
+**The tests, in order.** Each answers something the port can't.
+
+1. Boot; MAIN MENU › SYSTEM › OS UPGRADE still opens.
+2. **A stock recording first, for the `.ot` check** (TODO.md item 2 A):
+   with the stock recorder, record four bars at 123.4 BPM, save the
+   sample, and copy its `.wav` and `.ot` to `C:\Projects\Stem recordings`.
+3. **The folder.** One take, T1 to T8 at 16 bits, about 30 s. The files
+   are in `AUDIO/_STEMS/`, named `<take>-T1.wav` and so on. Can the file
+   browser reach them? Load `-T1.wav` onto a Flex track.
+4. **The `.ot`.** On that Flex track: the tempo equals the project's (no
+   1.5 BPM drift), the take plays in time with timestretch on, and the
+   gain reads +12 dB. Load `-MAIN.wav` too: does it sit at the stems'
+   level?
+5. **A second take in the same minute:** its files are `<take>-2-T1.wav`
+   and so on; the first take's files still play.
+6. **The log:** `/BRAIN/STEMS/<take>.TXT` is on the card, and BRAIN still
+   opens its settings.
+7. **The window.** Open STEMS (UP + REC) while a take records: it shows
+   `STOP` and `REC mm:ss`, and the time moves with no key. After STOP it
+   goes to `SAVING`, then `DONE`, with no key.
+8. **The double tap.** On the main page, stopped: YES twice quickly shows
+   `STEMS ARMED`, and PLAY starts the take. One YES doesn't arm. A double
+   tap while recording doesn't stop the take. With a track key held, YES
+   only arms that track. Does 0.4 s feel right?
+9. **A full folder.** After ten takes or so, does the browser still open
+   `_STEMS` quickly, and does `DONE` come as soon after STOP as before?
+   Each take adds a card lookup a file at its start and an `.ot` a file at
+   its end, and every lookup reads the folder entry by entry (inferred:
+   that is how a FAT folder is searched).
+10. Listen to one take's files against the project.
 
 ## Flash G — `stems`: zero copy, the writer at priority 1 (staged 8 Oct 2026)
 
