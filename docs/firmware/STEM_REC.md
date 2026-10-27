@@ -6180,6 +6180,16 @@ data.
 writer is stuck in that loop after exactly 20 sectors, so a change in the
 driver's answer or in the port's card model shows up as a failure.
 
+Since 28 Oct 2026 the run refuses writes after the 31st sector. Each take
+now makes its own folder at the start, which writes 11 sectors more
+(measured on three runs: 103 to 114, 113 to 124 and 97 to 108 sectors in
+all). With 20, the refusal came during the start, while the take was still
+RECORDING. The writer hung there, main stopped (the first point above), and
+the port's STOP call at frame 400 never reached main's idle loop. The take
+stayed RECORDING, after 22 sectors. With 31, the start completes, the STOP
+lands, and the hang comes in the take's first raw write while FINISHING,
+after 34 sectors, with 3.3 million polls at `0x40014cf4`, as before.
+
 ### 11.5 A second take in the same minute, and the overflow guard ✅
 
 Two runs of `verify_stems.py`, 13 Sep 2026:

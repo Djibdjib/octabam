@@ -713,7 +713,7 @@ def postmove(s):
     frames before the first LEVEL step: equal to MAIN from its first frame."""
     steps, midi = level_steps(LEVEL_STEPS)
     aud = run_path("postmove", "aud")
-    log, dump, card, words, _ = port(s, 300, stop_at=180, tag="postmove", fixture=FIXTURE_THRU1,
+    log, dump, card, words, _ = port(s, 650, stop_at=180, tag="postmove", fixture=FIXTURE_THRU1,  # IDLE at 515 (28 Oct 2026: the take's folder), + 25%
                                      calls_before=(), calls=((58, s["stems_action"]),),
                                      steps=steps, midi_lines=midi, extra=("--audio-out", str(aud)))
     against_main("postmove", card, FIXTURE_THRU1, aud)
@@ -1199,7 +1199,7 @@ def cap(s):
     counted from the ring's start (STEM_REC.md 20.7)."""
     v = MAX_FRAMES - 50
     pokes = [(s[w] + i, (v >> (24 - 8 * i)) & 0xff) for w in ("stems_wr", "stems_rd") for i in range(4)]
-    log, _, card, words, _ = port(s, 300, tag="cap", pokes=pokes, dump_blocks=False, extra=watched(s),
+    log, _, card, words, _ = port(s, 440, tag="cap", pokes=pokes, dump_blocks=False, extra=watched(s),  # IDLE at 350 (28 Oct 2026), + 25%
                                   mems=ui_mems(s, "end") + ((s["stems_tfr"], 4, "tfr"),))
     st, status, _, wr, rd, nfr = words
     check("cap: the hook ended the take at the cap", wr == MAX_FRAMES and st == ST_IDLE and status == 0,
@@ -1305,11 +1305,13 @@ def same_as_alone(s):
     three runs on the one-THRU fixture (armed before play, 24 bits, a take
     started while playing), each alone and then together; the state words
     and every file of each take, byte for byte. No block dump: it is one
-    stream opened at boot, so a run that wants one boots alone."""
-    runs = [dict(frames=260, stop_at=180, tag="sa1", fixture=FIXTURE_THRU1, dump_blocks=False),
-            dict(frames=260, stop_at=180, tag="sa2", fixture=FIXTURE_THRU1, dump_blocks=False,
+    stream opened at boot, so a run that wants one boots alone. Each run
+    lasts until its take is IDLE: at frames 440, 450 and 515 since the
+    take's folder (28 Oct 2026), so 650."""
+    runs = [dict(frames=650, stop_at=180, tag="sa1", fixture=FIXTURE_THRU1, dump_blocks=False),
+            dict(frames=650, stop_at=180, tag="sa2", fixture=FIXTURE_THRU1, dump_blocks=False,
                  pokes_before=[(s["stems_fmt"] + 3, 0b111)]),
-            dict(frames=260, stop_at=180, tag="sa3", fixture=FIXTURE_THRU1, dump_blocks=False,
+            dict(frames=650, stop_at=180, tag="sa3", fixture=FIXTURE_THRU1, dump_blocks=False,
                  calls_before=(), calls=((58, s["stems_action"]),))]
     alone = [port(s, **r) for r in runs]
     together = port_group(s, [{**r, "tag": r["tag"] + "g"} for r in runs])
@@ -1971,18 +1973,24 @@ def overflow(s):
           shown == [("STEM REC", "ARMED"), ("PEAK", "0%")], f"{shown}")
 
 
+CARD_FAIL_AFTER = 31    # the take's start writes 31 sectors since its folder (11 of them, 28 Oct 2026)
+
+
 def cardfail(s):
-    """Every card write after the 20th is refused, as a card answers an
+    """Every card write after the 31st is refused, as a card answers an
     aborted command: ERR and ABRT, no DRQ. The stock driver's write command
     waits for DRQ at 0x40014cf4 with no error check and no timeout, so the
     writer task hangs there, holding the file layer's lock (STEM_REC.md
     11.4). This run RECORDS that fact rather than expecting a recovery: a
     change here means the driver's answer, or the port's card model,
-    changed."""
+    changed. The start's writes must all reach the card, so the hang comes
+    in the take's first raw write, after the STOP: a hang in the start
+    stops main before the STOP can reach it (11.4)."""
     work = pathlib.Path("out/stems_runs")
     cov = work / "cardfail.cov"
     log, _, card, words, _ = port(s, 700, stop_at=400, tag="cardfail", dump_blocks=False,
-                                  extra=watched(s, ("--card-fail-after", "20", "--coverage", str(cov))))
+                                  extra=watched(s, ("--card-fail-after", str(CARD_FAIL_AFTER),
+                                                    "--coverage", str(cov))))
     st, status, _, wr, rd, nfr = words
     polls = 0
     if cov.exists():
@@ -1992,7 +2000,7 @@ def cardfail(s):
     # The port refuses a command that STARTS at or past the 20th sector; a
     # raw write of several sectors that starts below it completes.
     check("cardfail: a refused raw write hangs the writer in the stock driver's DRQ poll (known)",
-          st == ST_FINISHING and sectors is not None and sectors >= 20 and polls > 100000,
+          st == ST_FINISHING and sectors is not None and sectors >= CARD_FAIL_AFTER and polls > 100000,
           f"state {st}, {sectors if sectors is not None else 'no card-out line in upstream form:'} "
           f"sectors written, {polls} polls at 0x{DRIVER_DRQ_POLL:x}")
 

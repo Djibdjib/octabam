@@ -16,7 +16,8 @@ MKII (MAIN MENU = PROJ) and as an MKI (FUNC+MIXER). Each panel's walk:
   the pane scrolled to its last five rows;
 - at boot T1 alone is on, at 24 bits, and stays on; T2 to T8 turn on;
 - every track row turned off in turn leaves T8 on; with MAIN on, T8 can go
-  off and MAIN can't; 24 BIT flips; on AB, RIGHT picks STEREO and YES
+  off and MAIN can't; 24 BIT flips, then goes off for the take; on AB,
+  RIGHT picks STEREO and YES
   splits the pair, LEFT picks B and YES leaves it out, so A records alone;
   T3 off, then every other track on again; each checkbox says so;
 - every STEMS text fits its column, by the firmware font's own widths;
@@ -270,6 +271,11 @@ def walk(model, s, fx):
         vs.check(f"{model}: 24 BIT flips and its checkbox says so",
                  off24 == (0b110, BOX_OFF) and (p.long(s["stems_fmt"]) & 7, value(p, s, ROW_B24)) == (0b111, BOX_ON),
                  f"{off24}, {p.long(s['stems_fmt']) & 7:03b}")
+        # Off again: the take is at 16 bits. Its nine files are 544 bytes a
+        # frame, near the port's card (about 454); at 24 bits, 816, the ring
+        # filled 1% a redraw and every shows_labels try saw PEAK change
+        # (measured 28 Oct 2026). The unit's card keeps up with either.
+        p.press(ENTER)
         p.press("up")
         p.press("up")                                   # AB (row 12)
         p.press(ENTER)                                  # AB on
@@ -280,7 +286,7 @@ def walk(model, s, fx):
         shot("pairs")
         tr, fmt = p.long(s["stems_tracks"]), p.long(s["stems_fmt"]) & 7
         vs.check(f"{model}: on AB, RIGHT picks STEREO and YES splits it; LEFT picks B and YES leaves it out",
-                 tr & 0xF400 == 0x2400 and fmt == 0b101 and p.long(s["stems_field"]) == 1,
+                 tr & 0xF400 == 0x2400 and fmt == 0b100 and p.long(s["stems_field"]) == 1,
                  f"sources {tr:#06x}, format {fmt:03b}, field {p.long(s['stems_field'])}")
         for _ in range(ROW_AB - 9):
             p.press("up")                               # AB (row 12) -> T8 (row 9)
