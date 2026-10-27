@@ -290,14 +290,16 @@ page-aligned; the ceiling is the reserve's end; a unit's `.bss` must end
 below it. KITS's library (1,622,944 B) and PLOCKS P2's table (1,572,864 B)
 are `.bss` there.
 
-**REMIX SWITCH's stage** (`modules/remix-switch`) is the top of this reserve,
+**REMIX SWITCH's stage** (`modules/remix-switch`) is a fixed claim in this
+reserve, its top unless a DRAM region needs more (STEM REC's 8 MiB ring
+has no room below it and sits above),
 `0x41200000..0x41495de0`: a 64-byte mailbox, a 40-byte copy stub at
 `+0x100`, the staged image from `+0x1000` (2,706,400 B). The running OS
 writes it just before a reset and the next boot's OS entry reads it before
 anything else runs; nothing between a reset and the OS entry writes SDRAM
 outside the image the bootstrap unpacks (`docs/firmware/ARCHITECTURE.md`
 section 3a). In a remix carrying the module, `verify_remix_switch` refuses a
-runtime and stage that reach the mailbox.
+runtime and stage that reach the mailbox, and a DRAM region over the stage.
 
 The OS never touches a reservation again: the arena clear starts at the
 new base, the boot-time copies follow the literal, and the page allocator

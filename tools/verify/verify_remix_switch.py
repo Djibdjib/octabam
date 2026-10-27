@@ -7,8 +7,10 @@ chainloader boots it, and every refusal boots the flashed image instead.
 
 Builds the remix (the HOME image: what NOR would hold), then:
 
-  layout   the platform runtime and its stage end below the mailbox: the
-           top of the reserve is the switch's, in every remix carrying it
+  layout   the platform runtime, its stage and .bss end below the mailbox,
+           no module's DRAM region overlaps the image stage, and the
+           reserve reaches past it (a region may sit above the stage:
+           STEM REC's 8 MiB ring has no room below it)
   ui       an MKII (`--mkii`: the reset sends the panel `60 02` first) with a
            card holding STOCK140.RMX (the user's own stock MAIN OS, copied
            at run time); PROJ opens MAIN MENU > BRAIN (the list in /BRAIN/REMIXES/, scanned),
@@ -187,15 +189,23 @@ def main():
     ST = {k: struct.pack(">I", C[k]).decode() for k in ("ST_BOOT", "ST_RUN", "ST_NONE", "ST_SIZE",
                                                          "ST_BVER", "ST_HASH")}
 
-    # ---- layout: the runtime stays below the switch's pages ---------------
+    # ---- layout: nothing the platform places lands on the switch's pages --
     lay = json.loads((ROOT / "out/platform/layout.json").read_text())
-    # the top of everything the platform places: the runtime, its stage,
-    # the units' .bss (never loaded: KITS's library, PLOCKS P2's table) and
-    # the modules' DRAM regions
-    top = max([lay.get("stage_end", 0), lay.get("bss_end", 0)]
-              + [a + n for a, n in lay.get("regions", {}).values()])
-    check("layout: the platform runtime, its stage, .bss and regions end below the mailbox",
+    END = cached(C["OSW_END"])
+    # the runtime, its stage and the units' .bss (never loaded: KITS's
+    # library, PLOCKS P2's table) go up from the reserve's base
+    top = max(lay.get("stage_end", 0), lay.get("bss_end", 0))
+    check("layout: the platform runtime, its stage and .bss end below the mailbox",
           top <= MBOX, f"..0x{top:08x}, mailbox 0x{MBOX:08x}")
+    # the modules' DRAM regions come down from the ceiling and step over
+    # the stage (platform_build.place_regions); STEM REC's 8 MiB ring has
+    # room only above it, and MEMORY then grows the reserve past it
+    on = [f"{s} 0x{a:08x}..0x{a + n:08x}" for s, (a, n) in lay.get("regions", {}).items()
+          if a < END and MBOX < a + n]
+    check("layout: no DRAM region overlaps the stage, and the reserve reaches past it",
+          not on and lay.get("ceiling", 0) >= END,
+          f"stage 0x{MBOX:08x}..0x{END:08x}, ceiling 0x{lay.get('ceiling', 0):08x}"
+          + (f", over it: {', '.join(on)}" if on else ""))
 
     # ---- ui: the row, the dialog, the load, the reset sequence ------------
     tree = work / "card"
