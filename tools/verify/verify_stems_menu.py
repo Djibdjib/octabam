@@ -55,7 +55,8 @@ from stems_panel import MENU_FOCUS, MenuPort, diff_box  # noqa: E402
 
 ROOT_DESC, PROJECT_DESC, SYSTEM_DESC, SEL = 0x400cbd8c, 0x400cbcac, 0x400cbd1c, 0x0c
 CARD_MOUNTED = 0x460d1cb8       # stems.s: long, 0 = no card
-ARM_HELD = 0x46c7ff64           # the stock arm word while YES is held: 0xffff ARM ALL, a track's bit ARM TRK
+ARM_HELD = 0x46c7ff64           # the stock arm word while YES is held: 0xffff ARM ALL; with a track key held, the
+                                # track's bit (ARM TRK), or bit 8 + track (ARM REC TRK) while 0x460d5db4 = 3
                                 # (MAINMENU.md 6); the release clears it
 OS_UPGRADE = 1                  # SYSTEM's row 1 (MAINMENU.md 2)
 PROJECT_N = 15                  # stock PROJECT row count (unchanged)
@@ -483,8 +484,8 @@ def double_tap(model, s, fx):
         p.key("t1", False)
         p.run(300)
         held = st()
-        vs.check(f"{model}: with T1 held, a double tap stays stock's (ARM TRK: T1's bit alone), STEM REC idle",
-                 held == vs.ST_IDLE and arms == 0x0001, f"state {held}, arm word {arms:#06x}")
+        vs.check(f"{model}: with T1 held, a double tap stays stock's (T1's bit: ARM TRK, or bit 8 ARM REC TRK), STEM REC idle",
+                 held == vs.ST_IDLE and arms in (0x0001, 0x0100), f"state {held}, arm word {arms:#06x}")
         p.open_menu()
         while sel(p, ROOT_DESC) != 2:                   # CONTROL: its first row is AUDIO, a settings
             p.press("down")                             # page (SYSTEM's is USB DISK MODE)
