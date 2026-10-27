@@ -279,6 +279,31 @@ card udma 4 mwdma 0, cluster 64 sectors
 The times come from DMA timer 3, the counter the firmware itself
 timestamps with (7.58 ns a count).
 
+### The log against BRAIN's PERFORMANCE page
+
+BRAIN's PERFORMANCE page shows the unit's load live, since it opened. The
+log shows one take's figures, written after the take. Read from the code
+on 27 Oct 2026 (`modules/brain/brain.c`: `build_load`, `build_card`,
+`cpu_update`; `stems.s`: `stems_stats`), no figure in the log repeats one
+on the page, so the log keeps every line (note 3 of 26 Oct 2026):
+
+| In the log, for one take | On PERFORMANCE, live | Same figure? |
+|---|---|---|
+| The ring's peak, and the PEAK row | Nothing | No. BRAIN lacks it |
+| Card writes: count, total ms, longest | CARD: WRITES (commands and KB) and SLOWEST (any command, in ms) | Close, but not the same. The log counts STEM REC's own writes in one take; CARD counts every command since the page opened |
+| The card's fastest write, the rec and save rates | Nothing | No |
+| The writer's longest sleep | Nothing | No |
+| The hook's mean and longest | Nothing | No. The hook runs in the level-6 DMA chain (`0x40004840`, STEM_REC.md 2.5), so BRAIN's CPU tab charges it to the task it interrupts |
+| The frame routine's mean and longest | LOAD: WORST FRAME, the level-5 frame interrupt (`0x4000aad0`) | No. A different routine. And LOAD's figures come from LOAD METER, which refuses STEM REC, so in a STEM REC image LOAD shows `-` |
+| The card's DMA modes and its cluster size | Nothing | No |
+| The writer task | CPU: not one of the eleven named tasks, so it counts in OTHER | No. BRAIN doesn't name it |
+
+What BRAIN could add (a proposal for its author, not yet sent): a STEMS row on PERFORMANCE
+with the ring's fill and the hook's longest frame (`stems_peak` against
+`stems_rframes`, `stems_st_hmax`), when the image carries STEM REC,
+and STEM REC's writer named on the CPU tab (its task control block is
+`stems_tcb`).
+
 ## Limits
 
 - The choices reset at every boot. Nothing is saved.
