@@ -878,6 +878,26 @@ def main():
         _probe.unlink(missing_ok=True)
         for junk in (ROOT / "remixes/__pycache__").glob("_selftest_nofb*"):
             junk.unlink(missing_ok=True)
+    # A stock effect is refused as the fallback, bus or no bus.
+    _probe = ROOT / "remixes/_selftest_stockfb.py"
+    try:
+        _probe.write_text(
+            "from remix.schema import Remix\n\n"
+            "REMIX = Remix(name='_selftest_stockfb', doc='scratch',\n"
+            "              modules=('FILTER', 'SPECTRUM'), fallback='FILTER')\n")
+        registry.remix("_selftest_stockfb")
+        bad += 1
+        print("  [FAIL] fallback='FILTER' (a stock effect) was accepted")
+    except SystemExit as e:
+        if "is a stock effect" in str(e):
+            print("  [PASS] a stock effect is refused as the fallback")
+        else:
+            bad += 1
+            print(f"  [FAIL] fallback='FILTER' was refused for the wrong reason: {e}")
+    finally:
+        _probe.unlink(missing_ok=True)
+        for junk in (ROOT / "remixes/__pycache__").glob("_selftest_stockfb*"):
+            junk.unlink(missing_ok=True)
 
     # And the same rule read off the SHIPPED remixes, which is where it would
     # actually go wrong: nothing may pair NO_FALLBACK with a bus module.

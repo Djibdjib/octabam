@@ -198,6 +198,7 @@ moment it costs real work, and add its line here.
 - [A forked port shares its DSP memory with its siblings](docs/contributing/TRAPS.md#trap-fork-shm) — `unshareRanges`; new shared maps need the same.
 - [The port ran under Rosetta and nothing said so](docs/contributing/TRAPS.md#trap-rosetta) — `file out/emu/ot_emu` is the check.
 - [The report is API and prints paths](docs/contributing/TRAPS.md#trap-report-api) — re-save refhash only after the artifacts are shown identical.
+- [Id 0 is FX1 NONE too: a stock fallback ran on every empty FX1 slot](docs/contributing/TRAPS.md#trap-stock-fallback) — the sequencer held its first step; `registry.remix` refuses a stock fallback.
 - [A frame count past $7fffff reaches `move a,n1` with A2 stale; the unit's frame interrupt stopped 50.7 min after power-up](docs/contributing/TRAPS.md#trap-frame-count) — keep the count below bit 23; preset it to test (`LM_FRAME0`).
 - [An EP0 reply is DMA'd from memory the cache may not have written; a 64-multiple reply breaks the next request](docs/contributing/TRAPS.md#trap-ep0-dma) — copy through `+UNCACHED`; never answer a multiple of 64 bytes.
 - [Same-named labels across units resolve by nm table order](docs/contributing/TRAPS.md#trap-nm-order) — per-unit tables; a ref naming a symbol its unit does not define is refused.
