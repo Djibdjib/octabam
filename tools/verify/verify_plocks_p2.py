@@ -46,7 +46,7 @@ It also compares trig paste/clear undo, track paste undo and pattern editing
 with stock, including native undo availability rather than assuming it.
 It cannot measure physical panel timing or a slide trig (page 2 does not slide).
 """
-import argparse, os, pathlib, shutil, subprocess, sys
+import argparse, os, pathlib, shutil, subprocess, sys, threading
 from concurrent.futures import ThreadPoolExecutor
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1])); import toolpath  # noqa: E402,F401
@@ -633,10 +633,13 @@ def main():
     base = [EMU, "--image", image, "--card", card, "--set", a.set_name, "--project", a.name, "--load-ms", "90000"]
     fails = 0
 
+    check_lock = threading.Lock()
+
     def check(msg, ok):
         nonlocal fails
-        print(f"  [{'ok' if ok else 'FAIL'}] {msg}")
-        fails += not ok
+        with check_lock:
+            print(f"  [{'ok' if ok else 'FAIL'}] {msg}", flush=True)
+            fails += not ok
 
     # ---- the probe: which bank, track and part the panel edits ---------------
     pr = OUT / "probe"
@@ -677,8 +680,12 @@ def main():
     display_card = OUT / "display-card.img"
     run([PY, ROOT / "tools/emu/ot_emu/stage_card.py", display_project, a.set_name, a.name,
          "--tree", OUT / "display-tree", "--out", display_card], OUT / "display-stage.log")
-    display_walk(image, display_card, a.set_name, a.name, STORE, OUT / "display", check)
+    # The walk is its own port sessions on its own card; the scenario run
+    # below is another: they run side by side (27 Oct 2026: 374 s locally,
+    # the walk 135 s of it before the scenarios started).
+    walk = ThreadPoolExecutor(1).submit(display_walk, image, display_card, a.set_name, a.name, STORE, OUT / "display", check)
     if a.display_only:
+        walk.result()
         print(f"verify_plocks_p2 display: {fails} failure(s)")
         return int(bool(fails))
 
@@ -787,7 +794,7 @@ def main():
         d = files.get(k, b"")
         got = d[16 + (trk * 64) * REC + 6] if len(d) == 16 + 16 * 8 * TRACK_B else None
         check(f"save: {nn}.{ext} holds the lock ({got})", got == v)
-    if saved.is_file():
+    def reload_saved():
         reload_dump = OUT / "reload.bin"
         s = Script(); s.tap("no", 400)
         (OUT / "reload.script").write_text(s.text())
@@ -796,6 +803,57 @@ def main():
             OUT / "reload.txt")
         got = reload_dump.read_bytes()[0] if reload_dump.is_file() else None
         check(f"load: the saved card's lock is in STORE after the load ({got})", got == v)
+
+    # ---- a refused p2lkNN.work is listed and never written over -------------------
+    def refused_chain():
+        if saved.is_file() and "store_npend" in sym:
+            prefix = f"/{a.name.lower()}/"
+            proj = OUT / "proj_bad"
+            if proj.exists():
+                shutil.rmtree(proj)
+            proj.mkdir(parents=True)
+            for k, v in files.items():
+                if prefix in k.lower() and "/" not in k.lower().split(prefix, 1)[1]:
+                    (proj / k.rsplit("/", 1)[1]).write_bytes(v)
+            wk = proj / f"{nn}.work"
+            bad = bytearray(wk.read_bytes()); bad[0] ^= 0x20; wk.write_bytes(bytes(bad))        # 'P2LK' -> 'p2LK'
+            card_bad = OUT / "card_bad.img"
+            r = subprocess.run([str(PY), str(ROOT / "tools/emu/ot_emu/stage_card.py"), str(proj), a.set_name, a.name,
+                                "--tree", str(OUT / "tree_bad"), "--out", str(card_bad)], cwd=ROOT, capture_output=True, text=True)
+            check("refused: the card with a bad p2lk header staged", r.returncode == 0)
+            run([EMU, "--image", image, "--card", card_bad, "--set", a.set_name, "--project", a.name, "--load-ms", "90000",
+                 "--live-script", OUT / "save.script", "--card-out", OUT / "refused.img",
+                 "--mem-dump", f"{sym['store_npend']:#x},4={OUT / 'ref_np.bin'};{sym['store_pend']:#x},32={OUT / 'ref_pend.bin'}"],
+                OUT / "refused.txt")
+            npend = int.from_bytes((OUT / "ref_np.bin").read_bytes(), "big")
+            pend = (OUT / "ref_pend.bin").read_bytes()
+            listed = [(pend[2 * i], pend[2 * i + 1]) for i in range(npend)]
+            check(f"refused: STORE lists the bank ({listed}, wanted (0, {bank}))", (0, bank) in listed)
+            after = emu_card.extract_image((OUT / "refused.img").read_bytes())
+            k = next((k for k in after if k.lower().endswith(f"/{nn}.work")), None)
+            check(f"refused: {nn}.work is as it was after a SAVE PROJECT (it used to be overwritten)", after.get(k) == bytes(bad))
+            # The first dialog names the lost feature, before any recovery choice.
+            def refusal_ui(tag):
+                s = Script(); s.tap("no", 400); s.send("enc 1 1", 800)
+                if tag == "options":
+                    s.tap("yes", 600)
+                elif tag == "cancel":
+                    s.tap("no", 400); s.send("enc 1 1", 800)
+                script = OUT / f"ref_{tag}.script"; script.write_text(s.text())
+                dump = OUT / f"ref_{tag}.bin"
+                run([EMU, "--image", image, "--card", card_bad, "--set", a.set_name, "--project", a.name,
+                     "--load-ms", "90000", "--mkii", "--live-script", script, "--lcd", OUT / f"ref_{tag}.lcd",
+                     "--mem-dump", f"{sym['store_info_lines']:#x},4={dump};"
+                     f"{sym['NWMASK']:#x},4={OUT / f'ref_{tag}_mask.bin'};"
+                     f"0x460e5cd0,4={OUT / f'ref_{tag}_dialog.bin'};"
+                     f"{sym['store_mown']:#x},4={OUT / f'ref_{tag}_menu.bin'}"], OUT / f"ref_{tag}.txt")
+                word = lambda name: int.from_bytes((OUT / f"ref_{tag}_{name}.bin").read_bytes(), "big")
+                check(f"refused {tag}: names FX page 2 locks and keeps the original file protected",
+                      int.from_bytes(dump.read_bytes(), "big") == sym["store_info_plk"] and word("mask") & (1 << bank))
+                check(f"refused {tag}: the expected dialog or choices are open",
+                      bool(word("dialog")) == (tag == "info") and bool(word("menu")) == (tag == "options"))
+            with ThreadPoolExecutor(3) as ex:
+                list(ex.map(refusal_ui, ("info", "options", "cancel")))
 
     # ---- power cycles -----------------------------------------------------------
     cs1s, cs1u = OUT / "cs1_saved.bin", OUT / "cs1_unsaved.bin"
@@ -815,61 +873,19 @@ def main():
              "--mem-dump", f"{block(0, trk) + 6:#x},1={dump}"], OUT / f"power_{tag}.txt")
         return tag, dump.read_bytes()[0] if dump.is_file() else None
     jobs = [("saved", saved, cs1s), ("unsaved", unsaved, cs1u), ("nocopy", saved, OUT / "cs1_nocopy.bin")]
-    with ThreadPoolExecutor(3) as ex:
-        got = dict(ex.map(lambda j: power(*j), jobs))
+    after_ex = ThreadPoolExecutor(6)
+    f_reload = after_ex.submit(reload_saved) if saved.is_file() else None
+    f_power = [after_ex.submit(power, *j) for j in jobs]
+    f_refused = after_ex.submit(refused_chain)
+    got = dict(f.result() for f in f_power)
     check(f"power cycle, saved: the lock is in STORE ({got['saved']})", got["saved"] == v)
     check(f"power cycle, never saved: the lock is in STORE from CS1 ({got['unsaved']})", got["unsaved"] == v)
     check(f"power cycle, no CS1 copy: the lock is in STORE from p2lk{bank + 1:02d}.work ({got['nocopy']})",
           got["nocopy"] == v)
-    # ---- a refused p2lkNN.work is listed and never written over -------------------
-    if saved.is_file() and "store_npend" in sym:
-        prefix = f"/{a.name.lower()}/"
-        proj = OUT / "proj_bad"
-        if proj.exists():
-            shutil.rmtree(proj)
-        proj.mkdir(parents=True)
-        for k, v in files.items():
-            if prefix in k.lower() and "/" not in k.lower().split(prefix, 1)[1]:
-                (proj / k.rsplit("/", 1)[1]).write_bytes(v)
-        wk = proj / f"{nn}.work"
-        bad = bytearray(wk.read_bytes()); bad[0] ^= 0x20; wk.write_bytes(bytes(bad))        # 'P2LK' -> 'p2LK'
-        card_bad = OUT / "card_bad.img"
-        r = subprocess.run([str(PY), str(ROOT / "tools/emu/ot_emu/stage_card.py"), str(proj), a.set_name, a.name,
-                            "--tree", str(OUT / "tree_bad"), "--out", str(card_bad)], cwd=ROOT, capture_output=True, text=True)
-        check("refused: the card with a bad p2lk header staged", r.returncode == 0)
-        run([EMU, "--image", image, "--card", card_bad, "--set", a.set_name, "--project", a.name, "--load-ms", "90000",
-             "--live-script", OUT / "save.script", "--card-out", OUT / "refused.img",
-             "--mem-dump", f"{sym['store_npend']:#x},4={OUT / 'ref_np.bin'};{sym['store_pend']:#x},32={OUT / 'ref_pend.bin'}"],
-            OUT / "refused.txt")
-        npend = int.from_bytes((OUT / "ref_np.bin").read_bytes(), "big")
-        pend = (OUT / "ref_pend.bin").read_bytes()
-        listed = [(pend[2 * i], pend[2 * i + 1]) for i in range(npend)]
-        check(f"refused: STORE lists the bank ({listed}, wanted (0, {bank}))", (0, bank) in listed)
-        after = emu_card.extract_image((OUT / "refused.img").read_bytes())
-        k = next((k for k in after if k.lower().endswith(f"/{nn}.work")), None)
-        check(f"refused: {nn}.work is as it was after a SAVE PROJECT (it used to be overwritten)", after.get(k) == bytes(bad))
-        # The first dialog names the lost feature, before any recovery choice.
-        def refusal_ui(tag):
-            s = Script(); s.tap("no", 400); s.send("enc 1 1", 800)
-            if tag == "options":
-                s.tap("yes", 600)
-            elif tag == "cancel":
-                s.tap("no", 400); s.send("enc 1 1", 800)
-            script = OUT / f"ref_{tag}.script"; script.write_text(s.text())
-            dump = OUT / f"ref_{tag}.bin"
-            run([EMU, "--image", image, "--card", card_bad, "--set", a.set_name, "--project", a.name,
-                 "--load-ms", "90000", "--mkii", "--live-script", script, "--lcd", OUT / f"ref_{tag}.lcd",
-                 "--mem-dump", f"{sym['store_info_lines']:#x},4={dump};"
-                 f"{sym['NWMASK']:#x},4={OUT / f'ref_{tag}_mask.bin'};"
-                 f"0x460e5cd0,4={OUT / f'ref_{tag}_dialog.bin'};"
-                 f"{sym['store_mown']:#x},4={OUT / f'ref_{tag}_menu.bin'}"], OUT / f"ref_{tag}.txt")
-            word = lambda name: int.from_bytes((OUT / f"ref_{tag}_{name}.bin").read_bytes(), "big")
-            check(f"refused {tag}: names FX page 2 locks and keeps the original file protected",
-                  int.from_bytes(dump.read_bytes(), "big") == sym["store_info_plk"] and word("mask") & (1 << bank))
-            check(f"refused {tag}: the expected dialog or choices are open",
-                  bool(word("dialog")) == (tag == "info") and bool(word("menu")) == (tag == "options"))
-        with ThreadPoolExecutor(3) as ex:
-            list(ex.map(refusal_ui, ("info", "options", "cancel")))
+    if f_reload:
+        f_reload.result()
+    f_refused.result()
+    walk.result()
     print(f"verify_plocks_p2: {'FAIL' if fails else 'ok'} ({fails} failure(s))")
     return 1 if fails else 0
 
