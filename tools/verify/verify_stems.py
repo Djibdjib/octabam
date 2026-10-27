@@ -642,6 +642,7 @@ def all14(s):
               off and min(off) >= 0 and max(off) <= 7, f"{min(off) if off else None}..{max(off) if off else None}")
         check("all14: on MAIN's rails, the stems' sum lies beyond the rail",
               all((m > 0 and x >= m - 7) or (m < 0 and x <= m + 7) for m, x in rail), f"{len(rail)} rail samples")
+    ot_check(card, "all14", FIXTURE_THRU, nwavs=14)
 
 
 def against_main(tag, card, fixture, aud):
@@ -1504,9 +1505,10 @@ def stats_check(card_path, tag, nfr, nfiles, bits, status="OK", fixture=FIXTURE,
 
 def ot_fields(data):
     """An Octatrack attributes file (.ot), big-endian: the fields STEM REC
-    writes, the checksum it carries and the one recomputed (the byte sum
-    from offset 16 up to the checksum), or None when the size or the
-    header is wrong."""
+    writes, the checksum it carries and the one recomputed (the 16-bit
+    byte sum from offset 20, the version, up to the checksum, as the
+    firmware's writer sums it: SAMPLE_SAVE.md 8.1), or None when the size
+    or the header is wrong."""
     if data is None or len(data) != 832 or data[:16] != b"FORM\0\0\0\0DPS1SMPA":
         return None
     tempo, trim_len, loop_len, stretch, loop = struct.unpack_from(">5I", data, 0x17)
@@ -1516,37 +1518,75 @@ def ot_fields(data):
     return {"tempo": tempo, "trim_len": trim_len, "loop_len": loop_len, "stretch": stretch,
             "loop": loop, "gain": gain, "quant": quant, "trim_start": trim_start,
             "trim_end": trim_end, "loop_point": loop_point, "slices": slices,
-            "sum": struct.unpack_from(">H", data, 830)[0], "want_sum": sum(data[16:830]) & 0xffff}
+            "sum": struct.unpack_from(">H", data, 830)[0], "want_sum": sum(data[20:830]) & 0xffff,
+            "flag": data[22], "version": struct.unpack_from(">H", data, 20)[0]}
 
 
-def ot_check(card_path, tag, fixture=FIXTURE):
-    """Each WAV of the take has its .ot beside it: 832 bytes with a good
-    checksum, the project's tempo (TEMPOx24 in the card's project.work),
-    the trim the whole file, its length in bars * 100 at that tempo,
-    timestretch NORMAL, no loop, no slices, and the gain by kind: +12 dB
-    (72) for a track or an input, +24 dB (96) for MAIN and CUE."""
+OT_GAIN = 72        # stems.s: +12 dB on every file, as stock's own recordings (note 1 of 26 Oct 2026)
+
+
+def project_tempo(files, fx):
+    """The fixture project's tempo, BPM * 24, from its project.work on the card."""
     import re
+    work = card_get(files, f"{fx['set']}/{fx['project']}/project.work")
+    m = re.search(rb"TEMPOx24=(\d+)", work or b"")
+    return int(m.group(1)) if m else None
+
+
+def ot_check(card_path, tag, fixture=FIXTURE, nwavs=None):
+    """Each WAV of the take has its .ot beside it (<take>-T1.ot beside
+    <take>-T1.wav): 832 bytes with a good checksum, version 2 and flag 0
+    as a stock recording's (SAMPLE_SAVE.md 8.2), the project's tempo
+    (TEMPOx24 in the card's project.work, the tempo when the take
+    started), the trim the whole file, its length in bars * 100 at that
+    tempo, timestretch NORMAL, no loop, no slices, and +12 dB (72) on
+    every file, MAIN and CUE too. `nwavs`: the WAVs the take must have."""
     files = card_files(card_path)
     fx = json.loads(pathlib.Path(fixture).read_text())
     names = new_entries(files, fixture)
     if len(names) != 1:
         check(f"{tag}: .ot: one take", False, f"{names}")
         return
-    work = card_get(files, f"{fx['set']}/{fx['project']}/project.work")
-    m = re.search(rb"TEMPOx24=(\d+)", work or b"")
-    tempo = int(m.group(1)) if m else None
-    folder = f"{stems_pool(fx)}{names[0]}/".lower()
-    wavs = sorted(p for p in files if p.lower().startswith(folder) and p.lower().endswith(".wav"))
+    tempo = project_tempo(files, fx)
+    prefix = take_file(fx, names[0], "").lower()
+    wavs = sorted(p for p in files if p.lower().startswith(prefix) and p.lower().endswith(".wav"))
+    if nwavs is not None:
+        check(f"{tag}: .ot: {nwavs} WAVs, each checked", len(wavs) == nwavs, f"{len(wavs)}")
     for w in wavs:
         f = ot_fields(card_get(files, w[:-4] + ".ot"))
         n = wav_fmt(files[w])[4] // wav_fmt(files[w])[2] if f else None
         bars = (n // 16 * tempo + 158760 // 2) // 158760 if f and tempo else None   # 16-sample frames * BPM*24 / 158760
         ok = (f is not None and f["sum"] == f["want_sum"] and f["tempo"] == tempo
+              and (f["version"], f["flag"]) == (2, 0)
               and f["trim_start"] == 0 and f["trim_end"] == n and f["trim_len"] == f["loop_len"] == bars
               and (f["stretch"], f["loop"], f["quant"], f["loop_point"], f["slices"]) == (2, 0, 0xff, 0, 0)
-              and f["gain"] == (96 if w.rsplit("/", 1)[1].upper() in ("MAIN.WAV", "CUE.WAV") else 72))
-        check(f"{tag}: {w.rsplit('/', 1)[1][:-4]}.ot holds the take's tempo and the file's length",
+              and f["gain"] == OT_GAIN)
+        check(f"{tag}: {w.rsplit('/', 1)[1][:-4]}.ot holds the take's tempo and the file's length, +12 dB",
               ok, f"{f}, tempo {tempo}, samples {n}, bars*100 {bars}")
+
+
+TEMPO_SET = 0x80001814      # the tempo both setters write; the frame latches it into 0x8000181c (DSP.md)
+TEMPO_PUB = 0x8000181c      # the published tempo, what the take latches at its start
+
+
+def tempochange(s):
+    """Review Focus 5: the tempo moves to 140 BPM 100 frames into a take;
+    each .ot keeps the tempo the take started at (the project's). A dump of
+    the published word at frame 300 shows the move took."""
+    new = 140 * 24
+    steps = [f"100:poke:" + ";".join(f"0x{TEMPO_SET + i:x}={(new >> (24 - 8 * i)) & 0xff}" for i in range(4)),
+             f"300:dump:0x{TEMPO_PUB:x},4={run_path('tempochange', 'tempo')}"]
+    log, dump, card, words, _ = port(s, 700, stop_at=400, tag="tempochange", steps=steps)
+    st, status, _, wr, rd, nfr = words
+    check("tempochange: the task finished (state IDLE, no error)", st == ST_IDLE and status == 0,
+          f"state {st}, status {status}")
+    raw = run_path("tempochange", "tempo")
+    moved = int.from_bytes(raw.read_bytes(), "big") if raw.exists() else None
+    fx = json.loads(FIXTURE.read_text())
+    start = project_tempo(card_files(card), fx)
+    check("tempochange: the published tempo moved during the take", moved == new and start != new,
+          f"{moved} at frame 300, {start} at the start")
+    ot_check(card, "tempochange", nwavs=1)
 
 
 def slot_frames(dump_path, k, g=None):
@@ -2181,7 +2221,7 @@ def main():
     runs += [(f"mask{m:02x}", lambda s, m=m: mask_take(s, m, f"mask{m:02x}"))
              for m in (0x01, 0x03, 0x0F, 0xFF, 0xA5)]
     runs += [("cost", cost), ("same_as_alone", same_as_alone), ("cut", cut), ("labels", labels), ("labelsbehind", labelsbehind), ("nocard", nocard), ("exists", exists),
-             ("logblocked", logblocked), ("logtaken", logtaken),
+             ("logblocked", logblocked), ("logtaken", logtaken), ("tempochange", tempochange),
              ("overflow", overflow), ("cardfail", cardfail)]
     if "--long" in sys.argv:
         runs += [("limit", limit)]

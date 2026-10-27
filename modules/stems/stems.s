@@ -62,17 +62,19 @@
         .equ    UNCACHED,      0x08000000   | the same RAM, data cache bypassed (PLAN.md, "The RAM")
         .equ    DTCN3,         0xfc07c00c   | DMA timer 3: free-running at the bus clock (modules/cfmeter)
         .equ    BUS_MHZ,       132          | its counts a microsecond: 7.58 ns a count
-        .equ    TEMPO24,       0x80001814   | long: the tempo, BPM * 24, clamped 720..7200 (DSP.md, RECORDER.md)
+        .equ    TEMPO_PUB,     0x8000181c   | long: the published tempo, BPM * 24, latched every frame
+                                            | from 0x80001814; the word the stock recorder stores in
+                                            | its own recordings' attributes (SAMPLE_SAVE.md 8.2)
         .equ    OT_SIZE,       832          | an Octatrack attributes file (.ot), every field big-endian
         .equ    OT_BARS_DIV,   158760       | 16-sample frames * tempo24 / this = bars * 100
 | The .ot's gain, g: (g - 48) / 2 dB, clamped 0..96, through the table at
 | 0x400b3042 (2,048 at 48, 8,153 at 72, 32,458 at 96). A WAV with no .ot
-| loads at 48; stock's own recorder buffers at 72 (0x40099308). Played
-| back on the unit a stem passes the mix's headroom a second time: by
-| ear on Yves's MKII a track's file came back about 12 dB quiet and
-| MAIN's about 24, so the .ot gives those back (96 is the field's top).
-        .equ    OT_GAIN_TRK,   72           | +12 dB: a track, and the inputs, as stock's recordings
-        .equ    OT_GAIN_BUS,   96           | +24 dB: MAIN and CUE
+| loads at 48; stock's own recorder buffers at 72 (0x40099308). By ear on
+| Yves's MKII a track's file came back about 12 dB quiet. MAIN and CUE get
+| the same +12 dB: a measured take has MAIN equal to the stems' sum within
+| 7 steps (8 Oct 2026), so more would play MAIN above its stems (note 1 of
+| 26 Oct 2026). Every file alike, until a stock .ot says otherwise.
+        .equ    OT_GAIN,       72           | +12 dB, as stock's own recordings
         .equ    CARD_UDMA,     0x46c85c8c   | byte: the card's Ultra DMA mode, if any (STEM_REC.md 11.7)
         .equ    CARD_MWDMA,    0x46c85c8b   | byte: its multiword DMA mode, if any
         .equ    CARD_SPC,      0x46107990   | byte: the mounted volume's sectors a cluster: the raw
@@ -1187,7 +1189,7 @@ stems_m8check:
 | frame. Uses d0-d4 and a0-a2.
 stems_layout:
         clr.l   stems_tfr           | the take's frames, counted by the hook from here
-        move.l  TEMPO24,%d0
+        move.l  TEMPO_PUB,%d0       | the tempo at the start edge, for the .ot files
         move.l  %d0,stems_ltempo
         move.l  stems_tracks,%d0
         andi.l  #SRC_BITS,%d0
@@ -3261,9 +3263,9 @@ stems_stats:
 | so a take that isn't one, two, four ... bars timestretched at the wrong
 | tempo. Per file with samples on the card: the tempo latched at the start,
 | the trim and loop lengths in bars * 100, timestretch NORMAL, no loop,
-| the gain by kind (OT_GAIN_*), the trim the whole file, no slices, and
-| the checksum, the sum of bytes 16 to 829. Written after STATS.TXT, through file 0's sector-0
-| copy. Nothing after a failed card write. Uses d0-d6, a0-a2.
+| +12 dB (OT_GAIN), the trim the whole file, no slices, and the checksum,
+| the 16-bit sum of bytes 20 to 829. Written after the log, through file
+| 0's sector-0 copy. Nothing after a failed card write. Uses d0-d6, a0-a2.
 stems_otfiles:
         lea     -24(%sp),%sp
         movem.l %d2-%d6/%a2,(%sp)
@@ -3323,20 +3325,7 @@ stems_otfiles:
         moveq   #0,%d0
         bsr.w   stems_ot32          | 0x27 no loop
         clr.b   (%a0)+
-        move.l  %d3,%d0
-        lsl.l   #2,%d0
-        lea     stems_ftab,%a1
-        move.l  (%a1,%d0.l),%d0
-        moveq   #24,%d1
-        lsr.l   %d1,%d0             | the kind
-        moveq   #OT_GAIN_TRK,%d1
-        subq.l  #K_MAIN,%d0
-        bcs.s   .Lt_gain            | a track
-        subq.l  #K_AB-K_MAIN,%d0
-        bcc.s   .Lt_gain            | an input: what stock gives its own recordings
-        moveq   #OT_GAIN_BUS,%d1    | MAIN or CUE
-.Lt_gain:
-        move.b  %d1,(%a0)+          | 0x2b the gain, (g - 48) / 2 dB
+        move.b  #OT_GAIN,(%a0)+     | 0x2b the gain, (g - 48) / 2 dB
         move.b  #0xff,(%a0)+        | 0x2d the trig quantization: direct
         moveq   #0,%d0
         bsr.w   stems_ot32          | 0x2e the trim start
@@ -3344,8 +3333,8 @@ stems_otfiles:
         bsr.w   stems_ot32          | 0x32 the trim end
         moveq   #0,%d0
         bsr.w   stems_ot32          | 0x36 the loop point; no slices
-        lea     16(%a2),%a0
-        move.l  #OT_SIZE-2-16,%d1
+        lea     20(%a2),%a0         | the firmware sums from the version on (SAMPLE_SAVE.md 8.1)
+        move.l  #OT_SIZE-2-20,%d1
         moveq   #0,%d0
         moveq   #0,%d2
 .Lt_sum:
@@ -3356,7 +3345,7 @@ stems_otfiles:
         move.b  %d0,OT_SIZE-1(%a2)  | the checksum, big-endian
         lsr.l   #8,%d0
         move.b  %d0,OT_SIZE-2(%a2)
-        bsr.w   stems_make_file     | <take>/<file>.wav, then .ot in its place
+        bsr.w   stems_make_file     | <take>-<file>.wav, then .ot in its place
         lea     stems_fpath,%a0
 .Lt_end:
         tst.b   (%a0)+

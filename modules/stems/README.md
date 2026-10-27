@@ -11,11 +11,21 @@ name starts each file's name: `YYMMDD-HHMM-T1.wav` to `-T8.wav`,
 is named `YYMMDD-HHMM-2`, a third `YYMMDD-HHMM-3`, and so on up to 99, so
 no take overwrites another. A name counts as taken when its log
 (`/BRAIN/STEMS/<take>.TXT`, see STATS.TXT below) is on the card, or any
-file the new take writes. Every
-take that ends writes a log, so a second take with other sources gets a
-number too. Takes already
-on a card in an older layout (`AUDIO/STEMS/<project>/YYMMDD-HHMM/`, or
-`AUDIO/YYMMDD-HHMM/`) stay where they are. A track's file is
+file the new take writes. Every take that ends writes a log, so a second
+take with other sources gets a number too. Takes already on a card in an
+older layout (`AUDIO/STEMS/<project>/YYMMDD-HHMM/`, or
+`AUDIO/YYMMDD-HHMM/`) stay where they are.
+
+Beside each WAV, STEM REC writes an attributes file with the same name
+and the extension `.ot`, as the stock recorder does for its own
+recordings. It holds the tempo when the take started (`0x8000181c`, the
+word the stock recorder stores), so the unit timestretches the file at
+that tempo instead of guessing one from the file's length. It also holds
+the file's length in bars and a gain of +12 dB, the gain stock gives its
+own recordings, on every file, MAIN and CUE too. A file with no samples
+gets no `.ot`. The fields follow the firmware's writer
+(`docs/firmware/SAMPLE_SAVE.md` section 8); a stock `.ot` from the unit
+hasn't checked them yet. A track's file is
 its share of MAIN: the track's audio times the gain the mix gives it, so
 the level, MAIN LEVEL, the scenes and the crossfader are in it. At every
 boot the eight tracks are on, MAIN, CUE and the inputs off, both input
