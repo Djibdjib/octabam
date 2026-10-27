@@ -55,7 +55,8 @@ from stems_panel import MENU_FOCUS, MenuPort, diff_box  # noqa: E402
 
 ROOT_DESC, PROJECT_DESC, SYSTEM_DESC, SEL = 0x400cbd8c, 0x400cbcac, 0x400cbd1c, 0x0c
 CARD_MOUNTED = 0x460d1cb8       # stems.s: long, 0 = no card
-ARM_WORDS = 0x46c803d4          # the stock arm word YES sets: 0xffff ARM ALL, a track's bit ARM TRK (MAINMENU.md 6)
+ARM_HELD = 0x46c7ff64           # the stock arm word while YES is held: 0xffff ARM ALL, a track's bit ARM TRK
+                                # (MAINMENU.md 6); the release clears it
 OS_UPGRADE = 1                  # SYSTEM's row 1 (MAINMENU.md 2)
 PROJECT_N = 15                  # stock PROJECT row count (unchanged)
 ENTER, CLOSE = "yes", "no"
@@ -408,7 +409,20 @@ def taps(p, gap_ms):
     press's ARM ALL covered STEMS ARMED)."""
     p.run(600)
     p.press("yes", hold=40, settle=gap_ms - 40)
-    p.press("yes", hold=40, settle=300)
+    return yes_held(p)
+
+
+def yes_held(p):
+    """One YES press (held 40 ms, then 300 ms), and the stock arm word read
+    while it is held: ARM_HELD is set on the press and cleared on the
+    release (MAINMENU.md 6), where the other arm word is a request the frame
+    interrupt applies and clears within a frame (0x4000ac44)."""
+    p.key("yes", True)
+    p.run(40)
+    word = int.from_bytes(p.peek(ARM_HELD, 2), "big")
+    p.key("yes", False)
+    p.run(300)
+    return word
 
 
 def double_tap(model, s, fx):
@@ -437,11 +451,9 @@ def double_tap(model, s, fx):
         vs.check(f"{model}: NO CARD before any take, then the card back: STEMS reopens on REC and READY",
                  nocard == ["REC", "NO CARD"] and back == ["REC", "READY"] and st() == vs.ST_IDLE,
                  f"{nocard} -> {back}")
-        p.poke(ARM_WORDS, bytes(2))
-        p.press("yes", settle=300)                     # the same delay as a pair's last press: ARM ALL still up
+        arms = yes_held(p)                              # the same delay as a pair's last press: ARM ALL still up
         one = st()
         single = p.screen()
-        arms = int.from_bytes(p.peek(ARM_WORDS, 2), "big")
         p.run(1000)
         pending = p.long(s["stems_yes_n"])
         vs.check(f"{model}: one YES is still stock's ARM ALL (every track's arm bit)", arms == 0xFFFF,
@@ -465,14 +477,12 @@ def double_tap(model, s, fx):
         p.press(CLOSE, settle=200)
         vs.check(f"{model}: the armed take cancels from STEMS", st() == vs.ST_IDLE and not stems_open(p, s),
                  f"state {st()}")
-        p.poke(ARM_WORDS, bytes(2))
         p.key("t1", True)
         p.run(100)
-        taps(p, 200)
+        arms = taps(p, 200)
         p.key("t1", False)
         p.run(300)
         held = st()
-        arms = int.from_bytes(p.peek(ARM_WORDS, 2), "big")
         vs.check(f"{model}: with T1 held, a double tap stays stock's (ARM TRK: T1's bit alone), STEM REC idle",
                  held == vs.ST_IDLE and arms == 0x0001, f"state {held}, arm word {arms:#06x}")
         p.open_menu()

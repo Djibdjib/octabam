@@ -452,6 +452,13 @@ stems_enter:
         move.l  %a0,stems_list+0x18
         moveq   #-1,%d0             | the labels stay what the take shows; the task
         move.l  %d0,ui_key          | rewrites them on its next pass (note 2 of 26 Oct 2026)
+        tst.l   stems_task_made     | no writer task yet: no take has run, and nothing
+        bne.s   .Len_keep           | would rewrite a NO CARD or TASK FAILED left in rows
+        lea     lbl_rec,%a0         | 0 and 1, so they start over
+        move.l  %a0,stems_rows
+        lea     lbl_ready,%a0
+        move.l  %a0,stems_rows+ROW_LEN
+.Len_keep:
         rts
 | ---- open / close (tuner shape) ----------------------------------------
 stems_open:
@@ -767,6 +774,14 @@ stems_draw:
 stems_ui_tick:
         movea.l %d0,%a0             | stock: the message
         addq.l  #4,%sp              | stock: queue_receive's argument
+        tst.l   stems_yes_n         | a first tap of YES waiting (stems_yes_key)
+        beq.s   .Lut_win
+        move.l  DTCN3,%d0
+        sub.l   stems_yes_t,%d0
+        cmpi.l  #TAP_COUNTS,%d0
+        bcs.s   .Lut_win
+        clr.l   stems_yes_n         | its 0.4 s are over: DTCN3 wraps every 32.5 s, so a
+.Lut_win:                           | tap left waiting would pair with a much later press
         tst.l   stems_win
         beq.s   .Lut_stock          | STEMS closed: nothing to draw
         move.l  stems_lgen,%d0
