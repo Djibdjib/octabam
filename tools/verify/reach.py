@@ -1094,15 +1094,20 @@ def entry_name(kind, command):
     return kind
 
 
-# Units that would set the wall time on one runner, cut in two (a CI runner
-# each). A remix: the gate jobs named here on one runner (check_shards
-# --only-jobs), every other on the other (--skip-jobs); a name that is no gate
-# job is refused there, so a rename cannot drop a gate. The shared half: its
-# module_gates step on one, every other step on the other (Makefile
-# SHARED_PART). Times of run 40467801048: remix-switch 481 s of octabam's 1886 s
-# over 3 shards (the other jobs: 1405 s, 468 s over 3 shards); module_gates
-# --shared 353 s of the shared half's 645 s, run serially.
-SPLIT_REMIX_JOBS = {"octabam": ("remix-switch",)}
+# Units that would set the wall time on one runner, cut up (a CI runner each).
+# A remix: each part is the gate jobs named here (check_shards --only-jobs, the
+# unit `check-remix <remix> (<part>)`), the unit `check-remix <remix>` every
+# other (--skip-jobs); a name that is no gate job is refused there, so a
+# rename cannot drop a gate. The `project` part is the jobs that read
+# OT_PROJECT: its unit alone gets the generated project (ci.yml, tools/hw/
+# ot_fresh.py, 255 s on a runner), the others run as they did without one.
+# `image` is not in it: with a project its verify_brain fails and the job took
+# 2869 s on cxosc-core (27 Oct 2026). The shared half: its module_gates step on
+# one unit, every other step on the other (Makefile SHARED_PART). Times of run
+# 40467801048: remix-switch 481 s of octabam's 1886 s over 3 shards (the other
+# jobs: 1405 s, 468 s over 3 shards); module_gates --shared 353 s of the shared
+# half's 645 s, run serially.
+SPLIT_REMIX_JOBS = {"octabam": {"long": ("remix-switch",), "project": ("set", "mode-defaults", "plocks-p2")}}
 
 
 def entries(items, jobs):
@@ -1127,9 +1132,12 @@ def entries(items, jobs):
                 line = lambda extra="": (f"python3 tools/verify/check_shards.py --jobs {jobs} "
                                          + (f'--modules "{",".join(modules)}" ' if modules else "") + extra + r)
                 if r in SPLIT_REMIX_JOBS:
-                    names = ",".join(SPLIT_REMIX_JOBS[r])
-                    out.append({"name": f"check-remix {r}", "items": [(kind, line(f"--skip-jobs {names} "), paths)]})
-                    out.append({"name": f"check-remix {r} (long)", "items": [(kind, line(f"--only-jobs {names} "), paths)]})
+                    parts = SPLIT_REMIX_JOBS[r]
+                    every = ",".join(n for names in parts.values() for n in names)
+                    out.append({"name": f"check-remix {r}", "items": [(kind, line(f"--skip-jobs {every} "), paths)]})
+                    for part, names in parts.items():
+                        out.append({"name": f"check-remix {r} ({part})",
+                                    "items": [(kind, line(f"--only-jobs {','.join(names)} "), paths)]})
                 else:
                     out.append({"name": f"check-remix {r}", "items": [(kind, line(), paths)]})
         elif kind == "check-shared":

@@ -253,18 +253,21 @@ jobs:
           path: |
             .git/octabam-gate-times.json
             .git/octabam-gate-cache
+            .git/octabam-fresh-cache
           key: gates-${{ steps.unit.outputs.slug }}-${{ github.run_id }}
           restore-keys: gates-${{ steps.unit.outputs.slug }}-
 
-      # The set gates (verify_set, mode-defaults, plocks-p2, dlload) SKIP without a project. An empty one is made
-      # by the firmware itself under the port from the runner's own OS (tools/hw/ot_fresh.py), on the unit's remix.
+      # The set gates (mode-defaults, plocks-p2, set, ...) SKIP without a project. An empty one is made by the
+      # firmware itself under the port from the runner's own OS (tools/hw/ot_fresh.py), on the unit's remix, and kept
+      # in .git/octabam-fresh-cache by image, port and script. Only the `(project)` unit of a remix (reach.SPLIT_REMIX_JOBS)
+      # runs the jobs that read it; the image job is not one: with a project it ran 2869 s and failed in verify_brain.
       - name: 📁 Fresh Project
-        if: startsWith(matrix.name, 'check-remix ')
+        if: contains(matrix.name, ' (project)')
         env:
           UNIT: ${{ matrix.name }}
         run: |
           remix="${UNIT#check-remix }"
-          remix="${remix% (long)}"
+          remix="${remix% (project)}"
           make emu-get
           .venv/bin/python3 tools/hw/ot_fresh.py --remix "$remix" --out out/fresh
           echo "OT_PROJECT=$PWD/out/fresh/$remix/NOPROJ" >> "$GITHUB_ENV"
@@ -319,6 +322,7 @@ jobs:
           path: |
             .git/octabam-gate-times.json
             .git/octabam-gate-cache
+            .git/octabam-fresh-cache
           key: gates-${{ steps.unit.outputs.slug }}-${{ github.run_id }}
 
       - name: 🧮 Check ColdFire Port Built

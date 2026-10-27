@@ -94,7 +94,10 @@ class PickJobs(unittest.TestCase):
     def test_octabams_long_share_names_real_jobs(self):
         import reach
         names = {j[0] for j in check_shards.remix_jobs("octabam", ROOT)}
-        self.assertLessEqual(set(reach.SPLIT_REMIX_JOBS["octabam"]), names)
+        parts = reach.SPLIT_REMIX_JOBS["octabam"]
+        every = [n for jobs in parts.values() for n in jobs]
+        self.assertLessEqual(set(every), names)
+        self.assertEqual(len(every), len(set(every)))      # no job in two parts
 
 
 class Split(unittest.TestCase):

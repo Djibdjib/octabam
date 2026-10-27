@@ -149,6 +149,23 @@ def shard_ok(path):
     return f"worktree {path.resolve()}" in r.stdout.splitlines()
 
 
+def local_submodule_update():
+    """`git submodule update --init` for a shard that clones each submodule
+    from the copy this tree already holds, not from GitHub: 16 clones took
+    41 s from GitHub and 3 s from here (27 Oct 2026; a CI run's shards were
+    ready in 38-50 s). The URLs are per-command (-c): nothing is written to
+    the shared git config. A submodule this tree has not cloned keeps its URL."""
+    gitdir = pathlib.Path(git("rev-parse", "--absolute-git-dir").stdout.strip())
+    names = [line.split()[0][len("submodule."):-len(".path")]
+             for line in git("config", "-f", ".gitmodules", "--get-regexp", r"^submodule\..*\.path$",
+                             check=False).stdout.splitlines()]
+    cmd = ["git", "-c", "protocol.file.allow=always"]
+    for name in names:
+        if (gitdir / "modules" / name).is_dir():
+            cmd += ["-c", f"submodule.{name}.url={gitdir / 'modules' / name}"]
+    return cmd + ["submodule", "update", "--init"]
+
+
 def make_shard(path, log, fresh=False, port=True):
     """A detached worktree of HEAD with this tree's uncommitted changes, the
     shared toolchain links, the stock slice, its submodules and the port
@@ -189,7 +206,7 @@ def make_shard(path, log, fresh=False, port=True):
     # source state for every worktree and shard, copied in (until 12 Oct
     # 2026 each new shard ran its own cmake build, ~40 s each).
     # port=False: a tree that only builds images (refhash's scratch trees)
-    cmds = [["git", "submodule", "update", "--init"]]
+    cmds = [local_submodule_update()]
     if port:
         cmds += [[sys.executable, "tools/emu/port_store.py", "install"],
                  ["./out/emu/ot_emu", "--image", "out/raw/section_3_MAIN_OS.bin"]]
@@ -199,6 +216,11 @@ def make_shard(path, log, fresh=False, port=True):
             f.write(f"$ {' '.join(cmd)}\n")
             f.flush()
             r = subprocess.run(cmd, cwd=path, stdout=f, stderr=subprocess.STDOUT, env=clean_env())
+            if r.returncode and "protocol.file.allow=always" in cmd:
+                f.write("# a local clone failed: from the URLs\n$ git submodule update --init\n")
+                f.flush()
+                r = subprocess.run(["git", "submodule", "update", "--init"], cwd=path, stdout=f,
+                                   stderr=subprocess.STDOUT, env=clean_env())
             if r.returncode:
                 raise SystemExit(f"check_shards: {' '.join(cmd)} failed in {path} ({r.returncode}): {log}")
 

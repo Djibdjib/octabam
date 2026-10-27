@@ -589,15 +589,16 @@ class PlanJsonTests(unittest.TestCase):
         self.assertEqual(got["check-remix y"],
                          ['python3 tools/verify/check_shards.py --jobs 3 --modules "K1,K2" y'])
 
-    def test_a_remix_with_a_long_share_is_two_units_that_cover_every_gate_job_once(self):
+    def test_a_split_remix_is_units_that_cover_every_gate_job_once(self):
         items = [("check-remix", "python3 tools/verify/check_shards.py --jobs 3 --modules \"K1\" x octabam", ["e"])]
-        with mock.patch.dict(reach.SPLIT_REMIX_JOBS, {"octabam": ("remix-switch", "image")}):
+        parts = {"long": ("remix-switch",), "project": ("set", "plocks-p2")}
+        with mock.patch.dict(reach.SPLIT_REMIX_JOBS, {"octabam": parts}):
             got = {e["name"]: e["items"][0][1] for e in reach.entries(items, 3)}
-        self.assertEqual(got["check-remix x"], 'python3 tools/verify/check_shards.py --jobs 3 --modules "K1" x')
-        self.assertEqual(got["check-remix octabam"],
-                         'python3 tools/verify/check_shards.py --jobs 3 --modules "K1" --skip-jobs remix-switch,image octabam')
-        self.assertEqual(got["check-remix octabam (long)"],
-                         'python3 tools/verify/check_shards.py --jobs 3 --modules "K1" --only-jobs remix-switch,image octabam')
+        pre = 'python3 tools/verify/check_shards.py --jobs 3 --modules "K1" '
+        self.assertEqual(got["check-remix x"], pre + "x")
+        self.assertEqual(got["check-remix octabam"], pre + "--skip-jobs remix-switch,set,plocks-p2 octabam")
+        self.assertEqual(got["check-remix octabam (long)"], pre + "--only-jobs remix-switch octabam")
+        self.assertEqual(got["check-remix octabam (project)"], pre + "--only-jobs set,plocks-p2 octabam")
         for line in got.values():
             self.assertEqual(reach.shards_line(line)[0], [line.split()[-1]])
 

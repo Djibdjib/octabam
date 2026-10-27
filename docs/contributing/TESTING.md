@@ -58,8 +58,12 @@ skipped.
 ## 2. `make check`: the two halves
 
 `make check REMIX=<name>` is `bus`, `cycles`, then `verify`, and `verify`
-is two halves (`Makefile`: `verify-shared`, `verify-remix`). There is no
-default remix.
+is two halves (`Makefile`: `verify-shared`, `verify-remix`). No make target
+has a default remix; `make reach` (QUICK) and CI take `octabam` (the golden
+master, `reach.DEFAULT_REMIX`): a module it carries is checked on it alone, and
+it is the floor for tool, build and unclassified changes. A module it does not
+carry is checked on the remixes that do; FULL=1 checks every carrier and the
+cover.
 
 **The shared half** (`make check-shared REMIXES="a b c"`) does not depend
 on which remix is selected, so a run over several remixes does it once:
@@ -394,16 +398,26 @@ key cannot see a file a gate reads through a path built at run time, or
 anything outside the repository other than the toolchain and the project.
 The shared half and `make accept` are not cached.
 
-**CI units cut in two** (`reach.entries`, `reach.SPLIT_REMIX_JOBS`). Each
-unit of the CI matrix is a runner with its own setup. `check-remix octabam`
-runs as two units: `check_shards --only-jobs remix-switch` (`(long)`)
-and `--skip-jobs remix-switch` (every other gate job); a name that is
-no gate job is refused, so the parts always cover every gate job once.
+**CI units cut up** (`reach.entries`, `reach.SPLIT_REMIX_JOBS`). Each unit of
+the CI matrix is a runner with its own setup. `check-remix octabam` runs as
+three units, each `check_shards --only-jobs ...` over a part of the gate jobs:
+`(long)` is `remix-switch`, `(project)` is `set`, `mode-defaults` and
+`plocks-p2` (the jobs that read `OT_PROJECT`), and the unit without a suffix is
+`--skip-jobs` of both (every other job, `image` among them). A name that is no
+gate job is refused, so the parts always cover every gate job once. Only the
+`(project)` unit makes a project: `tools/hw/ot_fresh.py` boots the port and
+creates one with the panel script (100 s locally, 255 s in CI), and keeps it in
+`<git common dir>/octabam-fresh-cache/<sha256 of image, port sources, script>`
+(CI: the same actions cache as the gate passes), so a rerun for the same inputs
+is the image build alone (41 s locally). `image` is outside it: with a project it
+failed in `verify_brain` and ran 2869 s on cxosc-core (27 Oct 2026).
 `check-shared` runs as two units: `make check-shared SHARED_PART=modules`
 (`module_gates --shared`) and `SHARED_PART=rest` (every other step of
 `verify-shared`); a bare `make verify-shared` runs both, in that order. A
 part's gate durations are recorded per job; the remix's total is not (it
-would be the part's).
+would be the part's). A shard's submodules are cloned from the copy of the tree
+that makes it (`check_shards.local_submodule_update`): 3 s, against 41 s from
+GitHub.
 
 **Virtual card retention (enabled by default).** `make check`,
 `make check-remix`, `make verify-shared`, `make verify-remix`, the split
