@@ -94,6 +94,7 @@
         .equ    K_AB,          10
         .equ    K_A,           12
         .equ    SRC_BITS,      0xfff        | the sources a take may latch: T1-T8, MAIN, CUE, AB, CD
+        .equ    OUT_BITS,      0xf000       | A, B, C, D left out of a pair in mono (its bit says it's on)
         .equ    MAX_FRAMES,    9922500      | 60 minutes
         .equ    CHUNK_FRAMES,  512          | frames per write while recording: a file writes up to
                                             | CHUNK_FRAMES x its frame's bytes / 512 sectors a pass
@@ -248,7 +249,8 @@ stems_frames:    .long   0          | frames recorded (= stems_wr)
 stems_peak:      .long   0          | the take's largest ring fill, frames; reset at the arm
         .global stems_tracks, stems_hold, stems_probe, stems_probe_res
         .global stems_fmt, stems_nf, stems_ftab, stems_fbytes
-stems_tracks:    .long   0xFF       | the sources: bits 0-7 T1-T8, 8 MAIN, 9 CUE, 10 AB, 11 CD
+stems_tracks:    .long   0xFF       | the sources: bits 0-7 T1-T8, 8 MAIN, 9 CUE, 10 AB, 11 CD;
+                                    | 12-15 A, B, C, D left out while their pair is mono
 stems_fmt:       .long   6          | bit 0 24 BIT, bit 1 AB STEREO, bit 2 CD STEREO
 stems_hold:      .long   0          | test seam: non-zero pauses the writer while RECORDING
         .global stems_trace, stems_trace_buf
@@ -390,48 +392,74 @@ bus_src:    .long   BUS, BUS+0x80, IN_AB_OFF, IN_CD_OFF
         .balign 2
 
 | ---- STEMS window (UP+REC): own WCREATE window, not MAIN MENU ----------
-| Tuner-shaped: WCREATE / WFRAME / LPUSH, draw + key layer. No MENU_OPEN,
-| no root-child YES, no PROJECT borrow. Press only — REC release with UP
-| held must not toggle. Rows with action 0 are headings: skip one, never
-| land on a last heading (STEM_REC.md 16.1).
-        .equ    ROW_LEN,       24
-        .equ    MENU_ROWS,     18
-        .equ    MENU_VISIBLE,  6            | 7 at pitch 7 put PEAK at y=0 (clipped on h=64)
-        .equ    ROW_SRC0,      2
-        .equ    NSRC,          12
-        .equ    ROW_SW0,       14
-        .equ    ROW_PEAK,      17
+| Tuner-shaped: WCREATE / LPUSH, draw + key layer. No MENU_OPEN, no
+| root-child YES, no PROJECT borrow. Press only — REC release with UP
+| held must not toggle. Drawn as MAIN MENU draws SYSTEM > PERSONALIZE
+| (Yves chose its look, 27 Oct 2026): MAIN MENU's window and title band
+| (0x40064c56, 0x40064d7c), then PERSONALIZE's page (0x40068e00): the
+| icon, the title at the right, a rule, five rows of a label and a value,
+| the scroll arrows. A row with action 0 (PEAK) is a heading the cursor
+| skips. The AB and CD rows hold their fields on one row: LEFT and RIGHT
+| pick one, as on stock MIDI SYNC (stems_draw_pair).
+        .equ    ROW_LEN,       24           | label, value, action, then three zero longs
+        .equ    ROW_VALUE,     0x04
+        .equ    ROW_ACTION,    0x08
+        .equ    MENU_ROWS,     15
+        .equ    MENU_VISIBLE,  5            | PERSONALIZE's
+        .equ    ROW_PEAK,      1
+        .equ    ROW_SRC0,      2            | T1: T1-T8, MAIN and CUE are sources 0-9
+        .equ    NSRC,          10
+        .equ    ROW_AB,        12           | the pair rows, AB then CD
+        .equ    ROW_B24,       14
+        .equ    FIELD_IN1,     0            | stems_field on a pair row: AB (or A), B, STEREO
+        .equ    FIELD_IN2,     1
+        .equ    FIELD_ST,      2
         .equ    LIST_SEL,      0x0c
         .equ    LIST_TOP,      0x04         | first visible row (our scroll)
-        .equ    ROW_ACTION,    0x08
         .equ    KROWS,         0x46100b18
         .equ    KUP,           0x33
         .equ    KDOWN,         0x20
+        .equ    KLEFT,         0x34
+        .equ    KRIGHT,        0x21
         .equ    REC_CONT,      0x4004877c
         .equ    REC_EARLY,     0x4004883a
-        .equ    WCREATE,       0x4005829c   | (w, h, 0, 0, class, closed) -> handle
-        .equ    WFRAME,        0x40056f4c
+        .equ    WCREATE,       0x4005829c   | (w, h, x, 0, class, closed) -> handle
         .equ    WDESTROY,      0x40055db4   | (&handle): destroy, SCRDIRTY, handle = 0
-        .equ    CLEAR,         0x40035624
+        .equ    WTITLE,        0x40057c84   | (window, title, 0): its frame and title band
+        .equ    WINSIDE,       0x400356a8   | (surface): the inside cleared
         .equ    FONT,          0x400ba876
         .equ    TEXT,          0x40012bd8   | (font, surf, x, y, limit, str)
+        .equ    TEXTW,         0x40012f30   | (font, limit, str) -> its width in pixels
+        .equ    TEXTFIT,       0x40012f88   | (font, width, str) -> the characters that fit
+        .equ    ICON,          0x400128a8   | (icon, surf, x, y)
         .equ    RULE,          0x40011910
-        .equ    BOX,           0x40012254   | (surf, x1, y1, x2, y2, mode): -1 invert
+        .equ    BOX,           0x40012254   | (surf, x1, y1, x2, y2, mode): -1 inverts x1..x2
         .equ    LPUSH,         0x40031494
         .equ    LPOP,          0x4003146c
         .equ    SCRDIRTY,      0x46c7c72c
-        .equ    WINW,          115
-        .equ    WINH,          64           | screen / stock WCREATE max; 72 overflowed the panel
+        .equ    TITLE_FMT,     0x400b5dcf   | MAIN MENU's band: "%.10s/%.32s", the set, the project
+        .equ    SET_NAME,      0x100f8481
+        .equ    PROJ_NAME,     0x100f8378
+        .equ    ARROW_UP,      0x400b4315   | the list's scroll arrows (PERSONALIZE's)
+        .equ    ARROW_DOWN,    0x400b4317
+        .equ    WINW,          118          | MAIN MENU's window: 118 by 64 at x -1 (0x400cbf58)
+        .equ    WINH,          64
+        .equ    WINX,          -1
         .equ    WINCLASS,      5            | TEMPO-like; not MAIN MENU class 1
-        .equ    ROW_PITCH,     7            | glyph tallness; PEAK at y=7 with 6 visible
+        .equ    ROW_PITCH,     7
+        .equ    ROW0_Y,        34           | the first row's bar; its text one up (PERSONALIZE)
+        .equ    VALUE_X,       77
+        .equ    BAR_X1,        3
+        .equ    BAR_X2,        107
         .global stems_cat_label, stems_icon, stems_icon_p0, stems_icon_p1
-        .global stems_list, stems_rows, stems_zero, stems_enter
+        .global stems_list, stems_rows, stems_zero, stems_enter, stems_field
         .global stems_live, stems_win, stems_rec_key, stems_draw, stems_close
+        .global stems_ud, stems_lr
         .equ    stems_zero, 0
 stems_cat_label:
         .asciz  "STEMS"
         .balign 4
-stems_icon:                                 | kept for symbol stability; unused (no root row)
+stems_icon:                                 | the title's icon, in PERSONALIZE's place (its record's form)
         .long   0x13, 0x09, 0x01, stems_icon_p0, stems_icon_p1
 stems_icon_p0:
         .long   0, 0, 0, 0, 0, 0
@@ -453,14 +481,15 @@ stems_enter:
         move.l  %d0,stems_list+0x14
         lea     stems_rows,%a0
         move.l  %a0,stems_list+0x18
+        clr.l   stems_field
         moveq   #-1,%d0             | the labels stay what the take shows; the task
         move.l  %d0,ui_key          | rewrites them on its next pass (note 2 of 26 Oct 2026)
         tst.l   stems_task_made     | no writer task yet: no take has run, and nothing
-        bne.s   .Len_keep           | would rewrite a NO CARD or TASK FAILED left in rows
-        lea     lbl_rec,%a0         | 0 and 1, so they start over
+        bne.s   .Len_keep           | would rewrite a NO CARD or TASK FAILED left in row
+        lea     lbl_stemrec,%a0     | 0, so it starts over
         move.l  %a0,stems_rows
         lea     lbl_ready,%a0
-        move.l  %a0,stems_rows+ROW_LEN
+        move.l  %a0,stems_rows+ROW_VALUE
 .Len_keep:
         rts
 | ---- open / close (tuner shape) ----------------------------------------
@@ -469,16 +498,13 @@ stems_open:
         pea     stems_close
         pea     WINCLASS
         clr.l   -(%sp)
-        clr.l   -(%sp)
+        pea     WINX
         pea     WINH
         pea     WINW
         jsr     WCREATE
         lea     24(%sp),%sp
         move.l  %d0,stems_win
         beq.s   .Lsw_ofail
-        move.l  %d0,-(%sp)
-        jsr     WFRAME
-        addq.l  #4,%sp
         pea     STEMS_LAYER
         jsr     LPUSH
         addq.l  #4,%sp
@@ -609,66 +635,112 @@ stems_yes_key:
         move.l  8(%sp),%d0
         jmp     YES_BACK            | its rts, or its toast's, comes back here
 
-| ---- keys: UP/DOWN move (skip one heading); YES runs the row -----------
+| ---- keys: UP/DOWN move (skipping PEAK); LEFT/RIGHT pick a pair row's
+| field; YES runs the row -------------------------------------------------
 stems_ud:
-        move.l  %d2,-(%sp)
-        move.l  %d3,-(%sp)
+        lea     -12(%sp),%sp
+        movem.l %d2-%d4,(%sp)
         moveq   #1,%d0                  | DOWN
         moveq   #KUP,%d1
-        cmp.l   12(%sp),%d1
+        cmp.l   16(%sp),%d1
         bne.s   .Lsw_udir
         moveq   #-1,%d0                 | UP
 .Lsw_udir:
-        move.l  stems_list+LIST_SEL,%d1
-        move.l  %d1,%d2                 | d2 = old sel (stay on failure)
-        add.l   %d0,%d1                 | candidate
-        bmi.s   .Lsw_ustay
-        cmp.l   #MENU_ROWS,%d1
-        bge.s   .Lsw_ustay
-        lea     stems_rows,%a0
-        move.l  %d1,%d3
-        mulu.w  #ROW_LEN,%d3
-        tst.l   ROW_ACTION(%a0,%d3.l)
-        bne.s   .Lsw_uok                  | selectable
-        cmp.l   #MENU_ROWS-1,%d1        | last heading: never land
-        beq.s   .Lsw_ustay
-        add.l   %d0,%d1                 | skip exactly one heading
-        bmi.s   .Lsw_ustay
-        cmp.l   #MENU_ROWS,%d1
-        bge.s   .Lsw_ustay
-        move.l  %d1,%d3
-        mulu.w  #ROW_LEN,%d3
-        tst.l   ROW_ACTION(%a0,%d3.l)
-        beq.s   .Lsw_ustay
+        move.l  stems_list+LIST_SEL,%d2 | d2: the row it leaves (and stays on at either end)
+        move.l  %d2,%d1
+        add.l   %d0,%d1
+        bmi.s   .Lsw_udone
+        moveq   #MENU_ROWS,%d3
+        cmp.l   %d3,%d1
+        bge.s   .Lsw_udone
+        cmpi.l  #ROW_PEAK,%d1
+        bne.s   .Lsw_uok
+        add.l   %d0,%d1                 | PEAK has no action: the row past it (STEM REC, T1)
 .Lsw_uok:
         move.l  %d1,stems_list+LIST_SEL
         move.l  stems_list+LIST_TOP,%d0
         cmp.l   %d0,%d1
         bge.s   .Lsw_ubot
-        move.l  %d1,stems_list+LIST_TOP
-        bra.s   .Lsw_upeak
+        move.l  %d1,stems_list+LIST_TOP     | above the pane: the new top
+        bra.s   .Lsw_ufield
 .Lsw_ubot:
-        move.l  %d0,%d3
-        addq.l  #5,%d3                  | MENU_VISIBLE-1
-        cmp.l   %d3,%d1
-        ble.s   .Lsw_upeak
+        addq.l  #MENU_VISIBLE-1,%d0
+        cmp.l   %d0,%d1
+        ble.s   .Lsw_ufield
         move.l  %d1,%d0
-        subq.l  #5,%d0
-        move.l  %d0,stems_list+LIST_TOP
-.Lsw_upeak:
-| On the last selectable row (24 BIT), pin the pane so PEAK (last heading)
-| stays visible — cursor never lands on it, but the readout must show.
-        cmp.l   #MENU_ROWS-2,%d1
-        blt.s   .Lsw_udone
-        moveq   #MENU_ROWS-MENU_VISIBLE,%d0
-        move.l  %d0,stems_list+LIST_TOP
-        bra.s   .Lsw_udone
-.Lsw_ustay:
-        move.l  %d2,stems_list+LIST_SEL
+        subq.l  #MENU_VISIBLE-1,%d0
+        move.l  %d0,stems_list+LIST_TOP     | below it: the new bottom
+| The field, from one pair row onto the other: kept where that one has it
+| (STEREO always, B only in mono), else the first; any other row, the first.
+.Lsw_ufield:
+        move.l  %d2,%d3
+        subi.l  #ROW_AB,%d3
+        moveq   #2,%d4
+        cmp.l   %d4,%d3
+        bcc.s   .Lsw_ufirst             | from a row that isn't a pair (unsigned: above it too)
+        move.l  %d1,%d3
+        subi.l  #ROW_AB,%d3
+        cmp.l   %d4,%d3
+        bcc.s   .Lsw_ufirst             | onto one that isn't
+        moveq   #FIELD_IN2,%d0
+        cmp.l   stems_field,%d0
+        bne.s   .Lsw_udone
+        addq.l  #1,%d3                  | the new pair's format bit: 1 AB, 2 CD
+        move.l  stems_fmt,%d0
+        btst    %d3,%d0
+        beq.s   .Lsw_udone              | in mono: it has a second input
+.Lsw_ufirst:
+        clr.l   stems_field
 .Lsw_udone:
-        move.l  (%sp)+,%d3
-        move.l  (%sp)+,%d2
+        movem.l (%sp),%d2-%d4
+        lea     12(%sp),%sp
         bra.w   stems_draw
+| LEFT and RIGHT: on a pair row the field before or after, through the ones
+| it has (AB and STEREO in stereo; A, B and STEREO in mono), stopping at
+| either end; on any other row, nothing.
+stems_lr:
+        lea     -8(%sp),%sp
+        movem.l %d2-%d3,(%sp)
+        move.l  stems_list+LIST_SEL,%d2
+        subi.l  #ROW_AB,%d2
+        moveq   #2,%d0
+        cmp.l   %d0,%d2
+        bcc.s   .Llr_out                | not a pair row
+        addq.l  #1,%d2                  | its format bit: 1 AB, 2 CD
+        move.l  stems_field,%d3         | d3: the field now
+        move.l  %d3,%d0
+        moveq   #KRIGHT,%d1
+        cmp.l   12(%sp),%d1
+        bne.s   .Llr_left
+        addq.l  #1,%d0                  | RIGHT: the next field
+        moveq   #FIELD_ST,%d1
+        cmp.l   %d1,%d0
+        bgt.s   .Llr_out                | STEREO, the last, already
+        bra.s   .Llr_has
+.Llr_left:
+        subq.l  #1,%d0                  | LEFT: the one before
+        bmi.s   .Llr_out                | the first already
+.Llr_has:
+        move.l  stems_fmt,%d1
+        btst    %d2,%d1
+        beq.s   .Llr_set                | mono: A, B, STEREO
+        moveq   #FIELD_IN2,%d1
+        cmp.l   %d1,%d0
+        bne.s   .Llr_set
+        moveq   #FIELD_ST,%d0           | stereo has no B: RIGHT from AB is STEREO,
+        moveq   #FIELD_ST,%d1
+        cmp.l   %d1,%d3
+        bne.s   .Llr_set
+        moveq   #FIELD_IN1,%d0          | LEFT from STEREO is AB
+.Llr_set:
+        move.l  %d0,stems_field
+        movem.l (%sp),%d2-%d3
+        lea     8(%sp),%sp
+        bra.w   stems_draw
+.Llr_out:
+        movem.l (%sp),%d2-%d3
+        lea     8(%sp),%sp
+        rts
 stems_yes:
         move.l  stems_list+LIST_SEL,%d0
         mulu.w  #ROW_LEN,%d0
@@ -691,6 +763,21 @@ stems_text:
         jsr     TEXT
         lea     24(%sp),%sp
         rts
+| d0 = x1, d1 = x2, d3 = a row's bar (its bottom); a5 = surface: invert
+| x1..x2 over the row, as PERSONALIZE's bar does. Before 27 Oct 2026 the
+| bar reached w-3, a column no clear reset, and it flickered with each new
+| second (Yves's MKII); PERSONALIZE's stops at 107.
+stems_invert:
+        pea     -1
+        move.l  %d3,-(%sp)
+        addq.l  #6,(%sp)                | y2: the glyph's top
+        move.l  %d1,-(%sp)
+        move.l  %d3,-(%sp)
+        move.l  %d0,-(%sp)
+        move.l  %a5,-(%sp)
+        jsr     BOX
+        lea     24(%sp),%sp
+        rts
 stems_draw:
         lea     -44(%sp),%sp
         movem.l %d2-%d7/%a2-%a5,(%sp)
@@ -698,81 +785,241 @@ stems_draw:
         beq.w   .Lsw_dout
         move.l  stems_lgen,%d2          | the labels this draw shows (stems_ui_tick)
         move.l  %d2,stems_drawn
-        move.l  %d0,%a5
-        lea     36(%a5),%a5             | surface
+        movea.l %d0,%a4                 | the window
+        lea     36(%a4),%a5             | its surface
+| MAIN MENU's frame (0x40064d7c): the band reads <set>/<project>, cut to
+| what fits, then the inside is cleared.
+        pea     PROJ_NAME
+        pea     SET_NAME
+        pea     TITLE_FMT
+        pea     stems_title
+        jsr     SPRINTF
+        lea     16(%sp),%sp
+        pea     stems_title
+        pea     WINW-6
+        pea     FONT
+        jsr     TEXTFIT
+        lea     12(%sp),%sp
+        lea     stems_title,%a0
+        clr.b   (%a0,%d0.l)
+        clr.l   -(%sp)
+        pea     stems_title
+        move.l  %a4,-(%sp)
+        jsr     WTITLE
+        lea     12(%sp),%sp
         move.l  %a5,-(%sp)
-        jsr     CLEAR
+        jsr     WINSIDE
         addq.l  #4,%sp
-| Tuner/Elektron y: 0 at the bottom, up is larger. Header in the top
-| strip (h-10), list rows step DOWN the screen (smaller y). stems_text
-| clobbers d0/d1 — keep the row baseline in d3. h-14 left PEAK in the
-| frame; h-10 clears it with MENU_VISIBLE=6 / ROW_PITCH=7.
-        move.l  4(%a5),%d7              | h
-        sub.l   #10,%d7                 | header band (was 14; too tall for PEAK)
-        moveq   #4,%d0
+| PERSONALIZE's page (0x40068e00). Elektron y: 0 at the bottom. The title
+| right-aligned 6 from the edge and the icon at 6, both 20 under the top;
+| a rule beneath them; the scroll arrows beside the first and last row.
+        move.l  (%a5),%d7               | d7: w
+        move.l  4(%a5),%d6
+        subi.l  #20,%d6                 | d6: h - 20
+        pea     stems_cat_label
+        pea     -1
+        pea     FONT
+        jsr     TEXTW
+        lea     12(%sp),%sp
         move.l  %d7,%d1
-        addq.l  #2,%d1                  | title baseline near the top
+        subq.l  #6,%d1
+        sub.l   %d0,%d1
+        move.l  %d1,%d0
+        move.l  %d6,%d1
+        addq.l  #2,%d1
         lea     stems_cat_label,%a0
         bsr.w   stems_text
+        move.l  %d6,-(%sp)
+        pea     6
+        move.l  %a5,-(%sp)
+        pea     stems_icon
+        jsr     ICON
+        lea     16(%sp),%sp
         pea     1
-        move.l  (%a5),%d0               | w
+        move.l  %d7,%d0
         subq.l  #6,%d0
         move.l  %d0,-(%sp)
-        move.l  %d7,%d0
+        move.l  %d6,%d0
         subq.l  #1,%d0
-        move.l  %d0,-(%sp)              | rule under the title
+        move.l  %d0,-(%sp)
         pea     4
         move.l  %a5,-(%sp)
         jsr     RULE
         lea     20(%sp),%sp
-        move.l  stems_list+LIST_TOP,%d5
-        move.l  stems_list+LIST_SEL,%d6
-        moveq   #0,%d4                  | visible index
+        move.l  stems_list+LIST_TOP,%d5 | d5: the first row shown
+        tst.l   %d5
+        ble.s   .Lsw_dnoup
+        pea     ARROW_UP
+        pea     1
+        pea     ROW0_Y+1
+        move.l  %d7,%d0
+        subq.l  #8,%d0
+        move.l  %d0,-(%sp)
+        move.l  %a5,-(%sp)
+        pea     FONT
+        jsr     TEXT
+        lea     24(%sp),%sp
+.Lsw_dnoup:
+        moveq   #MENU_ROWS-MENU_VISIBLE,%d0
+        cmp.l   %d0,%d5
+        bge.s   .Lsw_dnodown
+        pea     ARROW_DOWN
+        pea     1
+        pea     ROW0_Y+1-(MENU_VISIBLE-1)*ROW_PITCH
+        move.l  %d7,%d0
+        subq.l  #8,%d0
+        move.l  %d0,-(%sp)
+        move.l  %a5,-(%sp)
+        pea     FONT
+        jsr     TEXT
+        lea     24(%sp),%sp
+.Lsw_dnodown:
+| Five rows: the label at 4, the value at 77, the bar from 3 to 107 on the
+| cursor's row; a pair row draws its own fields (stems_draw_pair).
+        move.l  stems_list+LIST_SEL,%d6 | d6: the cursor's row
+        moveq   #0,%d4                  | d4: the rows drawn
+        moveq   #ROW0_Y,%d3             | d3: this row's bar
 .Lsw_drow:
-        cmp.l   #MENU_VISIBLE,%d4
-        bge.s   .Lsw_ddirty
         move.l  %d5,%d2
-        add.l   %d4,%d2                 | absolute row
-        cmp.l   #MENU_ROWS,%d2
+        add.l   %d4,%d2                 | d2: the row
+        moveq   #MENU_ROWS,%d0
+        cmp.l   %d0,%d2
         bge.s   .Lsw_ddirty
+        move.l  %d2,%d0
+        subi.l  #ROW_AB,%d0
+        moveq   #2,%d1
+        cmp.l   %d1,%d0
+        bcc.s   .Lsw_dplain
+        bsr.w   stems_draw_pair
+        bra.s   .Lsw_dnext
+.Lsw_dplain:
         lea     stems_rows,%a2
         move.l  %d2,%d0
         mulu.w  #ROW_LEN,%d0
-        move.l  (%a2,%d0.l),%a0         | label
-        move.l  %d7,%d3                 | first row under the title band
-        moveq   #8,%d0                  | first row: 1 px under the rule (glyph top = y+6)
-        sub.l   %d0,%d3
-        move.l  %d4,%d0
-        mulu.w  #ROW_PITCH,%d0
-        sub.l   %d0,%d3                 | d3 = row y (survives text)
-        bmi.s   .Lsw_dnext              | past the bottom: skip
+        adda.l  %d0,%a2
         moveq   #4,%d0
         move.l  %d3,%d1
-        bsr.w   stems_text
-        cmp.l   %d6,%d2                 | selected?
+        addq.l  #1,%d1
+        movea.l (%a2),%a0
+        bsr.w   stems_text              | the label
+        move.l  ROW_VALUE(%a2),%d0
+        beq.s   .Lsw_dbar
+        movea.l %d0,%a0
+        moveq   #VALUE_X,%d0
+        move.l  %d3,%d1
+        addq.l  #1,%d1
+        bsr.w   stems_text              | the value
+.Lsw_dbar:
+        cmp.l   %d6,%d2
         bne.s   .Lsw_dnext
-        pea     -1
-        move.l  %d3,%d0
-        addq.l  #6,%d0
-        move.l  %d0,-(%sp)              | y2: glyph extends up
-        move.l  (%a5),%d0
-        subq.l  #4,%d0                  | x2: the last column CLEAR clears. At w-3 the invert
-        move.l  %d0,-(%sp)              | flipped a column no clear resets, once a draw: it
-                                        | flickered with each new second (Yves's MKII, 27 Oct 2026)
-        move.l  %d3,-(%sp)              | y1
-        pea     2                       | x1
-        move.l  %a5,-(%sp)
-        jsr     BOX
-        lea     24(%sp),%sp
+        moveq   #BAR_X1,%d0
+        moveq   #BAR_X2,%d1
+        bsr.w   stems_invert
 .Lsw_dnext:
+        subq.l  #ROW_PITCH,%d3
         addq.l  #1,%d4
-        bra.s   .Lsw_drow
+        moveq   #MENU_VISIBLE,%d0
+        cmp.l   %d0,%d4
+        blt.s   .Lsw_drow
 .Lsw_ddirty:
         moveq   #1,%d0
         move.l  %d0,SCRDIRTY
 .Lsw_dout:
         movem.l (%sp),%d2-%d7/%a2-%a5
         lea     44(%sp),%sp
+        rts
+| ---- a pair row, from stems_draw: d2 = the row, d3 = its bar, d6 = the
+| cursor's row; a5 = surface. In stereo: AB and its box, STEREO and its
+| box. In mono: A and B, each with its box, then STEREO. The boxes stand on
+| fixed columns, so both rows' first boxes line up whatever each pair is
+| (Yves, 27 Oct 2026); STEREO's is on the value column. With the cursor on
+| the row, its field's name is inverted, as stock MIDI SYNC marks the one
+| under its cursor. The columns are the small UI font's widths (TEXTW): AB
+| 7 pixels, A to D 3, STEREO 23, a space 2, and 1 between characters.
+stems_draw_pair:
+        lea     -32(%sp),%sp
+        movem.l %d2-%d7/%a2-%a3,(%sp)
+        move.l  %d2,%d4
+        subi.l  #ROW_AB,%d4             | d4: the pair, 0 AB, 1 CD
+        moveq   #3,%d5                  | d5: the inputs off, bit 0 the first, bit 1 the second
+        move.l  stems_tracks,%d0
+        moveq   #K_AB,%d1
+        add.l   %d4,%d1
+        btst    %d1,%d0
+        beq.s   .Ldp_mode               | the pair off: both
+        moveq   #0,%d5
+        lea     pair_stereo,%a2
+        moveq   #1,%d1
+        add.l   %d4,%d1
+        move.l  stems_fmt,%d0
+        btst    %d1,%d0
+        bne.s   .Ldp_fields             | stereo: on, whatever was left out
+        move.l  stems_tracks,%d0
+        moveq   #12,%d1
+        add.l   %d4,%d1
+        add.l   %d4,%d1
+        lsr.l   %d1,%d0
+        moveq   #3,%d1
+        and.l   %d1,%d0                 | the inputs left out
+        cmp.l   %d1,%d0
+        beq.s   .Ldp_mode               | both reads as neither (stems_layout)
+        move.l  %d0,%d5
+.Ldp_mode:
+        lea     pair_mono,%a2
+        moveq   #1,%d1
+        add.l   %d4,%d1
+        move.l  stems_fmt,%d0
+        btst    %d1,%d0
+        beq.s   .Ldp_fields
+        lea     pair_stereo,%a2
+.Ldp_fields:
+        move.l  (%a2)+,%d7              | d7: the fields; a2: the first
+.Ldp_field:
+        movea.l 4(%a2),%a0              | its name on the AB row
+        tst.l   %d4
+        beq.s   .Ldp_name
+        movea.l 8(%a2),%a0              | on the CD row
+.Ldp_name:
+        move.l  12(%a2),%d0
+        move.l  %d3,%d1
+        addq.l  #1,%d1
+        bsr.w   stems_text
+        lea     box_off,%a0
+        move.l  (%a2),%d0               | which field
+        cmpi.l  #FIELD_ST,%d0
+        bne.s   .Ldp_input
+        moveq   #1,%d1
+        add.l   %d4,%d1
+        move.l  stems_fmt,%d0
+        btst    %d1,%d0
+        beq.s   .Ldp_box
+        lea     box_on,%a0
+        bra.s   .Ldp_box
+.Ldp_input:
+        btst    %d0,%d5
+        bne.s   .Ldp_box
+        lea     box_on,%a0
+.Ldp_box:
+        move.l  20(%a2),%d0
+        move.l  %d3,%d1
+        addq.l  #1,%d1
+        bsr.w   stems_text
+        cmp.l   %d6,%d2
+        bne.s   .Ldp_next               | the cursor is on another row
+        move.l  stems_field,%d0
+        cmp.l   (%a2),%d0
+        bne.s   .Ldp_next
+        move.l  12(%a2),%d0
+        move.l  %d0,%d1
+        add.l   16(%a2),%d1             | to the name's last column, one past it
+        subq.l  #1,%d0                  | from one before
+        bsr.w   stems_invert
+.Ldp_next:
+        lea     24(%a2),%a2
+        subq.l  #1,%d7
+        bne.s   .Ldp_field
+        movem.l (%sp),%d2-%d7/%a2-%a3
+        lea     32(%sp),%sp
         rts
 | ---- the UI task's loop, after each message: redraw STEMS if it's stale -
 | The detour at UI_RECV_SITE replaces the three stock instructions after
@@ -820,6 +1067,12 @@ STEMS_KEYS:
         .byte   0x20, 0                 | DOWN
         .long   stems_ud, 0, stems_ud, 0, 0
         .word   15, 5
+        .byte   0x34, 0                 | LEFT
+        .long   stems_lr, 0, 0, 0, 0
+        .word   0, 0
+        .byte   0x21, 0                 | RIGHT
+        .long   stems_lr, 0, 0, 0, 0
+        .word   0, 0
         .byte   0x31, 0                 | YES
         .long   stems_yes, 0, 0, 0, 0
         .word   0, 0
@@ -835,45 +1088,49 @@ STEMS_ENCS:
         .balign 4
 stems_win:  .long 0
 stems_live: .long 0
+stems_field: .long 0                        | on a pair row: FIELD_IN1, FIELD_IN2 or FIELD_ST
 stems_list:
         .long   MENU_ROWS, 0, 0, 0, MENU_VISIBLE, MENU_ROWS, stems_rows
-stems_rows:                                 | label, window, action, getter, child, page id
-        .long   lbl_rec,   0, stems_action, 0, 0, 0
-        .long   lbl_ready, 0, 0, 0, 0, 0    | the status: action 0, a heading the cursor skips
-        .long   trk1_on, 0, stems_source_action, 0, 0, 0
-        .long   trk2_on, 0, stems_source_action, 0, 0, 0
-        .long   trk3_on, 0, stems_source_action, 0, 0, 0
-        .long   trk4_on, 0, stems_source_action, 0, 0, 0
-        .long   trk5_on, 0, stems_source_action, 0, 0, 0
-        .long   trk6_on, 0, stems_source_action, 0, 0, 0
-        .long   trk7_on, 0, stems_source_action, 0, 0, 0
-        .long   trk8_on, 0, stems_source_action, 0, 0, 0
-        .long   main_off, 0, stems_source_action, 0, 0, 0
-        .long   cue_off, 0, stems_source_action, 0, 0, 0
-        .long   ab_off, 0, stems_source_action, 0, 0, 0
-        .long   cd_off, 0, stems_source_action, 0, 0, 0
-        .long   abst_on, 0, stems_switch_action, 0, 0, 0
-        .long   cdst_on, 0, stems_switch_action, 0, 0, 0
-        .long   b24_off, 0, stems_switch_action, 0, 0, 0
-        .long   lbl_peak0, 0, 0, 0, 0, 0    | PEAK: a heading, the last row, which the cursor never reaches
-rec_by_state:   .long   lbl_rec, lbl_cancel, lbl_stop, lbl_saving       | row 1, by state
-st_by_state:    .long   lbl_ready, lbl_armed, 0, lbl_saving             | the status; RECORDING is the task's
+stems_rows:                                 | label, value, action; a pair row's value is its fields
+        .long   lbl_stemrec, lbl_ready, stems_action, 0, 0, 0
+        .long   lbl_peak, lbl_pct0, 0, 0, 0, 0              | PEAK: no action, the cursor skips it
+        .long   lbl_t1, box_on, stems_source_action, 0, 0, 0
+        .long   lbl_t2, box_on, stems_source_action, 0, 0, 0
+        .long   lbl_t3, box_on, stems_source_action, 0, 0, 0
+        .long   lbl_t4, box_on, stems_source_action, 0, 0, 0
+        .long   lbl_t5, box_on, stems_source_action, 0, 0, 0
+        .long   lbl_t6, box_on, stems_source_action, 0, 0, 0
+        .long   lbl_t7, box_on, stems_source_action, 0, 0, 0
+        .long   lbl_t8, box_on, stems_source_action, 0, 0, 0
+        .long   lbl_main, box_off, stems_source_action, 0, 0, 0
+        .long   lbl_cue, box_off, stems_source_action, 0, 0, 0
+        .long   lbl_ab, 0, stems_pair_action, 0, 0, 0
+        .long   lbl_cd, 0, stems_pair_action, 0, 0, 0
+        .long   lbl_b24, box_off, stems_switch_action, 0, 0, 0
+| A pair row's fields (stems_draw_pair): their count, then each: its field
+| (stems_field), its name on the AB row and on the CD row, the name's x and
+| width, its box's x
+pair_stereo:
+        .long   2
+        .long   FIELD_IN1, lbl_ab, lbl_cd, 4, 7, 15
+        .long   FIELD_ST, lbl_stereo, lbl_stereo, 50, 23, VALUE_X
+pair_mono:
+        .long   3
+        .long   FIELD_IN1, lbl_a, lbl_c, 4, 3, 15
+        .long   FIELD_IN2, lbl_b, lbl_d, 28, 3, 35
+        .long   FIELD_ST, lbl_stereo, lbl_stereo, 50, 23, VALUE_X
+st_by_state:    .long   lbl_ready, lbl_armed, 0, lbl_saving             | STEM REC's value; RECORDING is the task's
 err_names:      .long   0, err_ring, err_path, err_open, err_exists, err_write, err_seek, err_close, err_task
-src_on:         .long   trk1_on, trk2_on, trk3_on, trk4_on, trk5_on, trk6_on, trk7_on, trk8_on
-                .long   main_on, cue_on, ab_on, cd_on
-src_off:        .long   trk1_off, trk2_off, trk3_off, trk4_off, trk5_off, trk6_off, trk7_off, trk8_off
-                .long   main_off, cue_off, ab_off, cd_off
-sw_bit:         .long   1, 2, 0     | rows 14-16: AB STEREO, CD STEREO, 24 BIT in stems_fmt
-sw_on:          .long   abst_on, cdst_on, b24_on
-sw_off:         .long   abst_off, cdst_off, b24_off
-lbl_rec:        .asciz  "REC"
-lbl_cancel:     .asciz  "CANCEL"
-lbl_stop:       .asciz  "STOP"
+stems_title:    .space  64          | the title band: <set>/<project>
+lbl_stemrec:    .asciz  "STEM REC"
 lbl_saving:     .asciz  "SAVING"
 lbl_ready:      .asciz  "READY"
 lbl_armed:      .asciz  "ARMED"
+lbl_done:       .asciz  "DONE"
 lbl_nocard:     .asciz  "NO CARD"
-lbl_peak0:      .asciz  "PEAK 0%"
+lbl_empty:      .asciz  ""
+lbl_peak:       .asciz  "PEAK"
+lbl_pct0:       .asciz  "0%"
 err_ring:       .asciz  "RING FULL"         | ERR_OVERFLOW
 err_path:       .asciz  "PATH FAILED"       | ERR_PATH
 err_open:       .asciz  "OPEN FAILED"       | ERR_OPEN
@@ -883,40 +1140,29 @@ err_write:      .asciz  "WRITE FAILED"      | ERR_WRITE
 err_seek:       .asciz  "SEEK FAILED"       | ERR_SEEK
 err_close:      .asciz  "CLOSE FAILED"      | ERR_CLOSE
 err_task:       .asciz  "TASK FAILED"       | ERR_TASK
-trk1_on:  .asciz "T1 [X]"
-trk1_off: .asciz "T1 [ ]"
-trk2_on:  .asciz "T2 [X]"
-trk2_off: .asciz "T2 [ ]"
-trk3_on:  .asciz "T3 [X]"
-trk3_off: .asciz "T3 [ ]"
-trk4_on:  .asciz "T4 [X]"
-trk4_off: .asciz "T4 [ ]"
-trk5_on:  .asciz "T5 [X]"
-trk5_off: .asciz "T5 [ ]"
-trk6_on:  .asciz "T6 [X]"
-trk6_off: .asciz "T6 [ ]"
-trk7_on:  .asciz "T7 [X]"
-trk7_off: .asciz "T7 [ ]"
-trk8_on:  .asciz "T8 [X]"
-trk8_off: .asciz "T8 [ ]"
-trk8_master: .asciz "T8 MASTER"         | MASTER TRACK on: T8 is MAIN, not a source
-main_on:  .asciz "MAIN [X]"
-main_off: .asciz "MAIN [ ]"
-cue_on:   .asciz "CUE [X]"
-cue_off:  .asciz "CUE [ ]"
-ab_on:    .asciz "AB [X]"
-ab_off:   .asciz "AB [ ]"
-cd_on:    .asciz "CD [X]"
-cd_off:   .asciz "CD [ ]"
-abst_on:  .asciz "AB STEREO [X]"
-abst_off: .asciz "AB STEREO [ ]"
-cdst_on:  .asciz "CD STEREO [X]"
-cdst_off: .asciz "CD STEREO [ ]"
-b24_on:   .asciz "24 BIT [X]"
-b24_off:  .asciz "24 BIT [ ]"
-fmt_rec:        .asciz  "REC %02d:%02d"
-fmt_done:       .asciz  "DONE %02d:%02d"
-fmt_peak:       .asciz  "PEAK %d%s"         | "%" as an argument: %% is untested in the stock sprintf
+lbl_t1:         .asciz  "T1"
+lbl_t2:         .asciz  "T2"
+lbl_t3:         .asciz  "T3"
+lbl_t4:         .asciz  "T4"
+lbl_t5:         .asciz  "T5"
+lbl_t6:         .asciz  "T6"
+lbl_t7:         .asciz  "T7"
+lbl_t8:         .asciz  "T8"
+lbl_master:     .asciz  "MASTER"            | T8's value with MASTER TRACK on: T8 is MAIN, not a source
+lbl_main:       .asciz  "MAIN"
+lbl_cue:        .asciz  "CUE"
+lbl_ab:         .asciz  "AB"
+lbl_cd:         .asciz  "CD"
+lbl_a:          .asciz  "A"
+lbl_b:          .asciz  "B"
+lbl_c:          .asciz  "C"
+lbl_d:          .asciz  "D"
+lbl_stereo:     .asciz  "STEREO"
+lbl_b24:        .asciz  "24 BIT"
+box_off:        .byte   0x15, 0             | the small UI font's checkboxes, as PERSONALIZE's
+box_on:         .byte   0x16, 0
+fmt_rec:        .asciz  "%02d:%02d"
+fmt_peak:       .asciz  "%d%s"              | "%" as an argument: %% is untested in the stock sprintf
 | The take's log (perf design 3), a line each, where BRAIN keeps its files
 fmt_log:        .asciz  "/BRAIN/STEMS/%s.TXT"
 nm_brain:       .asciz  "/BRAIN"
@@ -998,57 +1244,60 @@ stems_action:
         move.l  %d1,stems_state
 .La_unmask:
         move.w  %d2,%sr
-        bsr.w   stems_ui_state      | row 1 and the status, at once
+        bsr.w   stems_ui_state      | STEM REC's row, at once
 .La_out:
         movem.l (%sp),%d2-%d3
         lea     8(%sp),%sp
         rts
 .La_nocard:                         | no card: say so, and change nothing else
         lea     lbl_nocard,%a0
-        move.l  %a0,stems_rows+ROW_LEN
-        bra.s   .La_out
-.La_notask:                         | the task couldn't be made: stay IDLE, say so
-        lea     err_task,%a0
-        move.l  %a0,stems_rows+ROW_LEN
+        lea     lbl_stemrec,%a1
+        bra.s   .La_say
+.La_notask:                         | the task couldn't be made: stay IDLE, say so,
+        lea     lbl_empty,%a0       | as a take's failure is said: in the label
+        lea     err_task,%a1
+.La_say:
+        move.l  %a1,stems_rows
+        move.l  %a0,stems_rows+ROW_VALUE
         bra.s   .La_out
 
-| ---- row 1 and the status from the state, at once (the actions) ---------
+| ---- STEM REC's row from the state, at once (the actions) ---------------
 | Fixed strings only, in the UI task. The action never leaves the state
 | RECORDING (the hook makes it), so st_by_state's RECORDING entry is 0: the
-| task's line, left alone. Arming also shows a new take's PEAK 0%.
+| task's time, left alone. The label is STEM REC again (a failure's name
+| goes with the next take). Arming also shows a new take's PEAK 0%.
 stems_ui_state:
         move.l  stems_state,%d0
-        lea     rec_by_state,%a0
-        move.l  (%a0,%d0.l*4),%d1
-        move.l  %d1,stems_rows
+        lea     lbl_stemrec,%a0
+        move.l  %a0,stems_rows
         lea     st_by_state,%a0
         move.l  (%a0,%d0.l*4),%d1
         beq.s   .Lv_peak
-        move.l  %d1,stems_rows+ROW_LEN
+        move.l  %d1,stems_rows+ROW_VALUE
 .Lv_peak:
         moveq   #ST_ARMED,%d1
         cmp.l   %d1,%d0
         bne.s   .Lv_out
-        lea     lbl_peak0,%a0
-        move.l  %a0,stems_rows+ROW_PEAK*ROW_LEN
+        lea     lbl_pct0,%a0
+        move.l  %a0,stems_rows+ROW_PEAK*ROW_LEN+ROW_VALUE
 .Lv_out:
         rts
 
-| ---- a source row's action (T1-T8, MAIN, CUE, AB, CD): action(0), in the
-| UI task. The row under the cursor names the source (the list's absolute
+| ---- a source row's action (T1-T8, MAIN, CUE): action(0), in the UI
+| task. The row under the cursor names the source (the list's absolute
 | selection, less T1's row, as octalab's checkbox rows do). Locked while a
 | take records or saves: the take keeps the sources it latched at its
 | start, and the rows show what records. The last source that's on stays
 | on, so a take always has a file the rows show. The test and the flip run
 | with interrupts masked, so the hook can't latch between them. With
-| MASTER TRACK on, T8's row reads T8 MASTER (stems_m8check) and does
+| MASTER TRACK on, T8's value reads MASTER (stems_m8check) and its row does
 | nothing: T8 is MAIN then, and a take doesn't record it (stems_layout).
-        .global stems_source_action
+        .global stems_source_action, stems_pair_action
 stems_source_action:
         lea     -8(%sp),%sp
         movem.l %d2-%d3,(%sp)
         move.l  stems_list+LIST_SEL,%d3
-        subq.l  #ROW_SRC0,%d3               | source k, 0..11
+        subq.l  #ROW_SRC0,%d3               | source k, 0..9
         moveq   #NSRC,%d0
         cmp.l   %d0,%d3
         bcc.s   .Lk_out                     | not a source row (unsigned: below T1 too)
@@ -1069,24 +1318,23 @@ stems_source_action:
         move.l  stems_tracks,%d1
         eor.l   %d0,%d1
         movea.l %d1,%a0                     | the new word
-        andi.l  #0xfff,%d1
+        andi.l  #SRC_BITS,%d1
         beq.s   .Lk_keep                    | the last source on: it stays on
         move.l  %a0,stems_tracks
         move.w  %d2,%sr
-        lea     src_off,%a1
         move.l  %a0,%d1
+        lea     box_off,%a0
         and.l   %d0,%d1
-        beq.s   .Lk_label
-        lea     src_on,%a1
-.Lk_label:
-        movea.l (%a1,%d3.l*4),%a0           | the label
+        beq.s   .Lk_value
+        lea     box_on,%a0
+.Lk_value:
         move.l  %d3,%d1
         addq.l  #ROW_SRC0,%d1
         moveq   #ROW_LEN,%d0
         mulu.l  %d0,%d1
         movea.l %d1,%a1
         adda.l  #stems_rows,%a1
-        move.l  %a0,(%a1)                   | the row's label pointer
+        move.l  %a0,ROW_VALUE(%a1)          | the row's checkbox
         bra.s   .Lk_out
 .Lk_keep:
         move.w  %d2,%sr
@@ -1095,51 +1343,124 @@ stems_source_action:
         lea     8(%sp),%sp
         rts
 
-| ---- a switch row's action (AB STEREO, CD STEREO, 24 BIT): action(0) -------
-| Flips its bit of stems_fmt; locked while a take records or saves, as the
+| ---- a pair row's action (AB, CD): action(0), in the UI task, on the
+| field under the cursor (stems_field). In stereo, AB turns the pair on or
+| off. STEREO off splits it, A and B both as AB was (nothing left out);
+| STEREO on joins them, on if either was (the pair's bit already says so).
+| In mono, A and B are each on or off: the pair's bit is on while either
+| is, and OUT_BITS name the one left out (both left out is the pair off).
+| Locked, and the last source kept on, as the source rows are.
+stems_pair_action:
+        lea     -24(%sp),%sp
+        movem.l %d2-%d7,(%sp)
+        move.l  stems_list+LIST_SEL,%d3
+        subi.l  #ROW_AB,%d3                 | d3: the pair, 0 AB, 1 CD
+        moveq   #2,%d0
+        cmp.l   %d0,%d3
+        bcc.w   .Lp_out                     | not a pair row (unsigned: above it too)
+        move.w  %sr,%d2
+        move.w  #0x2700,%sr
+        move.l  stems_state,%d1
+        moveq   #ST_RECORDING,%d0
+        cmp.l   %d0,%d1
+        bcc.w   .Lp_keep                    | RECORDING or FINISHING: locked
+        move.l  stems_tracks,%d4
+        move.l  stems_fmt,%d5
+        moveq   #12,%d1
+        add.l   %d3,%d1
+        add.l   %d3,%d1                     | d1: its first input's left-out bit, 12 or 14
+        moveq   #1,%d0
+        add.l   %d3,%d0                     | d0: its format bit, 1 or 2
+        moveq   #FIELD_ST,%d6
+        cmp.l   stems_field,%d6
+        bne.s   .Lp_input
+        bchg    %d0,%d5                     | STEREO
+        beq.s   .Lp_set                     | on: joined, as the pair's bit says
+        bclr    %d1,%d4                     | off: split, nothing left out
+        addq.l  #1,%d1
+        bclr    %d1,%d4
+        bra.s   .Lp_set
+.Lp_input:
+        btst    %d0,%d5
+        beq.s   .Lp_mono
+        tst.l   stems_field                 | stereo: AB alone (no second input)
+        bne.s   .Lp_keep
+        moveq   #K_AB,%d0
+        add.l   %d3,%d0
+        bchg    %d0,%d4
+        bra.s   .Lp_check
+.Lp_mono:
+        moveq   #K_AB,%d0
+        add.l   %d3,%d0                     | d0: the pair's bit
+        move.l  %d4,%d6
+        lsr.l   %d1,%d6
+        moveq   #3,%d7
+        and.l   %d7,%d6                     | d6: the inputs off, bit 0 the first, bit 1 the second
+        cmp.l   %d7,%d6
+        bne.s   .Lp_on
+        moveq   #0,%d6                      | both left out reads as neither (stems_layout)
+.Lp_on:
+        btst    %d0,%d4
+        bne.s   .Lp_flip
+        moveq   #3,%d6                      | the pair off: both off
+.Lp_flip:
+        move.l  stems_field,%d7
+        bchg    %d7,%d6                     | that input
+        bclr    %d0,%d4                     | the bits again, from d6
+        bclr    %d1,%d4
+        addq.l  #1,%d1
+        bclr    %d1,%d4
+        subq.l  #1,%d1
+        moveq   #3,%d7
+        cmp.l   %d7,%d6
+        beq.s   .Lp_check                   | both off: the pair off, nothing left out
+        bset    %d0,%d4
+        lsl.l   %d1,%d6
+        or.l    %d6,%d4
+.Lp_check:
+        move.l  %d4,%d0
+        andi.l  #SRC_BITS,%d0
+        beq.s   .Lp_keep                    | the last source on: it stays on
+.Lp_set:
+        move.l  %d4,stems_tracks
+        move.l  %d5,stems_fmt
+.Lp_keep:
+        move.w  %d2,%sr
+.Lp_out:
+        movem.l (%sp),%d2-%d7
+        lea     24(%sp),%sp
+        rts
+
+| ---- 24 BIT's action: action(0) ------------------------------------------
+| Flips bit 0 of stems_fmt; locked while a take records or saves, as the
 | source rows are.
         .global stems_switch_action
 stems_switch_action:
-        lea     -8(%sp),%sp
-        movem.l %d2-%d3,(%sp)
-        move.l  stems_list+LIST_SEL,%d3
-        subi.l  #ROW_SW0,%d3                | switch k, 0..2
-        moveq   #3,%d0
-        cmp.l   %d0,%d3
-        bcc.s   .Lw_out
+        move.l  %d2,-(%sp)
+        moveq   #ROW_B24,%d0
+        cmp.l   stems_list+LIST_SEL,%d0
+        bne.s   .Lw_out
         move.w  %sr,%d2
         move.w  #0x2700,%sr
         move.l  stems_state,%d1
         moveq   #ST_RECORDING,%d0
         cmp.l   %d0,%d1
         bcc.s   .Lw_keep                    | locked while a take records or saves
-        lea     sw_bit,%a0
-        move.l  (%a0,%d3.l*4),%d1
-        moveq   #1,%d0
-        lsl.l   %d1,%d0                     | the format's bit
         move.l  stems_fmt,%d1
-        eor.l   %d0,%d1
+        bchg    #0,%d1
         move.l  %d1,stems_fmt
         move.w  %d2,%sr
-        lea     sw_off,%a1
-        and.l   %d0,%d1
-        beq.s   .Lw_label
-        lea     sw_on,%a1
-.Lw_label:
-        movea.l (%a1,%d3.l*4),%a0
-        move.l  %d3,%d1
-        addi.l  #ROW_SW0,%d1
-        moveq   #ROW_LEN,%d0
-        mulu.l  %d0,%d1
-        movea.l %d1,%a1
-        adda.l  #stems_rows,%a1
-        move.l  %a0,(%a1)
+        lea     box_off,%a0
+        btst    #0,%d1
+        beq.s   .Lw_value
+        lea     box_on,%a0
+.Lw_value:
+        move.l  %a0,stems_rows+ROW_B24*ROW_LEN+ROW_VALUE
         bra.s   .Lw_out
 .Lw_keep:
         move.w  %d2,%sr
 .Lw_out:
-        movem.l (%sp),%d2-%d3
-        lea     8(%sp),%sp
+        move.l  (%sp)+,%d2
         rts
 
 | ---- the frame hook: in the audio interrupt, IPL 5 ---------------------
@@ -1281,9 +1602,9 @@ stems_frame_hook:
         rts
 
 | ---- T8's row against MASTER TRACK, from the hook every frame -----------
-| On a change of the MASTER TRACK byte, T8's label becomes T8 MASTER, or
-| T8 [X] / T8 [ ] by its bit, which the row keeps underneath. The hook
-| runs from boot, so the row is right before the writer task exists.
+| On a change of the MASTER TRACK byte, T8's value becomes MASTER, or its
+| checkbox by its bit, which the row keeps underneath. The hook runs from
+| boot, so the row is right before the writer task exists.
 | Every register is kept.
 stems_m8check:
         move.l  %d0,-(%sp)
@@ -1293,16 +1614,16 @@ stems_m8check:
         beq.s   .Lm8_out            | no change
         move.l  %d0,stems_m8last
         move.l  %a0,-(%sp)
-        lea     trk8_master,%a0
+        lea     lbl_master,%a0
         tst.l   %d0
         bne.s   .Lm8_set
-        lea     trk8_off,%a0
+        lea     box_off,%a0
         move.l  stems_tracks,%d0
         btst    #7,%d0
         beq.s   .Lm8_set
-        lea     trk8_on,%a0
+        lea     box_on,%a0
 .Lm8_set:
-        move.l  %a0,stems_rows+(ROW_SRC0+7)*ROW_LEN
+        move.l  %a0,stems_rows+(ROW_SRC0+7)*ROW_LEN+ROW_VALUE
         addq.l  #1,stems_lgen       | after the label: the UI task redraws (stems_ui_tick)
         movea.l (%sp)+,%a0
 .Lm8_out:
@@ -1312,7 +1633,8 @@ stems_m8check:
 | ---- the layout, latched at the start edge (in the hook) ---------------
 | The sources (with MASTER TRACK on, T8 left out, or MAIN for T8 alone)
 | and the format, then the file table in file order (T1..T8,
-| MAIN, CUE, AB or A B, CD or C D), a frame of every file and the rings'
+| MAIN, CUE, AB or A B, CD or C D: a mono pair's inputs but those
+| OUT_BITS leave out), a frame of every file and the rings'
 | capacity; then each file's ring (stems_zlayout), its routine and argument
 | (stems_ffn, stems_farg), the track files' count and their bytes in a
 | frame. Uses d0-d4 and a0-a2.
@@ -1321,6 +1643,8 @@ stems_layout:
         move.l  TEMPO_PUB,%d0       | the tempo at the start edge, for the .ot files
         move.l  %d0,stems_ltempo
         move.l  stems_tracks,%d0
+        move.l  %d0,%d4
+        andi.l  #OUT_BITS,%d4       | the inputs a mono pair leaves out, latched beside
         andi.l  #SRC_BITS,%d0
         tst.b   MASTER_TRK
         beq.s   .Ll_any
@@ -1333,6 +1657,7 @@ stems_layout:
         bne.s   .Ll_some
         moveq   #1,%d0              | no source: T1
 .Ll_some:
+        or.l    %d4,%d0
         move.l  %d0,stems_lsrc
         move.l  stems_fmt,%d2
         andi.l  #7,%d2
@@ -1355,14 +1680,28 @@ stems_layout:
         bne.s   .Ll_stereo          | the pair as one stereo file
         move.l  %d1,%d2             | two mono files: A B (or C D)
         subi.l  #K_AB,%d2
-        add.l   %d2,%d2
+        add.l   %d2,%d2             | 0 for AB, 2 for CD
+        move.l  %d0,%d4
+        lsr.l   #8,%d4
+        lsr.l   #4,%d4              | the left-out bits: A B C D
+        lsr.l   %d2,%d4
+        andi.l  #3,%d4              | this pair's: bit 0 its first input, bit 1 its second
+        cmpi.l  #3,%d4
+        bne.s   .Ll_out
+        moveq   #0,%d4              | both left out reads as neither: a pair that's on has a file
+.Ll_out:
         addi.l  #K_A,%d2
         swap    %d2
         lsl.l   #8,%d2
         ori.l   #0x10000,%d2
         add.l   %d3,%d2
+        btst    #0,%d4
+        bne.s   .Ll_second
         move.l  %d2,(%a0)+
+.Ll_second:
         addi.l  #0x01000000,%d2     | the pair's second input
+        btst    #1,%d4
+        bne.s   .Ll_next
         move.l  %d2,(%a0)+
         bra.s   .Ll_next
 .Ll_stereo:
@@ -1376,7 +1715,7 @@ stems_layout:
 .Ll_next:
         addq.l  #1,%d1
         cmpi.l  #K_AB+2,%d1
-        bne.s   .Ll_src
+        bne.w   .Ll_src
         move.l  %a0,%d0
         subi.l  #stems_ftab,%d0
         lsr.l   #2,%d0
@@ -2349,10 +2688,8 @@ stems_ui:
         cmp.l   ui_key,%d5
         beq.w   .Lu_out
         move.l  %d5,ui_key
-        lea     rec_by_state,%a0            | row 1
-        move.l  (%a0,%d2.l*4),%d0
-        move.l  %d0,stems_rows
-        moveq   #ST_RECORDING,%d0           | the status
+        lea     lbl_stemrec,%a3             | a3: STEM REC's label, or a failure's name
+        moveq   #ST_RECORDING,%d0           | d0: its value
         cmp.l   %d0,%d2
         beq.s   .Lu_rec
         tst.l   %d2
@@ -2361,21 +2698,22 @@ stems_ui:
         beq.s   .Lu_fixed                   | IDLE, no take since the arm: READY
         move.l  stems_status,%d0
         beq.s   .Lu_done
-        lea     err_names,%a0               | IDLE after a take that failed: its error
-        move.l  (%a0,%d0.l*4),%d0
+        lea     err_names,%a0               | IDLE after a take that failed: its name, no value
+        movea.l (%a0,%d0.l*4),%a3
+        lea     lbl_empty,%a0
+        move.l  %a0,%d0
+        bra.s   .Lu_stat
+.Lu_done:
+        lea     lbl_done,%a0
+        move.l  %a0,%d0
         bra.s   .Lu_stat
 .Lu_fixed:
         lea     st_by_state,%a0
         move.l  (%a0,%d2.l*4),%d0
         bra.s   .Lu_stat
 .Lu_rec:
-        lea     fmt_rec,%a3
-        bra.s   .Lu_time
-.Lu_done:
-        lea     fmt_done,%a3
-.Lu_time:
         lea     stat_buf0,%a2               | the buffer the row isn't showing
-        cmpa.l  stems_rows+ROW_LEN,%a2
+        cmpa.l  stems_rows+ROW_VALUE,%a2
         bne.s   .Lu_sbuf
         lea     stat_buf1,%a2
 .Lu_sbuf:
@@ -2388,15 +2726,16 @@ stems_ui:
         sub.l   %d0,%d1                     | seconds
         move.l  %d1,-(%sp)
         move.l  %d6,-(%sp)
-        move.l  %a3,-(%sp)
+        pea     fmt_rec
         move.l  %a2,-(%sp)
         jsr     SPRINTF
         lea     16(%sp),%sp
         move.l  %a2,%d0
 .Lu_stat:
-        move.l  %d0,stems_rows+ROW_LEN
+        move.l  %a3,stems_rows
+        move.l  %d0,stems_rows+ROW_VALUE
         lea     peak_buf0,%a2               | PEAK, formatted with every change
-        cmpa.l  stems_rows+ROW_PEAK*ROW_LEN,%a2
+        cmpa.l  stems_rows+ROW_PEAK*ROW_LEN+ROW_VALUE,%a2
         bne.s   .Lu_pbuf
         lea     peak_buf1,%a2
 .Lu_pbuf:
@@ -2406,7 +2745,7 @@ stems_ui:
         move.l  %a2,-(%sp)
         jsr     SPRINTF
         lea     16(%sp),%sp
-        move.l  %a2,stems_rows+ROW_PEAK*ROW_LEN
+        move.l  %a2,stems_rows+ROW_PEAK*ROW_LEN+ROW_VALUE
         addq.l  #1,stems_lgen               | after the labels: the UI task redraws (stems_ui_tick)
 .Lu_out:
         movem.l (%sp),%d2-%d6/%a2-%a3

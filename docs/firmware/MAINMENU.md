@@ -183,6 +183,38 @@ MKI (`verify_stems_menu`); coexistence remix `stems-brain`. Hardware
 proof of the take path remains Yves's MKII (STEMS1–STEMS3) under the
 earlier root placement. `STEM_REC.md` section 16.
 
+Since 27 Oct 2026 the STEMS window looks like PERSONALIZE (Yves's
+choice), drawn with the calls MAIN MENU makes:
+- **The window,** as MAIN MENU's opener makes its own (`0x40064c56`,
+  arguments at `0x400cbf58`): `0x4005829c(118, 64, -1, 0, class,
+  closed)`. STEMS keeps class 5.
+- **The frame,** as MAIN MENU's redraw `0x40064d7c` does each time:
+  `sprintf(buf, 0x400b5dcf, 0x100f8481, 0x100f8378)` with the format
+  `"%.10s/%.32s"` (the band reads the set and the project), then
+  `0x40012f88(font, 118 − 6, buf)` returns the characters that fit and the
+  buffer is cut there, `0x40057c84(window, buf, 0)` draws the frame and
+  its title band, and `0x400356a8(surface)` clears the inside. Then the
+  state's draw from the table (`0x400cbdb4` + 20 × state).
+- **PERSONALIZE's page,** `0x40068e00(surface)`, with w and h the
+  surface's: the title (`0x400b62e0`, "PERSONAL SETTINGS") right-aligned
+  at x `w − 6 − width` and y `h − 18`, the icon record `0x400cbc48` at
+  (6, `h − 20`) through `0x400128a8(icon, surface, x, y)`, a rule
+  `0x40011910(surface, 4, h − 21, w − 6, 1)`, the scroll arrows
+  (`0x400b4315` and `0x400b4317`, glyphs `0x11` and `0x12`) at (`w − 8`, 35)
+  above and (`w − 8`, 7) below, and five rows from y 35 down by 7: the
+  label at x 4, the getter's value at x 77 (the small UI font `0x400ba876`
+  throughout; its checkboxes are the glyphs `0x15` and `0x16`), and the
+  cursor's row inverted from x 3 to 107 (`0x40012254`, mode −1).
+- **Its list** at `0x460e4668`: the pane's top, the cursor's place in the
+  pane, its row, the rows shown (5), the rows (16 in the `stems` remix).
+  UP and DOWN move the place and set the row from it and the top; a row
+  poked alone is lost at the next key. Opened again, PERSONALIZE kept
+  place 3.
+
+✅ Measured under the port (27 Oct 2026): STEMS against PERSONALIZE drawn
+with STEMS's rows in place, pixel for pixel, in six states
+(`verify_stems_menu`'s third boot, `tools/verify/stems_reference.py`).
+
 ## 6. Opening a parameter page from a handler ✅
 
 Keymaps: 26-byte records `{u8 code, 0, press, release, h3, aux, 0, u16

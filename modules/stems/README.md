@@ -72,10 +72,12 @@ runs cover:
   in every frame, and the ring's peak fill matches the watch log.
 - A card that refuses a write: the run records that the writer hangs.
 - A take cut off mid-way: the run records that its file is empty.
-- The menu's labels, read from memory during and after takes: `REC 00:00`
-  rising to `REC 00:01`, `DONE mm:ss`, `DONE 60:00` at the cap, `NO CARD`,
-  `SAME MINUTE`, `RING FULL`, and REC pressed while a take saves changing
-  nothing. The time also rises while the card falls behind.
+- The menu's rows, read from memory during and after takes: STEM REC's
+  time rising from `00:00` to `00:01`, `DONE`, also at the cap, `NO CARD`,
+  `RING FULL` in place of `STEM REC`, and YES pressed while a take saves
+  changing nothing. The time also rises while the card falls behind.
+- A mono pair with an input left out: B and C out of their pairs, the take
+  is `T1.wav`, `A.wav` and `D.wav`, each input every sample.
 - After the fader: the hook's copy of core 0's gain arithmetic equals the
   DSP's own, through level moves, a MAIN level change and dirty DSP RAM;
   `T1.wav` equals `MAIN.wav`'s mix sample for sample when T1 alone
@@ -91,11 +93,16 @@ runs cover:
 presses the keys under the port, once as an MKII and once as an MKI. It
 checks that SYSTEM still reaches OS UPGRADE from the root (MAIN MENU is
 also the recovery screen), opens STEMS with UP+REC, turns tracks off and
-on, turns MAIN on and checks the last source stays on, flips the three
-switches, arms and cancels, records a take with T3 off from PLAY to STOP,
-and checks the seven track files and `MAIN.wav` on the card. It also
-draws every text STEMS can show and checks that each fits. A picture of
-the screen at each step lands in `out/stems_runs/menu-*.png`.
+on, turns MAIN on and checks the last source stays on, flips 24 BIT,
+splits AB and leaves B out, arms and cancels, records a take with T3 off
+from PLAY to STOP, and checks the seven track files, `MAIN.wav` and
+`A.wav` on the card. It checks that every text STEMS can show fits its
+column, by the firmware font's own widths. A third boot compares STEMS
+with what it must look like, pixel for pixel: stock PERSONALIZE drawn by
+the firmware with STEMS's rows in place (`tools/verify/stems_reference.py`),
+opened, scrolled, with a pair split and an input left out, and recording.
+A picture of the screen at each step lands in `out/stems_runs/menu-*.png`
+and `looks-*.png`.
 
 The fixture projects come from a local copy of EZBot's Ultimate FX 1.5.3
 template, which never enters the repository. The verifier builds them at
@@ -173,33 +180,50 @@ Known from the port, before any flash:
 
 Hold UP and press REC (UP first). The same chord again closes STEMS.
 REC alone stays stock grid recording. MAIN MENU is unchanged.
-Its rows, top to bottom:
+
+STEMS looks like SYSTEM > PERSONAL SETTINGS: the set and project in the
+band at the top, the STEMS title with its icon, and five rows at a time,
+each a name and a value. UP and DOWN move between the rows, YES changes
+the value under the cursor, and NO closes STEMS. Its fifteen rows, top
+to bottom:
 
 | Row | Shows | YES |
 |---|---|---|
-| 1 | `REC`; `CANCEL` while armed; `STOP` while recording; `SAVING` while the files are finished | Arms, cancels or stops the take |
-| 2 | The status: `READY`, `ARMED`, `REC 01:23`, `SAVING`, `DONE 01:23`, `NO CARD`, or an error by name | The cursor skips this row |
-| 3-10 | `T1 [X]` to `T8 [X]`, `[ ]` when a track is off; `T8 MASTER` while MASTER TRACK is on | Turns the track on or off; `T8 MASTER` does nothing |
-| 11-14 | `MAIN [ ]`, `CUE [ ]`, `AB [ ]`, `CD [ ]` | Turns the source on or off |
-| 15-16 | `AB STEREO [X]`, `CD STEREO [X]` | Records the pair as one stereo file, or as two mono files (`A.wav` and `B.wav`, `C.wav` and `D.wav`) |
-| 17 | `24 BIT [ ]` | Switches between 16-bit and 24-bit files |
-| 18 | `PEAK 12%`: the take's highest ring fill | The cursor never reaches this row |
+| 1 | `STEM REC` and its state: `READY`, `ARMED`, the take's time (`01:23`), `SAVING`, `DONE` or `NO CARD`. After a take that failed, the failure's name stands in for `STEM REC` | Arms a take, cancels an armed one, or stops a running one |
+| 2 | `PEAK` and the take's highest ring fill (`12%`) | Nothing: the cursor skips this row |
+| 3-10 | `T1` to `T8`, each with a checkbox. T8's reads `MASTER` while MASTER TRACK is on | Turns the track on or off. Nothing while T8 reads `MASTER` |
+| 11-12 | `MAIN`, `CUE`, each with a checkbox | Turns the source on or off |
+| 13-14 | The input pairs, AB and CD, each on one row (below) | Toggles the checkbox under the cursor |
+| 15 | `24 BIT` with a checkbox | Switches between 16-bit and 24-bit files |
+
+A pair row holds more than one checkbox, as stock MIDI SYNC does: LEFT
+and RIGHT pick one, and its name is inverted.
+- In stereo it reads `AB` and `STEREO`, each with a checkbox. AB on
+  records the pair as one stereo file, `AB.wav`.
+- With STEREO off it reads `A`, `B` and `STEREO`, each with a checkbox,
+  and each input that's on records its own mono file, `A.wav` or
+  `B.wav`. So A can record alone.
+- Turning STEREO off starts A and B as AB was. Turning it on again
+  turns AB on if A or B was on.
+- The CD row works the same way, with C and D. The two rows' first
+  checkboxes line up whatever each pair is set to, and STEREO's sits in
+  the value column.
 
 1. Choose the sources and the format. At boot the eight tracks are on,
    MAIN, CUE and the inputs off, both pairs stereo, and 16 bits. The last
-   source that's on stays on, and rows 3 to 17 are locked while a take
+   source that's on stays on, and rows 3 to 15 are locked while a take
    records or saves.
    - With MASTER TRACK on, T8 is the master bus: MAIN is T8 alone, and
-     `T8.wav` would equal `MAIN.wav` sample for sample. So T8's row reads
-     `T8 MASTER`, a take leaves T8 out, and a take with only T8 on records
-     `MAIN.wav` instead. Turn MAIN on for the master bus. T8's own choice
-     comes back when MASTER TRACK goes off.
-2. Press **REC**.
+     `T8.wav` would equal `MAIN.wav` sample for sample. So T8's value
+     reads `MASTER`, a take leaves T8 out, and a take with only T8 on
+     records `MAIN.wav` instead. Turn MAIN on for the master bus. T8's own
+     choice comes back when MASTER TRACK goes off.
+2. Press **YES** on STEM REC.
    - If the sequencer is stopped, STEM REC arms. Recording starts on the
      first frame the sequencer plays. Press it again to cancel.
    - If the sequencer is running, recording starts at once.
    - **Or, without opening STEMS:** press **YES** twice within 0.5 s on
-     the main page. It does the same as REC: it arms, or starts a take
+     the main page. It does the same as STEM REC's YES: it arms, or starts a take
      while the sequencer plays, and the message reads `STEMS ARMED`. YES
      still does its stock job on both presses (it arms every track for
      recording, `ARM ALL`). A double tap never stops or cancels a take:
@@ -322,8 +346,8 @@ and STEM REC's writer named on the CPU tab (its task control block is
 - At most 60 minutes.
 - **T8's row shows the next take, not the one recording.** A take keeps
   the sources it started with. If MASTER TRACK changes while a take
-  records, T8's row follows it at once (`T8 MASTER`, or T8's own `[X]` or
-  `[ ]`), but the take doesn't.
+  records, T8's row follows it at once (`MASTER`, or T8's own
+  checkbox), but the take doesn't.
 - **A track's file is after its fader.** With MASTER TRACK on, T1 to T7's
   files hold each track as it would sit in MAIN through a T8 that passed
   it unchanged, and T8 isn't recorded (MAIN is T8 then), so the files
@@ -466,15 +490,17 @@ effects. [BUILDING.md](../../docs/guide/BUILDING.md) has every step.
   copies (7 KB) are DRAM regions at the free top of the platform's arena
   reserve. So the module costs no sample memory beyond what any DRAM remix
   already gives up.
-- **The menu.** The manifest copies MAIN MENU's four stock categories from
-  your own image and adds STEMS, a row that points at the category's icon
-  and its list of eighteen rows, both in the module's DRAM. Each row's label
-  is a pointer: a press switches it to another fixed string at once, and
-  the writer task formats the numbers (`REC 01:23`, `DONE`, `PEAK`) into a
-  spare buffer before it switches the pointer, so a redraw never catches a
-  half-written label. The frame hook points T8's row at `T8 MASTER` when
-  the MASTER TRACK byte (`0x80000034`) turns on, and back when it turns
-  off.
+- **The menu.** STEMS is its own window, not a MAIN MENU page, drawn
+  with the calls MAIN MENU and PERSONALIZE make: MAIN MENU's window (118
+  by 64) and its title band, then PERSONALIZE's icon, title, rule, rows
+  and scroll arrows (`0x40064d7c`, `0x40068e00`). Its fifteen rows are a
+  label and a value each. Both are pointers: a press switches a value to
+  another fixed string at once, and the writer task formats the numbers
+  (the time, `PEAK`'s percentage) into a spare buffer before it switches
+  the pointer, so a redraw never catches a half-written value. The pair
+  rows draw their fields from the source and format bits. The frame hook
+  points T8's value at `MASTER` when the MASTER TRACK byte (`0x80000034`)
+  turns on, and back when it turns off.
 - **The gain table.** Core 0's gain table is copied out of your own stock
   image at build time, because the OS reuses the memory it sits in after
   the audio processor's start-up (STEM_REC.md 18.4).

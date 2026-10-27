@@ -125,6 +125,16 @@ scope (Yves, 27 Oct 2026).
   (README, "The log against BRAIN's PERFORMANCE page"). A proposal for Sam
   is drafted, not sent.
 
+**The window as PERSONALIZE (27 Oct 2026, after flash H).** Yves found
+STEMS's window bigger and plainer than the stock dialogs, and chose SYSTEM
+> PERSONAL SETTINGS as the model from firmware-drawn mockups. STEMS is now
+fifteen rows of a label and a value, five at a time, in MAIN MENU's window
+and title band. STEM REC's row carries the state as its value. The pairs
+sit on one row each, `AB` and `STEREO`, which splits into `A`, `B` and
+`STEREO`, with LEFT and RIGHT to pick a checkbox as on MIDI SYNC. So a
+mono pair can record one input alone. The menu gate compares STEMS with
+PERSONALIZE drawn with STEMS's rows, pixel for pixel. Not on the unit yet.
+
 ## 1. The tempo isn't written to the stems
 
 **Now.** STEM REC writes a bare WAV and no `.ot` file. The `.ot` is the
@@ -311,7 +321,11 @@ the code, STEM_REC.md section 19.1). A stem player could do the same, or sum all
 
 ## 6. A STEM REC screen
 
-**Now.** STEMS is an 18-row list with seven rows on screen. The sources,
+**Since 27 Oct 2026** STEMS is a 15-row list drawn as PERSONALIZE, five
+rows on screen, and the status refreshes by itself (above). What follows
+was written for the 18-row list of 9 Oct.
+
+**Then.** STEMS is an 18-row list with seven rows on screen. The sources,
 the format, the status and the peak all sit in that list, and the status
 refreshes only on a key.
 

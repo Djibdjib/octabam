@@ -57,7 +57,7 @@ LAYOUT_DIR = pathlib.Path("out/platform")      # platform_build.LAYOUT lives her
 CONTROL_DESC, CONTROL_ROWS, ROW_LEN, STOCK_N = 0x400cbd54, 0x400cc5a8, 24, 6
 ROOT_DESC, ROOT_ROWS, ROOT_N = 0x400cbd8c, 0x400cc698, 4      # MAIN MENU's root (MAINMENU.md 2)
 PROJECT_DESC, PROJECT_N = 0x400cbcac, 15                     # stock PROJECT (MAINMENU.md 2)
-MENU_ROWS, ROW_TRK0, ROW_PEAK, MENU_VISIBLE = 18, 2, 17, 6     # stems.s: the STEMS list
+MENU_ROWS, ROW_TRK0, ROW_PEAK, MENU_VISIBLE = 15, 2, 1, 5      # stems.s: the STEMS list
 FRAME_SITE = 0x40004b12
 ATA_FIRST_SITE = 0x40014cfe  # the stock PIO write's first sector (STEM_REC.md 11.7)
 REC_SITE = 0x40048774        # REC press handler (PANEL.md code 0x29)
@@ -113,6 +113,7 @@ LAYOUT_CASES = [  # (sources, format, files, ring frame bytes)
     (0x0a5, 0b110, ["T1", "T3", "T6", "T8"], 256),
     (0x701, 0b110, ["T1", "MAIN", "CUE", "AB"], 256),
     (0x401, 0b100, ["T1", "A", "B"], 128),
+    (0x6c01, 0b000, ["T1", "A", "D"], 128),      # B and C left out of their mono pairs
     (0xfff, 0b000, [f"T{k}" for k in range(1, 9)] + ["MAIN", "CUE", "A", "B", "C", "D"], 768),
     (0x001, 0b111, ["T1"], 96),
     (0xfff, 0b001, [f"T{k}" for k in range(1, 9)] + ["MAIN", "CUE", "A", "B", "C", "D"], 1152),
@@ -231,27 +232,26 @@ def runtime_long(s, name):
 
 def menu_static(s):
     """The STEMS list as it ships: filled in (the boot's set-up covers only
-    the stock lists), eighteen rows, REC's, the sources' and the switches'
-    actions, two
-    headings never next to each other (the engine skips one row with
-    action 0, not two in a row, and never moves onto a last one:
-    STEM_REC.md 16.1), every label as at boot, the record-dot icon."""
+    the stock lists), fifteen rows, five shown, as PERSONALIZE (Yves's
+    choice, 27 Oct 2026): STEM REC's, the sources', the pairs' and 24 BIT's
+    actions, PEAK the one row with none (the cursor skips it); every label
+    and value as at boot, the record-dot icon."""
     lng = lambda a: int.from_bytes(runtime_at(s, a, 4), "big")  # noqa: E731
-    txt = lambda a: runtime_at(s, a, 32).split(b"\0")[0].decode("latin1")  # noqa: E731
+    txt = lambda a: runtime_at(s, a, 32).split(b"\0")[0].decode("latin1") if a else None  # noqa: E731
     lst = [lng(s["stems_list"] + 4 * k) for k in range(7)]
-    check("the STEMS list ships filled in: 18 rows, 6 visible, its rows",
+    check("the STEMS list ships filled in: 15 rows, 5 visible, its rows",
           lst == [MENU_ROWS, 0, 0, 0, MENU_VISIBLE, MENU_ROWS, s["stems_rows"]], f"{[hex(x) for x in lst]}")
     rows = [[lng(s["stems_rows"] + ROW_LEN * r + 4 * k) for k in range(6)] for r in range(MENU_ROWS)]
-    check("REC runs stems_action; T1-T8 and MAIN to CD stems_source_action; the three switches "
-          "stems_switch_action; the status and PEAK are headings",
-          [r[2] for r in rows] == [s["stems_action"], 0] + [s["stems_source_action"]] * 12
-          + [s["stems_switch_action"]] * 3 + [0], f"{[hex(r[2]) for r in rows]}")
-    check("no row has a window, a getter, a child or a page id",
-          all(r[1] == r[3] == r[4] == r[5] == 0 for r in rows))
-    texts = [txt(r[0]) for r in rows]
-    check("the rows ship with the boot defaults",
-          texts == ["REC", "READY"] + [f"T{k} [X]" for k in range(1, 9)]
-          + ["MAIN [ ]", "CUE [ ]", "AB [ ]", "CD [ ]", "AB STEREO [X]", "CD STEREO [X]", "24 BIT [ ]", "PEAK 0%"],
+    check("STEM REC runs stems_action; T1-T8, MAIN and CUE stems_source_action; AB and CD "
+          "stems_pair_action; 24 BIT stems_switch_action; PEAK has none",
+          [r[2] for r in rows] == [s["stems_action"], 0] + [s["stems_source_action"]] * 10
+          + [s["stems_pair_action"]] * 2 + [s["stems_switch_action"]], f"{[hex(r[2]) for r in rows]}")
+    check("no row has a getter, a child or a page id", all(r[3] == r[4] == r[5] == 0 for r in rows))
+    on, off = "\x16", "\x15"                    # the small UI font's checkboxes
+    texts = [(txt(r[0]), txt(r[1])) for r in rows]
+    check("the rows ship with the boot defaults (a pair row's value is drawn from the bits)",
+          texts == [("STEM REC", "READY"), ("PEAK", "0%")] + [(f"T{k}", on) for k in range(1, 9)]
+          + [("MAIN", off), ("CUE", off), ("AB", None), ("CD", None), ("24 BIT", off)],
           f"{texts}")
     check("the category is labelled STEMS", txt(s["stems_cat_label"]) == "STEMS")
     icon = [lng(s["stems_icon"] + 4 * k) for k in range(5)]
@@ -612,6 +612,31 @@ def mono(s):
           and a[:n] == left[:n] and b[:n] == right[:n], f"{len(a)} and {len(left)} samples")
 
 
+def monoad(s):
+    """Both pairs mono, B and C left out (Yves's one-row pairs, 27 Oct 2026:
+    an input of a pair on its own): T1, A and D, nothing else; A.wav is
+    input A and D.wav input D, every sample, at one offset (the input WAV's
+    channels 2 and 1: STEM_REC.md 18.7, A B at page offset 0x80, C D at 0)."""
+    log, dump, card, words, _ = port(s, SRC_FRAMES, stop_at=180, tag="monoad", fixture=FIXTURE_THRU1, mask=None,
+                                     pokes_before=[(s["stems_tracks"] + 2, 0x6c), (s["stems_tracks"] + 3, 0x01),
+                                                   (s["stems_fmt"] + 3, 0b000)])
+    check("monoad: the take finished (IDLE, no error)", words[0] == ST_IDLE and words[1] == 0,
+          f"state {words[0]}, status {words[1]}")
+    f = {n.upper(): d for n, d in take_files(card, FIXTURE_THRU1)}
+    check("monoad: T1, A and D, B and C left out", sorted(f) == ["A.WAV", "D.WAV", "T1.WAV"], f"{sorted(f)}")
+    if sorted(f) != ["A.WAV", "D.WAV", "T1.WAV"] or any(len(d) < 44 for d in f.values()):
+        return
+    check("monoad: A.wav and D.wav are one channel, 16 bits",
+          wav_fmt(f["A.WAV"])[:4] == wav_fmt(f["D.WAV"])[:4] == (1, 88200, 2, 16))
+    import wave
+    with wave.open(json.loads(FIXTURE_THRU1.read_text())["audio_in"]) as w:
+        raw = w.readframes(w.getnframes())
+    ins = list(struct.unpack(f"<{len(raw) // 2}h", raw))
+    offs = [find_at(wav16(f["A.WAV"]), ins[2::4]), find_at(wav16(f["D.WAV"]), ins[1::4])]
+    check("monoad: A.wav is input A and D.wav input D, every sample, at one offset",
+          None not in offs and offs[0] == offs[1], f"offsets {offs}")
+
+
 def all14(s):
     """Review Focus 4: every source on, both pairs mono, on the eight-track
     THRU fixture: 14 files in order, each header its own, each length its
@@ -724,7 +749,7 @@ def master8(s):
     check("master8: IDLE, no error, T1.wav alone (T8 left out)", st == ST_IDLE and status == 0 and names == ["T1.WAV"],
           f"state {st}, status {status}, {names}")
     t, _ = ui_read(s, tag, "end")
-    check("master8: T8's row reads T8 MASTER", t is not None and t[ROW_TRK0 + 7] == "T8 MASTER",
+    check("master8: T8's row reads T8 MASTER", t is not None and t[ROW_TRK0 + 7] == ("T8", "MASTER"),
           f"{t[ROW_TRK0 + 7] if t else None}")
 
 
@@ -1181,8 +1206,8 @@ def cap(s):
           tfr is not None and tfr >= 50 and len(data) == 44 + tfr * 64
           and int.from_bytes(data[40:44], "little") == tfr * 64, f"{len(data)} bytes, {tfr} frames")
     t, _ = ui_read(s, "cap", "end")
-    check("cap: the status reads DONE 60:00", t is not None and t[:2] == ["REC", "DONE 60:00"],
-          f"{t[:2] if t else None}")
+    check("cap: STEM REC reads DONE", t is not None and t[0] == ("STEM REC", "DONE"),
+          f"{t[0] if t else None}")
 
 
 def cut(s):
@@ -1231,16 +1256,16 @@ def labels(s):
             check(f"labels: the frame dump '{when}' exists", False)
             return
         now = w[5] * 16 // 44100
-        allowed = {f"REC {mmss(w[5])}", f"REC {(now - 1) // 60:02d}:{(now - 1) % 60:02d}"}
-        check(f"labels ({when}): STOP, and REC with the take's seconds", t[0] == "STOP" and t[1] in allowed,
-              f"{[t[0], t[1], t[ROW_PEAK]]}, {w[5]} frames")
-        secs.append(int(t[1][-2:]) if t[1].startswith("REC ") else -1)
+        allowed = {mmss(w[5]), f"{(now - 1) // 60:02d}:{(now - 1) % 60:02d}"}
+        check(f"labels ({when}): STEM REC with the take's time", t[0][0] == "STEM REC" and t[0][1] in allowed,
+              f"{[t[0], t[ROW_PEAK]]}, {w[5]} frames")
+        secs.append(int(t[0][1][-2:]) if t[0][1] in allowed else -1)
     check("labels: the seconds rise while it records", secs[0] == 0 and secs[1] >= 1, f"{secs}")
     t, w = ui_read(s, tag, "end")
     pct = w[6] * 100 // RING_FRAMES_T1 if w else None
-    shown = [t[0], t[1], t[ROW_PEAK]] if t else None
-    check("labels (end): REC, DONE with the take's length, PEAK from its peak",
-          t is not None and w[0] == ST_IDLE and shown == ["REC", f"DONE {mmss(w[5])}", f"PEAK {pct}%"],
+    shown = [t[0], t[ROW_PEAK]] if t else None
+    check("labels (end): STEM REC DONE, PEAK from its peak",
+          t is not None and w[0] == ST_IDLE and shown == [("STEM REC", "DONE"), ("PEAK", f"{pct}%")],
           f"{shown}, {w[5] if w else None} frames, peak {w[6] if w else None}")
 
 
@@ -1263,7 +1288,7 @@ def labelsbehind(s):
         if t is None:
             check(f"labelsbehind: the frame dump '{when}' exists", False)
             return
-        secs.append(int(t[1][-2:]) if t[1].startswith("REC ") else -1)
+        secs.append(int(t[0][1][-2:]) if re.fullmatch(r"\d\d:\d\d", t[0][1] or "") else -1)
         behind = w[3] - w[4]
     check("labelsbehind: the writer is more than a chunk behind at frame 6,000", behind > CHUNK_FRAMES,
           f"{behind} frames waiting")
@@ -1357,9 +1382,9 @@ def nocard(s):
     port(s, 120, tag=tag, calls_before=(), dump_blocks=False, steps=[f"30:poke:{zero}"],
          calls=((31, s["stems_action"]),), mems=ui_mems(s, "end"))
     t, w = ui_read(s, tag, "end")
-    check("nocard: REC shows NO CARD, the state stays IDLE, no task is made",
-          t is not None and t[:2] == ["REC", "NO CARD"] and w[0] == ST_IDLE and w[2] == 0,
-          f"{t[:2] if t else None}, state {w[0] if w else None}, task {w[2] if w else None}")
+    check("nocard: STEM REC shows NO CARD, the state stays IDLE, no task is made",
+          t is not None and t[0] == ("STEM REC", "NO CARD") and w[0] == ST_IDLE and w[2] == 0,
+          f"{t[0] if t else None}, state {w[0] if w else None}, task {w[2] if w else None}")
 
 
 FIXTURE8 = pathlib.Path("out/stems_fixture8.json")   # tools/verify/stems_fixture.py --eight
@@ -1403,20 +1428,24 @@ def ui_step(s, frame, tag, when):
 
 
 def ui_read(s, tag, when):
-    """(the eleven rows' texts, the seven state words) from a ui_mems or
-    ui_step dump: a label pointing into the buffers is read from the dump,
-    any other from the linked runtime (the fixed strings never change).
-    (None, None) when the dump is missing."""
+    """(each row's (label, value), the seven state words) from a ui_mems or
+    ui_step dump: a string in the buffers is read from the dump, any other
+    from the linked runtime (the fixed strings never change); a value of 0
+    (a pair row's, drawn from the bits) is None. (None, None) when the dump
+    is missing."""
     paths = [run_path(tag, f"{when}.{x}") for x in ("rows", "bufs", "state")]
     if not all(p.exists() for p in paths):
         return None, None
     rows, bufs, st = (p.read_bytes() for p in paths)
-    texts = []
-    for k in range(MENU_ROWS):
-        ptr = int.from_bytes(rows[ROW_LEN * k:ROW_LEN * k + 4], "big")
-        b0 = s["stems_ui_bufs"]
+    b0 = s["stems_ui_bufs"]
+
+    def text(ptr):
+        if not ptr:
+            return None
         src = bufs[ptr - b0:] if b0 <= ptr < b0 + UI_BUFS else runtime_at(s, ptr, 32)
-        texts.append(src.split(b"\0")[0].decode("latin1"))
+        return src.split(b"\0")[0].decode("latin1")
+    texts = [tuple(text(int.from_bytes(rows[ROW_LEN * k + o:ROW_LEN * k + o + 4], "big")) for o in (0, 4))
+             for k in range(MENU_ROWS)]
     return texts, [int.from_bytes(st[i:i + 4], "big") for i in range(0, 28, 4)]
 
 
@@ -1792,8 +1821,8 @@ def exists(s):
         check(f"exists: take {n} left every earlier take's file byte-identical", earlier and not changed,
               f"{len(earlier)} files, changed {changed}")
         t, _ = ui_read(s, tag, "end")
-        check(f"exists: take {n}'s status is DONE", t is not None and t[1].startswith("DONE "),
-              f"{t[:2] if t else None}")
+        check(f"exists: take {n}'s status is DONE", t is not None and t[0] == ("STEM REC", "DONE"),
+              f"{t[0] if t else None}")
         card_in = card
 
 
@@ -1881,12 +1910,12 @@ def overflow(s):
     check("overflow: REC while it saved changed nothing",
           states == [ST_ARMED, ST_RECORDING, ST_FINISHING, ST_IDLE, ST_ARMED], f"state writes {states}")
     t, _ = ui_read(s, "overflow", "pre")
-    check("overflow: the status names the full ring", t is not None and t[:2] == ["REC", "RING FULL"],
-          f"{t[:2] if t else None}")
+    check("overflow: STEM REC's label names the full ring", t is not None and t[0] == ("RING FULL", ""),
+          f"{t[0] if t else None}")
     t, _ = ui_read(s, "overflow", "end")
-    shown = [t[0], t[1], t[ROW_PEAK]] if t else None
-    check("overflow: the re-arm shows CANCEL, ARMED and PEAK 0%",
-          shown == ["CANCEL", "ARMED", "PEAK 0%"], f"{shown}")
+    shown = [t[0], t[ROW_PEAK]] if t else None
+    check("overflow: the re-arm shows STEM REC ARMED and PEAK 0%",
+          shown == [("STEM REC", "ARMED"), ("PEAK", "0%")], f"{shown}")
 
 
 def cardfail(s):
@@ -2217,7 +2246,7 @@ def main():
     runs = [("probe", probe), ("thru", thru), ("tap", tap), ("full", full), ("gains", gains),
             ("postfader", postfader), ("postmove", postmove), ("clip", clip), ("master", master),
             ("master8", master8),
-            ("layout", layout), ("sources", sources), ("mono", mono), ("all14", all14),
+            ("layout", layout), ("sources", sources), ("mono", mono), ("monoad", monoad), ("all14", all14),
             ("w24", w24), ("w16v24", w16v24), ("all14w", all14w),
             ("rowstop", rowstop),
             ("stream", stream), ("wrap", wrap), ("cap", cap), ("eight", eight)]

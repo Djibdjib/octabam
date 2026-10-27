@@ -1,14 +1,15 @@
 """STEM REC -- tracks to the card while the sequencer plays, streamed.
 
-UP + REC opens STEMS (toggle); REC alone stays stock. In STEMS, REC arms
-a recording, or starts one if the sequencer is running; selecting it
-again stops it, and so does the sequencer stopping or 60 minutes. On the
-main page a second YES within 0.5 s does what REC does when no take runs
-(stock's ARM ALL still runs on both). T1 to
-T8, MAIN, CUE, AB and CD turn sources on and off (the eight tracks at
-boot; locked during a take); AB STEREO and CD STEREO (on at boot) record
-an input pair as one stereo file or two mono ones; 24 BIT (off at boot)
-records 24-bit files. Each source is a file,
+UP + REC opens STEMS (toggle), drawn as SYSTEM > PERSONALIZE; REC alone
+stays stock. In STEMS, YES on STEM REC arms a recording, or starts one if
+the sequencer is running; again, it stops it, and so does the sequencer
+stopping or 60 minutes. On the main page a second YES within 0.5 s does
+what STEM REC's YES does when no take runs (stock's ARM ALL still runs on
+both). T1 to T8, MAIN, CUE and the pairs AB and CD turn sources on and off
+(the eight tracks at boot; locked during a take); a pair's STEREO (on at
+boot) records it as one stereo file, or each of its inputs that's on as a
+mono one (LEFT and RIGHT pick a checkbox on a pair's row); 24 BIT (off at
+boot) records 24-bit files. Each source is a file,
 <set>/AUDIO/!STEMS/YYMMDD-HHMM-<name>.wav: the tracks after the fader,
 MAIN and CUE as mixed, the inputs raw; a second take in one minute is
 YYMMDD-HHMM-2, and so on. stems_peak keeps the take's largest ring fill, for the
@@ -33,8 +34,9 @@ holds fourteen 512-byte sector-0 copies (the header's fix).
 
 Placement: UP + REC (detour on the REC press handler) opens STEMS as its
 own WCREATE window (tuner-shaped), not a MAIN MENU row — stock PROJECT
-and root stay stock so BRAIN can own the fifth root slot. Selection and
-labels live on stems_list / stems_rows; the window draws them itself.
+and root stay stock so BRAIN can own the fifth root slot. Selection,
+labels and values live on stems_list / stems_rows; the window draws them
+itself, with MAIN MENU's and PERSONALIZE's calls (MAINMENU.md section 5).
 
 On hardware: STEMS1 to STEMS3 on Yves's MKII (docs/firmware/STEM_REC.md
 section 17) used the earlier root placement; the chord is port-gated.

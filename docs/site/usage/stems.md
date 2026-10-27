@@ -23,22 +23,28 @@ STEMS3; the card writer and menu are measured under the port.
 
 ## Operation
 
-The rows, top to bottom (YES acts on each):
+STEMS looks like SYSTEM > PERSONAL SETTINGS: five rows at a time, each a
+name and a value. UP and DOWN move, YES changes the value under the
+cursor, NO closes STEMS. The rows, top to bottom:
 
 | Row | Shows | YES |
 |---|---|---|
-| 1 | `REC`; `CANCEL` while armed; `STOP` while recording; `SAVING` | arms, cancels or stops the take |
-| 2 | status: `READY`, `ARMED`, `REC 01:23`, `SAVING`, `DONE 01:23`, `NO CARD`, or an error | skipped by the cursor |
-| 3-10 | `T1 [X]` to `T8 [X]` | turns the track on or off |
-| 11-14 | `MAIN`, `CUE`, `AB`, `CD` | turns the source on or off |
-| 15-16 | `AB STEREO`, `CD STEREO` | one stereo file or two mono files |
-| 17 | `24 BIT` | 16-bit or 24-bit files |
-| 18 | `PEAK 12%`: the take's highest ring fill | not reachable |
+| 1 | `STEM REC`: `READY`, `ARMED`, the time (`01:23`), `SAVING`, `DONE` or `NO CARD`; a failed take's error stands in for `STEM REC` | arms, cancels or stops the take |
+| 2 | `PEAK`: the take's highest ring fill (`12%`) | skipped by the cursor |
+| 3-10 | `T1` to `T8`, each with a checkbox | turns the track on or off |
+| 11-12 | `MAIN`, `CUE`, each with a checkbox | turns the source on or off |
+| 13-14 | the input pairs AB and CD, one row each | toggles the checkbox LEFT and RIGHT picked |
+| 15 | `24 BIT` with a checkbox | 16-bit or 24-bit files |
+
+A pair row reads `AB` and `STEREO` in stereo (one stereo file), or `A`,
+`B` and `STEREO` with STEREO off (a mono file for each input that's on, so
+one input can record alone). LEFT and RIGHT pick a checkbox, as on MIDI
+SYNC. The CD row works the same way with C and D.
 
 1. Choose the sources and the format. At boot the eight tracks are on,
    MAIN, CUE and the inputs off, both pairs stereo, 16 bits. Nothing is
-   saved, and rows 3 to 17 are locked while a take records or saves.
-2. Press **REC**. With the sequencer stopped it arms and starts on the
+   saved, and rows 3 to 15 are locked while a take records or saves.
+2. Press **YES** on STEM REC. With the sequencer stopped it arms and starts on the
    first frame the sequencer plays (press again to cancel); with it running
    it starts at once.
 3. The take stops when the sequencer stops, when you press STOP, after 60
@@ -47,13 +53,13 @@ The rows, top to bottom (YES acts on each):
 4. **Pull the card or power off only when the status reads `DONE`.** The
    folder appears when the take starts, so it is not a signal.
 
-The status updates when you press a key; open the menu or press UP or DOWN
-to refresh it. Error names: `RING FULL` (the card fell behind; the files
-still play), `SAME MINUTE` (a take already exists for this minute),
+The status updates by itself while STEMS is open. Error names: `RING
+FULL` (the card fell behind; the files still play), `SAME MINUTE` (99
+takes in this minute already),
 `WRITE FAILED`, `OPEN FAILED`, `PATH FAILED`, `SEEK FAILED`,
 `CLOSE FAILED`, `TASK FAILED`.
 
-- With MASTER TRACK on, T8 is the master bus: its row reads `T8 MASTER`, a
+- With MASTER TRACK on, T8 is the master bus: its value reads `MASTER`, a
   take leaves T8 out, and MAIN is T8 alone. T1 to T7 and CUE are 32
   samples (0.73 ms) early against MAIN in that mode, and the track files do
   not sum to MAIN.

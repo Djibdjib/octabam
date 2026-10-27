@@ -7189,6 +7189,23 @@ that's on stays on, so a take always has a track the rows show.
   pass with the same values; the only SKIP is `verify_set`'s (no
   `OT_PROJECT`). Each panel's walk takes 15 to 18 minutes there.
 
+### 16.2a The window as PERSONALIZE (27 Oct 2026) ✅ under the port
+
+Sections 16.1 and 16.2 describe the eighteen-row list. On 27 Oct 2026
+Yves chose PERSONALIZE's look from firmware-drawn mockups, and STEMS
+became fifteen rows of a label and a value, five at a time: STEM REC
+(its state as the value, a failure's name in place of the label), PEAK
+(the one row with no action, skipped by the cursor), T1 to T8, MAIN,
+CUE, the pairs AB and CD on one row each, and 24 BIT. A pair row holds
+its checkboxes side by side (`AB` and `STEREO`; with STEREO off, `A`, `B`
+and `STEREO`), picked with LEFT and RIGHT as on stock MIDI SYNC, and a
+mono pair can record one input alone (bits 12 to 15 of `stems_tracks`
+name the input left out). How MAIN MENU and PERSONALIZE draw, and so
+how STEMS does: `MAINMENU.md` section 5, after the STEMS paragraph.
+`verify_stems_menu`'s third boot compares STEMS with PERSONALIZE drawn
+with STEMS's rows, pixel for pixel; `verify_stems_units` covers the
+rows' actions, the cursor and the file table with inputs left out.
+
 ### 16.3 What the gate can't see 🟡
 
 - **The unit's key timing and its panel.** The port feeds the panel's
