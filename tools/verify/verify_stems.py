@@ -1834,50 +1834,6 @@ def logtaken(s):
           mine is not None and mine.startswith(b"STEM REC STATS 000000-0000-2\r\n"), f"{mine[:40] if mine else None}")
 
 
-BIG_TAKES = 100            # earlier takes in _STEMS for bigfolder, eight WAVs and eight .ot each
-
-
-def ring_peak(card_path, take):
-    """(peak, capacity) in frames from take `take`'s log, or None."""
-    text = card_get(card_files(card_path), log_file(take))
-    m = re.search(rb"ring peak (\d+) of (\d+) frames", text or b"")
-    return (int(m.group(1)), int(m.group(2))) if m else None
-
-
-def bigfolder(s):
-    """Review Focus (27 Oct 2026, the final review): every start looks a
-    name up in _STEMS once a file, and every lookup that misses reads the
-    whole folder. With 100 earlier takes of other minutes there (1,600
-    files), an eight-file take must still finish whole; its log's ring
-    peak, the frames the hook wrote before the writer caught up, is shown
-    beside the same take's on an empty folder."""
-    fx = json.loads(FIXTURE.read_text())
-    old = {}
-    for n in range(BIG_TAKES):
-        take = f"261001-{1000 + n:04d}"
-        for k in range(1, 9):
-            old[take_file(fx, take, f"T{k}.wav")] = bytes(44)
-            old[take_file(fx, take, f"T{k}.ot")] = bytes(832)
-    card_in = card_plus(fx["card"], run_path("bigfolder", "in.img"), old)
-    peaks = {}
-    for tag, cin in (("bigfolder0", None), ("bigfolder", card_in)):
-        log, _, card, words, _ = port(s, 3000, stop_at=400, tag=tag, mask=0xFF, dump_blocks=False,
-                                      **({"card_in": str(cin)} if cin else {}))
-        st, status, _, wr, rd, nfr = words
-        after = card_files(card)
-        mine = take_file(fx, "000000-0000", "T").lower()          # the new take's track files
-        wavs = [p for p in after if p.lower().startswith(mine) and p.upper().endswith(".WAV")]
-        check(f"{tag}: the eight-file take finished whole (IDLE, no error, eight WAVs of {nfr} frames)",
-              st == ST_IDLE and status == 0 and len(wavs) == 8
-              and all(len(after[p]) == 44 + 64 * nfr for p in wavs),
-              f"state {st}, status {status}, {len(wavs)} WAVs")
-        peaks[tag] = ring_peak(card, "000000-0000")
-    p0, p1 = peaks["bigfolder0"], peaks["bigfolder"]
-    check(f"bigfolder: with {BIG_TAKES} takes in _STEMS the ring peaks under half its capacity",
-          p1 is not None and p1[0] < p1[1] // 2,
-          f"ring peak {p1} with {BIG_TAKES} takes, {p0} on an empty folder (frames, of capacity)")
-
-
 def overflow(s):
     """The writer held (stems_hold, a test seam) and the ring made to look
     nearly full after the action: rd poked 100 frames short of the rings'
@@ -2266,7 +2222,6 @@ def main():
              for m in (0x01, 0x03, 0x0F, 0xFF, 0xA5)]
     runs += [("cost", cost), ("same_as_alone", same_as_alone), ("cut", cut), ("labels", labels), ("labelsbehind", labelsbehind), ("nocard", nocard), ("exists", exists),
              ("logblocked", logblocked), ("logtaken", logtaken), ("tempochange", tempochange),
-             ("bigfolder", bigfolder),
              ("overflow", overflow), ("cardfail", cardfail)]
     if "--long" in sys.argv:
         runs += [("limit", limit)]

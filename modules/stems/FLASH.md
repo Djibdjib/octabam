@@ -37,12 +37,13 @@ card backed up; power cycle once after the upgrade.
    `STEMS ARMED`, and PLAY starts the take. One YES doesn't arm. A double
    tap while recording doesn't stop the take. With a track key held, YES
    only arms that track. Does 0.4 s feel right?
-9. **A full folder.** After ten takes or so, does the browser still open
-   `_STEMS` quickly, and does `DONE` come as soon after STOP as before?
-   Each take adds a card lookup a file at its start and an `.ot` a file at
-   its end, and every lookup reads the folder entry by entry (inferred:
-   that is how a FAT folder is searched).
-10. Listen to one take's files against the project.
+9. Listen to one take's files against the project.
+
+Not checked, by Yves's choice (27 Oct 2026): how a `_STEMS` folder with
+many takes behaves. Every start looks its names up in the folder, and
+under the port a folder of 100 takes (1,600 files) delayed the take's
+first file past 1.1 s; the ring covers about 6 s at eight tracks and 16
+bits, 2.6 s with every source at 24 bits.
 
 ## Flash G — `stems`: zero copy, the writer at priority 1 (staged 8 Oct 2026)
 
