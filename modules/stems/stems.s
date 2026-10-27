@@ -113,7 +113,7 @@
         .equ    TASK_PRIO,     1
         .equ    PATH_MAX,      256
         | A set path of up to PATH_MAX-72 leaves 72 for the longest take
-        | file, /AUDIO/_STEMS/YYMMDD-HHMM-99-MAIN.wav (37 and the NUL); a
+        | file, /AUDIO/!STEMS/YYMMDD-HHMM-99-MAIN.wav (37 and the NUL); a
         | longer set path fails PATH.
         .equ    TAKE_NUM_MAX,  99           | takes in one minute: -2 to -99 after the first
         .equ    ERR_OVERFLOW,  1
@@ -341,14 +341,17 @@ stems_drawn:     .long   -1         | stems_lgen when the window was last drawn
 stems_yes_t:     .long   0          | DTCN3 at the main page's last first tap of YES
 stems_yes_n:     .long   0          | 1 while that first tap waits for a second
 stems_yes_fire:  .long   0          | this press is a double tap that arms (stems_yes_key)
+stems_yes_last:  .long   0          | DTCN3 at the last YES press the tap logic saw
+stems_yes_gap:   .long   0          | ms between the last two such presses, for the log
+stems_yes_fires: .long   0          | double taps that armed since boot, for the log
 stems_ui_bufs:                      | two buffers for each formatted line
 stat_buf0:       .space  16
 stat_buf1:       .space  16
 peak_buf0:       .space  16
 peak_buf1:       .space  16
 stems_name:      .space  16         | YYMMDD-HHMM, or YYMMDD-HHMM-<n> for take n of a minute
-stems_path:      .space  PATH_MAX   | <set>/AUDIO/_STEMS/<name>: every file's prefix
-stems_fpath:     .space  PATH_MAX   | <set>/AUDIO/_STEMS/<name>-<file>.wav
+stems_path:      .space  PATH_MAX   | <set>/AUDIO/!STEMS/<name>: every file's prefix
+stems_fpath:     .space  PATH_MAX   | <set>/AUDIO/!STEMS/<name>-<file>.wav
 | The 44-byte header, little-endian as RIFF wants, sizes 0: the placeholder
 | every file starts with. The real sizes go into the sector-0 copy at the end.
 stems_hdr:
@@ -364,8 +367,8 @@ stems_hdr:
         .byte   16,0                | bits
         .ascii  "data"
         .long   0
-fmt_take:  .asciz  "/AUDIO/_STEMS/%s"       | the pool, then the take's name
-fmt_pool:  .asciz  "/AUDIO/_STEMS"          | one flat pool under AUDIO for every take
+fmt_take:  .asciz  "/AUDIO/!STEMS/%s"       | the pool, then the take's name
+fmt_pool:  .asciz  "/AUDIO/!STEMS"          | one flat pool under AUDIO for every take
 fmt_num:   .asciz  "-%d"                    | take n of a minute, after its 11 characters
 fmt_file:  .asciz  "-T%d.wav"
 probe_name: .asciz "/PROBE.BIN"
@@ -533,7 +536,7 @@ stems_rec_key:
 | The detour at YES_SITE (MAINMENU.md 6): the handler gets (code, edge),
 | edge 0 a release, on press and on release. Stock arms every track on a
 | press with no track key held (ARM ALL), and does so on both taps as
-| before. A second such press within 0.4 s of the first, with STEM REC
+| before. A second such press within 0.5 s of the first, with STEM REC
 | IDLE, arms it too (or starts it, if the sequencer plays: the hook takes
 | ARMED to RECORDING on the next playing frame), and the toast then reads
 | STEMS ARMED over stock's ARM ALL. A double tap never stops or cancels a
@@ -545,7 +548,9 @@ stems_rec_key:
         .equ    TRK_HELD,      0x460d1736   | non-zero: a track key is held (ARM TRK)
         .equ    TOAST,         0x4005a2b8   | (text, duration): the stock message popup
         .equ    TOAST_TICKS,   48           | the duration stock gives ARM ALL
-        .equ    TAP_COUNTS,    52800000     | 0.4 s of DTCN3 at 132 counts a microsecond
+        .equ    TAP_COUNTS,    66000000     | 0.5 s of DTCN3 at 132 counts a microsecond: 0.4 s
+                                            | missed Yves's double taps on his MKII (27 Oct 2026)
+        .equ    COUNTS_MS,     132000       | DTCN3 counts a millisecond
         .global stems_yes_key
 stems_yes_key:
         clr.l   stems_yes_fire
@@ -558,6 +563,13 @@ stems_yes_key:
         tst.l   TRK_HELD
         bne.s   .Lyk_stock          | ARM TRK: stock's alone, and no tap
         move.l  DTCN3,%d0
+        move.l  %d0,%d1             | the gap since the last such press, in ms, for the
+        sub.l   stems_yes_last,%d1  | log: what the unit's double taps measure
+        move.l  %d0,stems_yes_last
+        move.l  #COUNTS_MS,%d0      | divu.l takes no immediate on ColdFire
+        divu.l  %d0,%d1
+        move.l  %d1,stems_yes_gap
+        move.l  stems_yes_last,%d0  | the press's DTCN3 again
         tst.l   stems_yes_n
         beq.s   .Lyk_first          | no first tap pending
         move.l  %d0,%d1
@@ -569,6 +581,7 @@ stems_yes_key:
         bne.s   .Lyk_stock          | armed, recording or saving: never touched
         moveq   #1,%d1
         move.l  %d1,stems_yes_fire
+        addq.l  #1,stems_yes_fires
         bra.s   .Lyk_stock
 .Lyk_first:
         move.l  %d0,stems_yes_t
@@ -743,8 +756,9 @@ stems_draw:
         addq.l  #6,%d0
         move.l  %d0,-(%sp)              | y2: glyph extends up
         move.l  (%a5),%d0
-        subq.l  #3,%d0
-        move.l  %d0,-(%sp)              | x2
+        subq.l  #4,%d0                  | x2: the last column CLEAR clears. At w-3 the invert
+        move.l  %d0,-(%sp)              | flipped a column no clear resets, once a draw: it
+                                        | flickered with each new second (Yves's MKII, 27 Oct 2026)
         move.l  %d3,-(%sp)              | y1
         pea     2                       | x1
         move.l  %a5,-(%sp)
@@ -925,6 +939,7 @@ st_f_sleep:     .asciz  "writer longest sleep %d us, asks %d\r\n"
 st_f_hook:      .asciz  "hook mean %d us, longest %d us\r\n"
 st_f_frame:     .asciz  "hook and frame routine mean %d us, longest %d us, %d frames\r\n"
 st_f_card:      .asciz  "card udma %d mwdma %d, cluster %d sectors\r\n"
+st_f_yes:       .asciz  "yes gap %d ms, double taps %d\r\n"
         .even
 pct_sign:       .asciz  "%"
         .balign 2
@@ -2458,7 +2473,7 @@ stems_mkdir_missing:
         moveq   #-1,%d0
         rts
 
-| ---- ensure <set>/AUDIO/_STEMS, the one folder every take goes in -----
+| ---- ensure <set>/AUDIO/!STEMS, the one folder every take goes in -----
 | Uses stems_fpath as scratch (files are not open yet). d0 = 0, or -1.
 stems_ensure_parents:
         lea     SET_PATH,%a0
@@ -2477,7 +2492,7 @@ stems_ensure_parents:
         clr.b   (%a1)
         pea     fmt_pool
         move.l  %a1,-(%sp)
-        jsr     SPRINTF             | append /AUDIO/_STEMS
+        jsr     SPRINTF             | append /AUDIO/!STEMS
         addq.l  #8,%sp
         bsr.w   stems_mkdir_missing
         rts
@@ -2485,12 +2500,12 @@ stems_ensure_parents:
         moveq   #-1,%d0
         rts
 
-| ---- the take's prefix: <set>/AUDIO/_STEMS/<name> -----------------------
+| ---- the take's prefix: <set>/AUDIO/!STEMS/<name> -----------------------
 | set = SET_PATH. d0 = 0, or -1 (empty, or too long).
 stems_make_prefix:
         lea     SET_PATH,%a0
         lea     stems_path,%a1
-        move.l  #PATH_MAX-72,%d1    | room for /AUDIO/_STEMS/<name>-MAIN.wav
+        move.l  #PATH_MAX-72,%d1    | room for /AUDIO/!STEMS/<name>-MAIN.wav
 .Lp_copy:
         move.b  (%a0)+,%d0
         beq.s   .Lp_end
@@ -2652,7 +2667,7 @@ stems_start:
         bsr.w   stems_make_prefix
         tst.l   %d0
         bmi.w   .Ls_path
-        bsr.w   stems_ensure_parents | AUDIO/_STEMS
+        bsr.w   stems_ensure_parents | AUDIO/!STEMS
         tst.l   %d0
         bmi.w   .Ls_path
         moveq   #1,%d2              | take n of the minute; the first has no number
@@ -3343,6 +3358,13 @@ stems_stats:
         move.l  %a3,-(%sp)
         jsr     SPRINTF
         lea     20(%sp),%sp
+        bsr.w   stems_st_tail
+        move.l  stems_yes_fires,-(%sp)              | the main page's YES: the last gap the
+        move.l  stems_yes_gap,-(%sp)                | double tap measured, and its arms
+        pea     st_f_yes
+        move.l  %a3,-(%sp)
+        jsr     SPRINTF
+        lea     16(%sp),%sp
         bsr.w   stems_st_tail
         move.l  %a3,%d7
         sub.l   %a2,%d7                             | d7: the text's length

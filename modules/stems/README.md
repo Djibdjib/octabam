@@ -4,7 +4,9 @@ UP + REC opens STEMS and records to the card while the sequencer plays:
 every track after its fader, the main mix (MAIN), the cue mix (CUE) and
 the four inputs, 16 or 24 bits. It writes the take while it records, so a
 take can run until you stop it, up to 60 minutes. Each source lands as its
-own file in one folder, `<set>/AUDIO/_STEMS/`, at 44,100 Hz. The take's
+own file in one folder, `<set>/AUDIO/!STEMS/`, at 44,100 Hz. The `!`
+puts the folder first in the file browser, which sorts by character code
+(`_` sorted after the letters on Yves's MKII, 27 Oct 2026). The take's
 name starts each file's name: `YYMMDD-HHMM-T1.wav` to `-T8.wav`,
 `-MAIN.wav`, `-CUE.wav`, and the inputs as `-AB.wav` and `-CD.wav`
 (stereo) or `-A.wav` to `-D.wav` (mono). A second take in the same minute
@@ -13,8 +15,8 @@ no take overwrites another. A name counts as taken when its log
 (`/BRAIN/STEMS/<take>.TXT`, see STATS.TXT below) is on the card, or any
 file the new take writes. Every take that ends writes a log, so a second
 take with other sources gets a number too. Takes already on a card in an
-older layout (`AUDIO/STEMS/<project>/YYMMDD-HHMM/`, or
-`AUDIO/YYMMDD-HHMM/`) stay where they are.
+older layout (`AUDIO/_STEMS/` from STEMS8, `AUDIO/STEMS/<project>/YYMMDD-HHMM/`,
+or `AUDIO/YYMMDD-HHMM/`) stay where they are.
 
 Beside each WAV, STEM REC writes an attributes file with the same name
 and the extension `.ot`, as the stock recorder does for its own
@@ -196,14 +198,14 @@ Its rows, top to bottom:
    - If the sequencer is stopped, STEM REC arms. Recording starts on the
      first frame the sequencer plays. Press it again to cancel.
    - If the sequencer is running, recording starts at once.
-   - **Or, without opening STEMS:** press **YES** twice within 0.4 s on
+   - **Or, without opening STEMS:** press **YES** twice within 0.5 s on
      the main page. It does the same as REC: it arms, or starts a take
      while the sequencer plays, and the message reads `STEMS ARMED`. YES
      still does its stock job on both presses (it arms every track for
      recording, `ARM ALL`). A double tap never stops or cancels a take:
      use STEMS or STOP for that. With a track key held, YES is stock's
-     alone (`ARM TRK`). The 0.4 s is measured under the port, not on the
-     unit.
+     alone (`ARM TRK`). 0.4 s missed Yves's double taps on his MKII (27 Oct
+     2026), so it is 0.5 s; the log's `yes gap` line shows what a tap measured.
 3. The take stops when the sequencer stops, when you press **STOP**, after
    60 minutes, or when the ring fills. The menu can be closed while it
    records.
@@ -251,8 +253,12 @@ writer longest sleep 12000 us, asks 10000
 hook mean 41 us, longest 88 us
 hook and frame routine mean 290 us, longest 335 us, 165375 frames
 card udma 4 mwdma 0, cluster 64 sectors
+yes gap 312 ms, double taps 1
 ```
 
+- **Yes gap** is the time between the last two presses of YES on the main
+  page that the double tap saw, in ms, and **double taps** how many armed
+  STEM REC since boot. A double tap counts when the gap is under 500 ms.
 - **Card writes** fill most of the take's time, with long outliers: the
   card is the limit. The card takes one command a cluster (the file
   layer's), so a card formatted with larger clusters takes fewer, larger
@@ -309,7 +315,7 @@ and STEM REC's writer named on the CPU tab (its task control block is
 - The choices reset at every boot. Nothing is saved.
 - **Set path length.** STEM REC's path buffers are `PATH_MAX` = 256 bytes.
   The set path may be up to 183 bytes (under `PATH_MAX` − 72). That leaves room
-  for the longest take file, `/AUDIO/_STEMS/YYMMDD-HHMM-99-MAIN.wav` (37
+  for the longest take file, `/AUDIO/!STEMS/YYMMDD-HHMM-99-MAIN.wav` (37
   characters and the NUL). A longer set path fails with `PATH FAILED`.
 - **99 takes in one minute.** A hundredth take in the same minute is
   refused with `SAME MINUTE`, and nothing is written.

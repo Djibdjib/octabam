@@ -93,7 +93,7 @@ runs (`verify_stems`) and the menu on both panels (`verify_stems_menu`).
 The unit hasn't run any of it yet: flash H in FLASH.md lists what only the
 unit can show.
 
-- **Note 6, the flat folder:** `<set>/AUDIO/_STEMS/<take>-T1.wav`. A
+- **Note 6, the flat folder:** `<set>/AUDIO/!STEMS/<take>-T1.wav`. A
   second take in one minute is `<take>-2`, up to 99 (Yves, 27 Oct 2026: a
   number instead of `SAME MINUTE`). A name is taken by its log or any file
   the take writes. Measured under the port: a check of all sixteen file
@@ -110,8 +110,8 @@ unit can show.
 - **Note 2, the refresh:** `stems_enter` keeps the labels; a detour at
   `0x40056c7c` in the UI task's loop redraws STEMS when they changed.
 - **Note 4, the double tap:** a detour on the main page's YES handler
-  (`0x4005e4c8`); 0.4 s; it arms or starts, never stops. A first tap
-  lapses after 0.4 s: DTCN3 wraps every 32.5 s, so a waiting tap could
+  (`0x4005e4c8`); 0.5 s (0.4 s until STEMS9: it missed Yves's taps); it arms or starts, never stops. A first tap
+  lapses after 0.5 s: DTCN3 wraps every 32.5 s, so a waiting tap could
   have paired with a press much later (found in review, 27 Oct 2026).
 
 Left for later (the final review's minor findings): the `STEMS ARMED`
@@ -119,7 +119,7 @@ toast can miss when the hook starts the take in the instant after the
 arm; a card error in the name check walks all 99 numbers and says `SAME
 MINUTE`; no gate checks "no `.ot` for an empty file"; with a clock that
 stops or resets each boot, takes share minutes, and each start checks one
-more name per earlier take of that minute. The size of `_STEMS` is out of
+more name per earlier take of that minute. The size of `!STEMS` is out of
 scope (Yves, 27 Oct 2026).
 - **Note 3, the figures:** no duplicate, so the log keeps every line
   (README, "The log against BRAIN's PERFORMANCE page"). A proposal for Sam

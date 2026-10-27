@@ -948,7 +948,7 @@ def tap(s):
 def card_files(card_path):
     """Every file on a card image, {path: bytes}, paths as the card spells
     them, without a leading slash
-    ('STEMS/AUDIO/_STEMS/000000-0000-T1.wav'). A folder with no file
+    ('STEMS/AUDIO/!STEMS/000000-0000-T1.wav'). A folder with no file
     in it does not appear: emu_card.extract_image lists files
     (verify_card_reader.py pins that)."""
     import emu_card as ec
@@ -964,9 +964,9 @@ def first_clusters(card_path):
 
 
 def stems_pool(fx):
-    """Where takes live: <set>/AUDIO/_STEMS/ (no leading slash), one flat
+    """Where takes live: <set>/AUDIO/!STEMS/ (no leading slash), one flat
     folder for every take of the set (note 6 of 26 Oct 2026)."""
-    return f"{fx['set']}/AUDIO/_STEMS/"
+    return f"{fx['set']}/AUDIO/!STEMS/"
 
 
 # A take's file in the pool: <YYMMDD-HHMM>[-<n>]-<file>. The number marks a
@@ -1020,7 +1020,7 @@ def card_get(files, path):
 
 
 def new_entries(files, fixture=None):
-    """What this run added under <set>/AUDIO/_STEMS/: the take name
+    """What this run added under <set>/AUDIO/!STEMS/: the take name
     (YYMMDD-HHMM, or YYMMDD-HHMM-<n>) of every file there, sorted. The
     fixture's card has no takes, so every take on a run's card is new."""
     fx = json.loads(pathlib.Path(fixture or FIXTURE).read_text())
@@ -1031,7 +1031,7 @@ def new_entries(files, fixture=None):
 
 
 def wav_check(card_path, nfr, dump, tag, lag_want=STEM_LAG, g=None):
-    """The take on the card: one new take under AUDIO/_STEMS/, its
+    """The take on the card: one new take under AUDIO/!STEMS/, its
     T1.wav with the header STEM REC writes, and every sample equal to T1's
     read-back after the fader (g, the run's settled gain) at the lag a take
     armed before play starts at (STEM_LAG).
@@ -1500,6 +1500,9 @@ def stats_check(card_path, tag, nfr, nfiles, bits, status="OK", fixture=FIXTURE,
               and ring[1] == ring_frames(nfiles, nfiles * fbytes),
               f"write {wfast}, ring {ring}, {len(text)} bytes")
     check(f"{tag}: STATS.TXT's cluster is the card's", clus == [spc], f"{clus} vs {spc} sectors a cluster")
+    yes = nums(r"yes gap (\d+) ms, double taps (\d+)")
+    check(f"{tag}: STATS.TXT has the main page's YES line (the last gap, the double taps; none in a run)",
+          yes is not None and yes[1] == 0, f"{yes}")
     return {"took": took, "ring": ring, "writes": wr, "hook": hook, "frame": frame, "cluster": clus}
 
 

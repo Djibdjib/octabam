@@ -32,7 +32,7 @@ card backed up; power cycle once after the upgrade.
    with the stock recorder, record four bars at 123.4 BPM, save the
    sample, and copy its `.wav` and `.ot` to `C:\Projects\Stem recordings`.
 3. **The folder.** One take, T1 to T8 at 16 bits, about 30 s. The files
-   are in `AUDIO/_STEMS/`, named `<take>-T1.wav` and so on. Can the file
+   are in `AUDIO/!STEMS/`, named `<take>-T1.wav` and so on. Can the file
    browser reach them? Load `-T1.wav` onto a Flex track.
 4. **The `.ot`.** On that Flex track: the tempo equals the project's (no
    1.5 BPM drift), the take plays in time with timestretch on, and the
@@ -48,10 +48,10 @@ card backed up; power cycle once after the upgrade.
 8. **The double tap.** On the main page, stopped: YES twice quickly shows
    `STEMS ARMED`, and PLAY starts the take. One YES doesn't arm. A double
    tap while recording doesn't stop the take. With a track key held, YES
-   only arms that track. Does 0.4 s feel right?
+   only arms that track. Does 0.5 s feel right?
 9. Listen to one take's files against the project.
 
-Not checked, by Yves's choice (27 Oct 2026): how a `_STEMS` folder with
+Not checked, by Yves's choice (27 Oct 2026): how a `!STEMS` folder with
 many takes behaves. Every start looks its names up in the folder, and
 under the port a folder of 100 takes (1,600 files) delayed the take's
 first file past 1.1 s; the ring covers about 6 s at eight tracks and 16

@@ -6,7 +6,7 @@ the inputs to the card as separate WAV files.
 ## What is in it
 
 - **STEM REC** (yvesrosius) — UP + REC opens STEMS and records a take to
-  `<set>/AUDIO/_STEMS/`, one file per source named `YYMMDD-HHMM-<source>.wav`,
+  `<set>/AUDIO/!STEMS/`, one file per source named `YYMMDD-HHMM-<source>.wav`,
   16 or 24 bits.
   [The module page](../../../modules/stems/README.md) says how to use it
   and what is open. Own window (no MAIN MENU row) so BRAIN can own the

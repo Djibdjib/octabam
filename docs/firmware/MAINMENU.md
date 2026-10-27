@@ -213,7 +213,7 @@ toast is a tail call: `0x4005a2b8(text, 48)`, the text written over the
 code's slot and 48 over the edge's. STEM REC detours the handler's first
 eight bytes (`stems_yes_key`, note 4 of 26 Oct 2026): it runs the rest as
 a subroutine on copies of the two arguments, so stock still arms on every
-press, and a second press within 0.4 s, with no track key held and
+press, and a second press within 0.5 s, with no track key held and
 STEM REC idle, also arms STEM REC.
 
 - `FUN_400554e0(kind)`: the page switch. Writes the current-page-kind

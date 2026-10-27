@@ -28,7 +28,7 @@ A PNG of the screen at each step goes to out/stems_runs/menu-<model>-*.png.
 Pass or fail comes from memory, never from a picture.
 
 A second boot per panel (note 4) taps YES on the main page: twice within
-0.4 s arms STEM REC, or starts it while playing; once, or twice 1 s apart,
+0.5 s arms STEM REC, or starts it while playing; once, or twice 1 s apart,
 does not; a double tap never stops a take; with T1 held, or inside MAIN
 MENU (CONTROL, then AUDIO), YES stays stock's.
 
@@ -83,11 +83,10 @@ def stems_open(p, s):
     return p.long(s["stems_win"]) != 0 and p.long(s["stems_live"]) != 0
 
 
-WIN_COLS = slice(8, 119)        # inside STEMS' frame (columns 7 and 120 on the 128-wide LCD, from
+WIN_COLS = slice(8, 120)        # inside STEMS' frame (columns 7 and 120 on the 128-wide LCD, from
                                 # the gate's screenshots, 27 Oct 2026); the main page shows either side.
-                                # Column 119, rows 11-31, differs between the draw at open and a draw
-                                # after a key with the same labels and no take (probe, 27 Oct 2026),
-                                # so it's left out: it says nothing about the labels
+                                # Column 119 is in: the selection bar inverted it and no clear reset it,
+                                # so it flipped with every draw (the flicker Yves saw, 27 Oct 2026)
 
 
 def window(scr):
@@ -428,7 +427,7 @@ def yes_held(p):
 
 def double_tap(model, s, fx):
     """Note 4 of 26 Oct 2026, on its own boot: on the main page, a second
-    YES within 0.4 s arms STEM REC (or starts it while playing); one YES,
+    YES within 0.5 s arms STEM REC (or starts it while playing); one YES,
     or two 1 s apart, does not; a double tap never stops a take; with a
     track key held, or inside MAIN MENU, YES stays stock's."""
     card = WORK / f"menu-{model}-yes.img"
@@ -465,10 +464,18 @@ def double_tap(model, s, fx):
         slow = st()
         vs.check(f"{model}: one YES, or two 1 s apart, leave STEM REC idle", (one, slow) == (vs.ST_IDLE,) * 2,
                  f"one {one}, 1 s apart {slow}")
+        taps(p, 450)
+        armed, gap, fires = st(), p.long(s["stems_yes_gap"]), p.long(s["stems_yes_fires"])
+        vs.check(f"{model}: YES twice 0.45 s apart arms STEM REC (0.4 s missed Yves's taps), "
+                 "and the log's gap reads it in ms", armed == vs.ST_ARMED and 420 <= gap <= 520 and fires == 1,
+                 f"state {armed}, gap {gap} ms, double taps {fires}")
+        p.chord("up", "rec", settle=400)                # STEMS opens on CANCEL: cancel, close
+        p.press(ENTER, settle=200)
+        p.press(CLOSE, settle=200)
         taps(p, 200)
         armed = st()
         p.png(WORK / f"menu-{model}-yes-armed.png")
-        vs.check(f"{model}: YES twice within 0.4 s arms STEM REC, and the toast differs from one YES's ARM ALL",
+        vs.check(f"{model}: YES twice within 0.5 s arms STEM REC, and the toast differs from one YES's ARM ALL",
                  armed == vs.ST_ARMED and diff_box(single, p.screen()) is not None, f"state {armed}")
         taps(p, 200)
         vs.check(f"{model}: a double tap on an armed take leaves it armed (never cancels)", st() == vs.ST_ARMED,

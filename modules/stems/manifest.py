@@ -3,13 +3,13 @@
 UP + REC opens STEMS (toggle); REC alone stays stock. In STEMS, REC arms
 a recording, or starts one if the sequencer is running; selecting it
 again stops it, and so does the sequencer stopping or 60 minutes. On the
-main page a second YES within 0.4 s does what REC does when no take runs
+main page a second YES within 0.5 s does what REC does when no take runs
 (stock's ARM ALL still runs on both). T1 to
 T8, MAIN, CUE, AB and CD turn sources on and off (the eight tracks at
 boot; locked during a take); AB STEREO and CD STEREO (on at boot) record
 an input pair as one stereo file or two mono ones; 24 BIT (off at boot)
 records 24-bit files. Each source is a file,
-<set>/AUDIO/_STEMS/YYMMDD-HHMM-<name>.wav: the tracks after the fader,
+<set>/AUDIO/!STEMS/YYMMDD-HHMM-<name>.wav: the tracks after the fader,
 MAIN and CUE as mixed, the inputs raw; a second take in one minute is
 YYMMDD-HHMM-2, and so on. stems_peak keeps the take's largest ring fill, for the
 menu's PEAK row. Design:
@@ -72,7 +72,7 @@ UI_RECV_STOCK = bytes.fromhex("2040588f7110")
 # The main page's YES handler (both keymaps send 0x31 here, on press and
 # release; MAINMENU.md 6): `move.l 4(sp),d1; move.l 8(sp),d0`. The stub
 # replays both and calls the rest as a subroutine; a second press within
-# 0.4 s, with STEM REC idle, arms it (note 4 of 26 Oct 2026).
+# 0.5 s, with STEM REC idle, arms it (note 4 of 26 Oct 2026).
 YES_SITE = 0x4005E4C8
 YES_STOCK = bytes.fromhex("222f0004" "202f0008")
 
