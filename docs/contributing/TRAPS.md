@@ -904,6 +904,38 @@ receives the stock `0x8c` frame command and B does not.
 **Fix and gate:** DLPUMP sends to core B on ping-0 frames only (`verify_dlload`). Whether the unit
 loses the same frames is open.
 
+<a name="trap-stock-x-scratch"></a>
+
+### Payload B's frame routine writes `x:$3f7f..$3fbf` every frame, and the guard's base cells were there
+
+**Seen:** October 2026, a unit (MKII). DARK REV picked on T4's FX2 while MODULATION's code was in T4's
+block stopped the DSP frame loop within about 4 ms of the pump's withdrawal: 3 of 3 on the first
+three images, and on every later build in which the guard resumed a dry reverb and the stock proc
+ran. The port did not reproduce it.
+
+**Cause:** payload B's frame routine calls `func_00034f` at `P:0x7a` every frame with `r0 = $3f80`,
+`r1 = $3f00`. It reads `x:$3f00..$3f20` and writes 65 words at `x:$3f7f..$3fbf` (`mpy`/`mac`
+results split over `a1`, `a0` and `b0`). The guard kept each instance's buffer base at
+`x:$3f90 + idx` (T3 idx 40 = `x:$3fb8`, T4 idx 43 = `x:$3fbb`), so the stock overwrote it every
+frame, and the resume ran DARK REV's init and proc with that scratch value as the base. Payload A
+writes only `x:$3f80` and `x:$3f81`: T7 and T8 were unaffected.
+
+**Measured on the unit:** with a probe on a core B track, `x:$3fb8` read `$ffb754` after a reboot and
+again after the guard's init stored the allocator entry's contents there; the entry (`$25a`)
+held `$38000`. With the state words at `x:$3dc0 + idx` and the base cells at `x:$3e00 + idx`, the
+probe read T3's base `$038000` and T4's `$03c000` (entry `$25c`), and the sequence that stopped the
+DSP on every earlier build ran three times with no stop.
+
+**Fix and gate:** `dlwrap.asm` keeps the state words at `x:$3dc0 + idx` and the base cells at
+`x:$3e00 + idx`. `verify_dlwrap` seeds those cells (200 checks). The port cannot show this trap:
+`dsp_host` does not run the stock frame routine.
+
+**Not established:** what `func_00034f` computes. The stub's flags at `x:$3f00..$3f3f` are its
+input. No search for other writers of `x:$3dc0..$3e3f` beyond the unit runs.
+
+Rule: before putting per-instance state in X, read what the stock frame code writes there, and read
+the cells back on a unit.
+
 <a name="trap-bra-back"></a>
 
 ### `dsp_asm` does not assemble a backward `bra`, or `jmp` to a window address
