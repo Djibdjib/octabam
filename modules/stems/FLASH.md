@@ -1,4 +1,60 @@
-# STEM REC: flashes A to I, and crosscheck's flash plan as a record
+# STEM REC: flashes A to J, and crosscheck's flash plan as a record
+
+## Flash J — `octabam` + STEM REC: STEMS drawn as PERSONALIZE (staged 27 Oct 2026)
+
+`STEMS10`, the same remix as flash I, with the STEMS window Yves chose
+after flash H: SYSTEM > PERSONAL SETTINGS's look, from mockups the
+firmware drew. It carries flash I's fixes too, so if STEMS9 never went on
+the unit, flash I's tests apply here as well.
+
+- STEMS opens in MAIN MENU's window, with the set and the project in the
+  band at the top, the STEMS title with its icon, and five rows at a
+  time, each a name and a value.
+- 15 rows: STEM REC (its value `READY`, `ARMED`, the time, `SAVING`,
+  `DONE` or `NO CARD`; a failure's name in place of `STEM REC`), PEAK,
+  T1 to T8, MAIN, CUE, AB, CD and 24 BIT. Checkboxes are the stock ones.
+- Each input pair is on one row: `AB` and `STEREO`. With STEREO off, it
+  reads `A`, `B` and `STEREO`, and each input that's on records its own
+  mono file, so A can record alone. LEFT and RIGHT pick a checkbox, as on
+  MIDI SYNC.
+
+**The image.** Built 27 Oct 2026 from branch `stems-next` at `9ca15bf2`
+with the local remix `remixes/test/lm-stems` (as flash I): `make image
+REMIX=lm-stems BUILD=10 VERSION=STEMS10`. The unit's OS version reads
+`STEMS10`.
+
+| file | path | bytes | sha256 |
+|---|---|---|---|
+| card image | `out/OCTATRACK_STEMS10.bin` | 611,876 | `36d39ccf647c7d06f56779828b6355f4860ce1d77b329a6215e5951b8dc3cf64` |
+| MIDI image | `out/OCTATRACK_OS1.40C_STEMS10.syx` | 854,698 | `dcf10e31262b6c286a1d87f3bbf7f16de32b4719dc699a71d47168afd6e0ef9d` |
+| remix switch | `out/LM-STEMS 10.RMX` | 1,279,831 | `67cd18918a6e732367f9b4a2770050be74fc881b150eef32b51bb7fa8a71676b` |
+
+Copies are in `/home/yvez/xcheck/stems10`. The checks, under the port:
+- `verify_stems_units`: 115 pass.
+- `verify_stems`, the take runs this change touched: 86 pass and 1 fail,
+  `mono` read against a stale `sources` take. Rerun with `sources`: 36
+  pass. The new run `monoad` takes A and D alone, each every sample.
+- `verify_stems_menu` on `stems`: 91 pass, 0 fail, both panels.
+- The pixel boot (STEMS against PERSONALIZE drawn by the firmware with
+  STEMS's rows, six states) on `lm-stems` itself: 9 pass.
+- `verify-docs`: 0 problems.
+
+LOAD METER's refusal is lifted for this build only, as in flash I, with
+the same unmeasured risk at 24 bits.
+
+**The tests, in order.**
+
+1. Boot; MAIN MENU › SYSTEM › OS UPGRADE still opens; BRAIN is on MAIN
+   MENU's root.
+2. UP + REC: STEMS should look like SYSTEM › PERSONAL SETTINGS, the set
+   and project at the top. UP and DOWN skip PEAK.
+3. On AB: YES turns it on. RIGHT, then YES on STEREO: the row reads `A`,
+   `B`, `STEREO`. LEFT to B, YES: B off. One take: the folder holds
+   `A.wav` and no `B.wav`.
+4. During a take: STEM REC's value is the time, it moves by itself, and
+   nothing flickers.
+5. Flash I's tests 2 and 4, if STEMS9 never went on the unit: `!STEMS`
+   first in the browser, and YES twice quickly on the main page arms.
 
 ## Flash I — `octabam` + STEM REC: the fixes from flash H (staged 27 Oct 2026)
 
