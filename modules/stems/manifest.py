@@ -7,9 +7,9 @@ T8, MAIN, CUE, AB and CD turn sources on and off (the eight tracks at
 boot; locked during a take); AB STEREO and CD STEREO (on at boot) record
 an input pair as one stereo file or two mono ones; 24 BIT (off at boot)
 records 24-bit files. Each source is a file,
-<set>/AUDIO/STEMS/<project>/YYMMDD-HHMM/<name>.wav: the tracks after the
-fader, MAIN and CUE as mixed, the inputs raw (project from the live name,
-or UNTITLED). stems_peak keeps the take's largest ring fill, for the
+<set>/AUDIO/_STEMS/YYMMDD-HHMM-<name>.wav: the tracks after the fader,
+MAIN and CUE as mixed, the inputs raw; a second take in one minute is
+YYMMDD-HHMM-2, and so on. stems_peak keeps the take's largest ring fill, for the
 menu's PEAK row. Design:
 git show 4d2d6456:docs/superpowers/specs/2026-09-22-stem-rec-streaming-design.md; the menu,
 git show 4d2d6456:docs/superpowers/specs/2026-09-28-stem-rec-menu-design.md.

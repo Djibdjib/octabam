@@ -4,12 +4,15 @@ UP + REC opens STEMS and records to the card while the sequencer plays:
 every track after its fader, the main mix (MAIN), the cue mix (CUE) and
 the four inputs, 16 or 24 bits. It writes the take while it records, so a
 take can run until you stop it, up to 60 minutes. Each source lands as its
-own file in `<set>/AUDIO/STEMS/<project>/YYMMDD-HHMM/` at 44,100 Hz:
-`T1.wav` to `T8.wav`, `MAIN.wav`, `CUE.wav`, and the inputs as `AB.wav` and
-`CD.wav` (stereo) or `A.wav` to `D.wav` (mono). `<project>` is the live
-project name, or `UNTITLED` when none is loaded. Takes already under
-`<set>/AUDIO/YYMMDD-HHMM/` (the layout before this nesting) stay where
-they are; only new takes use `AUDIO/STEMS/<project>/`. A track's file is
+own file in one folder, `<set>/AUDIO/_STEMS/`, at 44,100 Hz. The take's
+name starts each file's name: `YYMMDD-HHMM-T1.wav` to `-T8.wav`,
+`-MAIN.wav`, `-CUE.wav`, and the inputs as `-AB.wav` and `-CD.wav`
+(stereo) or `-A.wav` to `-D.wav` (mono). A second take in the same minute
+is named `YYMMDD-HHMM-2`, a third `YYMMDD-HHMM-3`, and so on up to 99, so
+no take overwrites another. A name counts as taken when any file of that
+name is on the card, whichever sources each take records. Takes already
+on a card in an older layout (`AUDIO/STEMS/<project>/YYMMDD-HHMM/`, or
+`AUDIO/YYMMDD-HHMM/`) stay where they are. A track's file is
 its share of MAIN: the track's audio times the gain the mix gives it, so
 the level, MAIN LEVEL, the scenes and the crossfader are in it. At every
 boot the eight tracks are on, MAIN, CUE and the inputs off, both input
@@ -248,14 +251,12 @@ timestamps with (7.58 ns a count).
 ## Limits
 
 - The choices reset at every boot. Nothing is saved.
-- **Project name length.** The live name at `0x100f8378` sits in a 0x104-byte
-  firmware buffer (`emu_card.FW_PROJECT_NAME`; the port writes at most 0x100
-  characters). STEM REC's path buffers are `PATH_MAX` = 256. The set-path
-  copy leaves 72 bytes for `/AUDIO/STEMS/<project>/YYMMDD-HHMM/T8.wav`, so
-  `<project>` may be at most 40 characters
-  (`72 − len("/AUDIO/STEMS/") − 1 − 11 − 7`). A longer live name fails with
-  `PATH FAILED`. With a 40-character project and a set path at that bound,
-  the full file path is 256 bytes including the NUL.
+- **Set path length.** STEM REC's path buffers are `PATH_MAX` = 256 bytes.
+  The set path may be up to 183 bytes (under `PATH_MAX` − 72). That leaves room
+  for the longest take file, `/AUDIO/_STEMS/YYMMDD-HHMM-99-MAIN.wav` (37
+  characters and the NUL). A longer set path fails with `PATH FAILED`.
+- **99 takes in one minute.** A hundredth take in the same minute is
+  refused with `SAME MINUTE`, and nothing is written.
 - At most 60 minutes.
 - **T8's row shows the next take, not the one recording.** A take keeps
   the sources it started with. If MASTER TRACK changes while a take

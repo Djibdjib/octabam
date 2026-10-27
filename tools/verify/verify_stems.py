@@ -940,7 +940,7 @@ def tap(s):
 def card_files(card_path):
     """Every file on a card image, {path: bytes}, paths as the card spells
     them, without a leading slash
-    ('STEMS/AUDIO/STEMS/ULTFX/000000-0000/T1.wav'). A folder with no file
+    ('STEMS/AUDIO/_STEMS/000000-0000-T1.wav'). A folder with no file
     in it does not appear: emu_card.extract_image lists files
     (verify_card_reader.py pins that)."""
     import emu_card as ec
@@ -956,8 +956,19 @@ def first_clusters(card_path):
 
 
 def stems_pool(fx):
-    """Where take folders live: <set>/AUDIO/STEMS/<project>/ (no leading slash)."""
-    return f"{fx['set']}/AUDIO/STEMS/{fx['project']}/"
+    """Where takes live: <set>/AUDIO/_STEMS/ (no leading slash), one flat
+    folder for every take of the set (note 6 of 26 Oct 2026)."""
+    return f"{fx['set']}/AUDIO/_STEMS/"
+
+
+# A take's file in the pool: <YYMMDD-HHMM>[-<n>]-<file>. The number marks a
+# second (third, ...) take in one minute; no file name starts with a digit.
+TAKE_FILE = re.compile(r"^(\d{6}-\d{4}(?:-\d+)?)-([^/]+)$")
+
+
+def take_file(fx, take, name):
+    """The pool path of take `take`'s file `name` ('T1.wav'), no leading slash."""
+    return f"{stems_pool(fx)}{take}-{name}"
 
 
 def take_clusters(card_path):
@@ -965,7 +976,7 @@ def take_clusters(card_path):
     fx = json.loads(FIXTURE.read_text())
     pool = stems_pool(fx).lower()
     return {p: c for p, c in first_clusters(card_path).items()
-            if p.lower().startswith(pool) and p.lower().endswith("/t1.wav")}
+            if p.lower().startswith(pool) and p.lower().endswith("-t1.wav")}
 
 
 def card_get(files, path):
@@ -975,17 +986,18 @@ def card_get(files, path):
 
 
 def new_entries(files, fixture=None):
-    """What this run added under <set>/AUDIO/STEMS/<project>/: the take-folder
-    name (YYMMDD-HHMM) of every file there. An empty take folder cannot be
-    seen, so it is not counted."""
+    """What this run added under <set>/AUDIO/_STEMS/: the take name
+    (YYMMDD-HHMM, or YYMMDD-HHMM-<n>) of every file there, sorted. The
+    fixture's card has no takes, so every take on a run's card is new."""
     fx = json.loads(pathlib.Path(fixture or FIXTURE).read_text())
     pool = stems_pool(fx).lower()
-    names = {p[len(pool):].split("/", 1)[0] for p in files if p.lower().startswith(pool)}
-    return sorted(n for n in names if n)
+    names = {m.group(1) for p in files if p.lower().startswith(pool)
+             for m in [TAKE_FILE.match(p[len(pool):])] if m}
+    return sorted(names)
 
 
 def wav_check(card_path, nfr, dump, tag, lag_want=STEM_LAG, g=None):
-    """The take on the card: one new folder under AUDIO/STEMS/<project>/, its
+    """The take on the card: one new take under AUDIO/_STEMS/, its
     T1.wav with the header STEM REC writes, and every sample equal to T1's
     read-back after the fader (g, the run's settled gain) at the lag a take
     armed before play starts at (STEM_LAG).
@@ -999,7 +1011,7 @@ def wav_check(card_path, nfr, dump, tag, lag_want=STEM_LAG, g=None):
     check(f"{tag}: one new recording in {pool}", len(names) == 1, f"{names}")
     if not names:
         return
-    path = f"{pool}/{names[0]}/T1.wav"
+    path = f"/{take_file(fx, names[0], 'T1.wav')}"
     data = card_get(files, path)
     check(f"{tag}: {path} exists", data is not None)
     if data is None:
@@ -1149,7 +1161,7 @@ def cut(s):
     files = card_files(card)
     fx = json.loads(FIXTURE.read_text())
     names = new_entries(files)
-    data = (card_get(files, f"{stems_pool(fx)}{names[0]}/T1.wav")
+    data = (card_get(files, take_file(fx, names[0], "T1.wav"))
             if len(names) == 1 else None)
     # Records a fact rather than a wish (26 Sep 2026): the file's length is
     # set only at the end, so a cut-off take is a 0-byte file even though
@@ -1380,21 +1392,22 @@ def mmss(frames):
 
 
 def take_files(card_path, fixture=FIXTURE):
-    """Every .wav in the one new take folder, as [(name, bytes)] sorted by
-    name (T1 first), or [] when there is not exactly one new folder."""
+    """Every .wav of the one new take, as [(name, bytes)] sorted by name
+    (T1 first), the name without the take's prefix ('T1.wav'), or [] when
+    there is not exactly one new take."""
     files = card_files(card_path)
     fx = json.loads(pathlib.Path(fixture).read_text())
     names = new_entries(files, fixture)
     if len(names) != 1:
         return []
-    folder = f"{stems_pool(fx)}{names[0]}/".lower()
-    return sorted((p[len(folder):], d) for p, d in files.items()
-                  if p.lower().startswith(folder) and "/" not in p[len(folder):]
+    prefix = take_file(fx, names[0], "").lower()
+    return sorted((p[len(prefix):], d) for p, d in files.items()
+                  if p.lower().startswith(prefix) and "/" not in p[len(prefix):]
                   and p.upper().endswith(".WAV"))
 
 
 def stats_check(card_path, tag, nfr, nfiles, bits, status="OK", fixture=FIXTURE, fbytes=None):
-    """The readout (perf design 3): STATS.TXT in the take's folder, at most
+    """The readout (perf design 3): the take's STATS.TXT, at most
     two sectors of text that name the take and agree with it: the frames,
     the files, the width and the status; card writes counted and timed; the
     hook timed on (about) every recorded frame, its mean at most its
@@ -1407,9 +1420,9 @@ def stats_check(card_path, tag, nfr, nfiles, bits, status="OK", fixture=FIXTURE,
     files = card_files(card_path)
     fx = json.loads(pathlib.Path(fixture).read_text())
     names = new_entries(files, fixture)
-    text = (card_get(files, f"{stems_pool(fx)}{names[0]}/STATS.TXT")
+    text = (card_get(files, take_file(fx, names[0], "STATS.TXT"))
             if len(names) == 1 else None)
-    check(f"{tag}: STATS.TXT is in the take's folder, at most two sectors", text is not None and 0 < len(text) <= 1024,
+    check(f"{tag}: STATS.TXT is beside the take, at most two sectors", text is not None and 0 < len(text) <= 1024,
           f"{None if text is None else len(text)} bytes")
     if not text:
         return None
@@ -1581,7 +1594,7 @@ def take(card_path):
     files = card_files(card_path)
     fx = json.loads(FIXTURE.read_text())
     names = new_entries(files)
-    return (card_get(files, f"{stems_pool(fx)}{names[0]}/T1.wav")
+    return (card_get(files, take_file(fx, names[0], "T1.wav"))
             if len(names) == 1 else None)
 
 
@@ -1619,25 +1632,41 @@ def limit(s):
 
 
 def exists(s):
-    """A second take on the first take's card, in the same minute: refused,
-    and the first take is untouched. Every port take is 000000-0000 (the
-    port's clock reads 0, STEM_REC.md 11.2), so the minute is the same."""
+    """Two more takes on the first take's card, in the same minute: each
+    gets the next number, and no earlier take changes (Yves, 27 Oct 2026: a
+    number replaces the SAME MINUTE refusal). Every port take is in minute
+    000000-0000 (the port's clock reads 0, STEM_REC.md 11.2). The first
+    (the full run's) armed T1; the second arms T2, so its own file is new
+    but its name is not; the third arms T1 again, taken twice."""
     first = run_path("full", "img")
     if not first.exists():
         print("  [SKIP] exists: needs the full run's card")
         return
-    before = take(first)
-    log, _, card, words, _ = port(s, 700, stop_at=400, tag="exists", card_in=str(first),
-                                  dump_blocks=False, mems=ui_mems(s, "end"))
-    st, status, _, wr, rd, nfr = words
-    check("exists: refused with ERR_EXISTS, state IDLE", st == ST_IDLE and status == ERR_EXISTS,
-          f"state {st}, status {status}")
-    after = take(card)
-    check("exists: the first take is byte-identical", before is not None and after == before,
-          f"{len(before) if before else None} bytes before, {len(after) if after else None} after")
-    t, _ = ui_read(s, "exists", "end")
-    check("exists: the status names the refusal", t is not None and t[:2] == ["REC", "SAME MINUTE"],
-          f"{t[:2] if t else None}")
+    fx = json.loads(FIXTURE.read_text())
+    base = "000000-0000"
+    card_in, earlier = first, {}
+    for n, (mask, name) in enumerate(((0x02, "T2.wav"), (0x01, "T1.wav")), start=2):
+        tag = "exists" if n == 2 else f"exists{n}"
+        files = card_files(card_in)
+        earlier.update({p: d for p, d in files.items() if TAKE_FILE.match(p.rsplit("/", 1)[-1])})
+        log, _, card, words, _ = port(s, 700, stop_at=400, tag=tag, card_in=str(card_in), mask=mask,
+                                      dump_blocks=False, mems=ui_mems(s, "end"))
+        st, status, _, wr, rd, nfr = words
+        want = [base] + [f"{base}-{k}" for k in range(2, n + 1)]
+        after = card_files(card)
+        got = new_entries(after)
+        check(f"exists: take {n} of the minute is {want[-1]}, state IDLE, no error",
+              st == ST_IDLE and status == 0 and got == want, f"state {st}, status {status}, takes {got}")
+        mine = card_get(after, take_file(fx, want[-1], name))
+        check(f"exists: take {n} wrote its {name}", mine is not None and len(mine) > 44,
+              f"{None if mine is None else len(mine)} bytes")
+        changed = [p for p, d in earlier.items() if after.get(p) != d]
+        check(f"exists: take {n} left every earlier take's file byte-identical", earlier and not changed,
+              f"{len(earlier)} files, changed {changed}")
+        t, _ = ui_read(s, tag, "end")
+        check(f"exists: take {n}'s status is DONE", t is not None and t[1].startswith("DONE "),
+              f"{t[:2] if t else None}")
+        card_in = card
 
 
 def overflow(s):

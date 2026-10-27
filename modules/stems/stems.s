@@ -45,8 +45,6 @@
         .equ    TASK_SLEEP_US, 10000        | one pass; MICROSECONDS, not ticks       (Task 5)
         .equ    FS_EXISTS_PTR, 0x46c823fa   | -> exists(path): 0 no, 1 file, 2 folder (6.11, 8.0)
         .equ    SET_PATH,      0x100f8480   | the current set's path, a C string in place (Task 6)
-        .equ    PROJ_NAME,     0x100f8378   | the current project's name; empty -> UNTITLED
-                                            | (STEM_REC.md section 5.8)
         .equ    CLK_READ,      0x4001c4d8   | (field) -> one BCD byte in d0; BLOCKS   (Task 6)
         .equ    BCD2BIN,       0x4001c31c   | (bcd) -> binary                          (Task 6)
         .equ    NAME_FMT,      0x400b77bb   | "%02d%02d%02d-%02d%02d"                  (Task 6)
@@ -101,11 +99,10 @@
         .equ    STACK_SIZE,    0x2000       | = DramRegion stems_stack
         .equ    TASK_PRIO,     1
         .equ    PATH_MAX,      256
-        | Longest <project> that always fits after a max-length set copy:
-        | PATH_MAX-72 leaves 72 for /AUDIO/STEMS/<p>/YYMMDD-HHMM/T8.wav;
-        | 72 - 13 - 1 - 11 - 7 = 40. The firmware name buffer is 0x104 bytes
-        | (emu_card.FW_PROJECT_NAME); a longer live name fails PATH.
-        .equ    PROJ_NAME_MAX, 40
+        | A set path of up to PATH_MAX-72 leaves 72 for the longest take
+        | file, /AUDIO/_STEMS/YYMMDD-HHMM-99-MAIN.wav (37 and the NUL); a
+        | longer set path fails PATH.
+        .equ    TAKE_NUM_MAX,  99           | takes in one minute: -2 to -99 after the first
         .equ    ERR_OVERFLOW,  1
         .equ    ERR_PATH,      2
         .equ    ERR_OPEN,      3
@@ -329,9 +326,9 @@ stat_buf0:       .space  16
 stat_buf1:       .space  16
 peak_buf0:       .space  16
 peak_buf1:       .space  16
-stems_name:      .space  16         | YYMMDD-HHMM
-stems_path:      .space  PATH_MAX   | <set>/AUDIO/STEMS/<project>/<name>
-stems_fpath:     .space  PATH_MAX   | <set>/AUDIO/STEMS/<project>/<name>/<file>.wav
+stems_name:      .space  16         | YYMMDD-HHMM, or YYMMDD-HHMM-<n> for take n of a minute
+stems_path:      .space  PATH_MAX   | <set>/AUDIO/_STEMS/<name>: every file's prefix
+stems_fpath:     .space  PATH_MAX   | <set>/AUDIO/_STEMS/<name>-<file>.wav
 | The 44-byte header, little-endian as RIFF wants, sizes 0: the placeholder
 | every file starts with. The real sizes go into the sector-0 copy at the end.
 stems_hdr:
@@ -347,22 +344,21 @@ stems_hdr:
         .byte   16,0                | bits
         .ascii  "data"
         .long   0
-fmt_dir:   .asciz  "/AUDIO/STEMS/%s/%s"     | project, then YYMMDD-HHMM
-fmt_pool:  .asciz  "/AUDIO/STEMS"           | the fixed pool under AUDIO
-fmt_proj:  .asciz  "/AUDIO/STEMS/%s"        | pool + project (or UNTITLED)
-untitled:  .asciz  "UNTITLED"
-fmt_file:  .asciz  "/T%d.wav"
+fmt_take:  .asciz  "/AUDIO/_STEMS/%s"       | the pool, then the take's name
+fmt_pool:  .asciz  "/AUDIO/_STEMS"          | one flat pool under AUDIO for every take
+fmt_num:   .asciz  "-%d"                    | take n of a minute, after its 11 characters
+fmt_file:  .asciz  "-T%d.wav"
 probe_name: .asciz "/PROBE.BIN"
         .balign 4
 bus_names:  .long   nm_main, nm_cue, nm_ab, nm_cd, nm_a, nm_b, nm_c, nm_d
-nm_main:    .asciz  "/MAIN.wav"
-nm_cue:     .asciz  "/CUE.wav"
-nm_ab:      .asciz  "/AB.wav"
-nm_cd:      .asciz  "/CD.wav"
-nm_a:       .asciz  "/A.wav"
-nm_b:       .asciz  "/B.wav"
-nm_c:       .asciz  "/C.wav"
-nm_d:       .asciz  "/D.wav"
+nm_main:    .asciz  "-MAIN.wav"
+nm_cue:     .asciz  "-CUE.wav"
+nm_ab:      .asciz  "-AB.wav"
+nm_cd:      .asciz  "-CD.wav"
+nm_a:       .asciz  "-A.wav"
+nm_b:       .asciz  "-B.wav"
+nm_c:       .asciz  "-C.wav"
+nm_d:       .asciz  "-D.wav"
         .balign 4
 | Where each bus kind's first long is: MAIN and CUE absolute; an input, its
 | offset within the ring page channel 7 filled this frame.
@@ -780,7 +776,7 @@ fmt_rec:        .asciz  "REC %02d:%02d"
 fmt_done:       .asciz  "DONE %02d:%02d"
 fmt_peak:       .asciz  "PEAK %d%s"         | "%" as an argument: %% is untested in the stock sprintf
 | STATS.TXT (perf design 3), a line each
-nm_stats:       .asciz  "/STATS.TXT"
+nm_stats:       .asciz  "-STATS.TXT"
 lbl_ok:         .asciz  "OK"
 st_f_take:      .asciz  "STEM REC STATS %s\r\n"
 st_f_status:    .asciz  "status %s\r\n"
@@ -2297,34 +2293,6 @@ stems_make_name:
         lea     20(%sp),%sp
         rts
 
-| ---- the project name for the take path: PROJ_NAME, or UNTITLED --------
-| (STEM_REC.md section 5.8). a0 = the C string to use. Does not touch d0.
-stems_project:
-        lea     PROJ_NAME,%a0
-        tst.b   (%a0)
-        bne.s   .Lpj_out
-        lea     untitled,%a0
-.Lpj_out:
-        rts
-
-| ---- d0 = 0 if a0's string fits PROJ_NAME_MAX, else -1. Preserves a0. --
-stems_proj_ok:
-        move.l  %a0,-(%sp)
-        moveq   #0,%d0
-.Lpo_loop:
-        tst.b   (%a0)+
-        beq.s   .Lpo_ok
-        addq.l  #1,%d0
-        cmpi.l  #PROJ_NAME_MAX,%d0
-        bls.s   .Lpo_loop
-        movea.l (%sp)+,%a0
-        moveq   #-1,%d0
-        rts
-.Lpo_ok:
-        movea.l (%sp)+,%a0
-        moveq   #0,%d0
-        rts
-
 | ---- mkdir path in stems_fpath if absent; fail if a file is there ------
 | d0 = 0 ok, -1 failed. Clobbers a0.
 stems_mkdir_missing:
@@ -2350,7 +2318,7 @@ stems_mkdir_missing:
         moveq   #-1,%d0
         rts
 
-| ---- ensure <set>/AUDIO/STEMS and <set>/AUDIO/STEMS/<project> ---------
+| ---- ensure <set>/AUDIO/_STEMS, the one folder every take goes in -----
 | Uses stems_fpath as scratch (files are not open yet). d0 = 0, or -1.
 stems_ensure_parents:
         lea     SET_PATH,%a0
@@ -2369,45 +2337,20 @@ stems_ensure_parents:
         clr.b   (%a1)
         pea     fmt_pool
         move.l  %a1,-(%sp)
-        jsr     SPRINTF             | append /AUDIO/STEMS
+        jsr     SPRINTF             | append /AUDIO/_STEMS
         addq.l  #8,%sp
-        bsr.w   stems_mkdir_missing
-        tst.l   %d0
-        bmi.s   .Lep_fail
-        lea     SET_PATH,%a0
-        lea     stems_fpath,%a1
-        move.l  #PATH_MAX-56,%d1
-.Lep_set2:
-        move.b  (%a0)+,%d0
-        beq.s   .Lep_set2_end
-        move.b  %d0,(%a1)+
-        subq.l  #1,%d1
-        bne.s   .Lep_set2
-        bra.s   .Lep_fail
-.Lep_set2_end:
-        clr.b   (%a1)
-        bsr.w   stems_project
-        bsr.w   stems_proj_ok
-        tst.l   %d0
-        bmi.s   .Lep_fail
-        move.l  %a0,-(%sp)
-        pea     fmt_proj
-        move.l  %a1,-(%sp)
-        jsr     SPRINTF             | append /AUDIO/STEMS/<project>
-        lea     12(%sp),%sp
         bsr.w   stems_mkdir_missing
         rts
 .Lep_fail:
         moveq   #-1,%d0
         rts
 
-| ---- the folder path: <set>/AUDIO/STEMS/<project>/<name> --------------
-| set = SET_PATH; project = PROJ_NAME or UNTITLED (STEM_REC.md section 5.8).
-| d0 = 0, or -1 (empty, or too long).
-stems_make_folder:
+| ---- the take's prefix: <set>/AUDIO/_STEMS/<name> -----------------------
+| set = SET_PATH. d0 = 0, or -1 (empty, or too long).
+stems_make_prefix:
         lea     SET_PATH,%a0
         lea     stems_path,%a1
-        move.l  #PATH_MAX-72,%d1    | room for /AUDIO/STEMS/project/name/T8.wav
+        move.l  #PATH_MAX-72,%d1    | room for /AUDIO/_STEMS/<name>-MAIN.wav
 .Lp_copy:
         move.b  (%a0)+,%d0
         beq.s   .Lp_end
@@ -2420,16 +2363,11 @@ stems_make_folder:
         move.l  %a1,%d0
         sub.l   #stems_path,%d0
         beq.s   .Lp_fail            | an empty set path: no set mounted
-        bsr.w   stems_project
-        bsr.w   stems_proj_ok
-        tst.l   %d0
-        bmi.s   .Lp_fail
-        pea     stems_name          | second %s: the take
-        move.l  %a0,-(%sp)          | first %s: the project
-        pea     fmt_dir
+        pea     stems_name
+        pea     fmt_take
         move.l  %a1,-(%sp)
         jsr     SPRINTF
-        lea     16(%sp),%sp
+        lea     12(%sp),%sp
         moveq   #0,%d0
         rts
 .Lp_fail:
@@ -2438,18 +2376,22 @@ stems_make_folder:
 
 | ---- a file path: stems_path + the name of file d3 ----------------------
 stems_make_file:
+        move.l  %d3,%d0
+        lsl.l   #2,%d0
+        lea     stems_ftab,%a0
+        move.l  (%a0,%d0.l),%d0
+        moveq   #24,%d1
+        lsr.l   %d1,%d0                     | the kind; on into stems_kind_path
+
+| ---- a file path by kind d0 (0-15): stems_path + -T<k+1>.wav, or -MAIN.wav
+| and so on, into stems_fpath. Clobbers d0-d1/a0-a1.
+stems_kind_path:
         lea     stems_path,%a0
         lea     stems_fpath,%a1
 .Lm_copy:
         move.b  (%a0)+,(%a1)+
         bne.s   .Lm_copy
         subq.l  #1,%a1
-        move.l  %d3,%d0
-        lsl.l   #2,%d0
-        lea     stems_ftab,%a0
-        move.l  (%a0,%d0.l),%d0
-        moveq   #24,%d1
-        lsr.l   %d1,%d0                     | the kind
         cmpi.l  #K_MAIN,%d0
         bcc.s   .Lm_named
         addq.l  #1,%d0                      | T<k+1>
@@ -2467,6 +2409,56 @@ stems_make_file:
 .Lm_name:
         move.b  (%a0)+,(%a1)+
         bne.s   .Lm_name
+        rts
+
+| ---- the take's log path into stems_fpath: stems_path + -STATS.TXT -----
+| Clobbers a0-a1.
+stems_log_path:
+        lea     stems_path,%a0
+        lea     stems_fpath,%a1
+.Llp_p1:
+        move.b  (%a0)+,(%a1)+
+        bne.s   .Llp_p1
+        subq.l  #1,%a1
+        lea     nm_stats,%a0
+.Llp_p2:
+        move.b  (%a0)+,(%a1)+
+        bne.s   .Llp_p2
+        rts
+
+| ---- is the name in stems_path taken? d0 = 0 free, 1 taken -------------
+| Taken when any file a take of that name could write is on the card, of
+| any kind, whatever this take arms, or its log: so two takes of a minute
+| never share a name (Yves, 27 Oct 2026). Clobbers d0-d1/a0-a1.
+stems_name_taken:
+        move.l  %d2,-(%sp)
+        moveq   #0,%d2                      | kind k
+.Lnt_kind:
+        move.l  %d2,%d0
+        bsr.w   stems_kind_path
+        movea.l FS_EXISTS_PTR,%a0
+        pea     stems_fpath
+        jsr     (%a0)
+        addq.l  #4,%sp
+        tst.l   %d0
+        bne.s   .Lnt_taken
+        addq.l  #1,%d2
+        moveq   #K_A+4,%d0                  | sixteen kinds: T1-T8, MAIN, CUE, AB, CD, A-D
+        cmp.l   %d0,%d2
+        bcs.s   .Lnt_kind
+        bsr.w   stems_log_path
+        movea.l FS_EXISTS_PTR,%a0
+        pea     stems_fpath
+        jsr     (%a0)
+        addq.l  #4,%sp
+        tst.l   %d0
+        bne.s   .Lnt_taken
+        move.l  (%sp)+,%d2
+        moveq   #0,%d0
+        rts
+.Lnt_taken:
+        move.l  (%sp)+,%d2
+        moveq   #1,%d0
         rts
 
 | ---- file d3's header into a2: the template with its channels, its bytes a
@@ -2500,7 +2492,7 @@ stems_hdr_fill:
         move.l  %d0,28(%a2)
         rts
 
-| ---- start: name, folder, one file per entry of the file table ----------
+| ---- start: a free name, the pool, one file per entry of the file table -
 | d0 = 0 with every file open, or -1 with stems_status set and none open.
 stems_start:
         lea     -12(%sp),%sp
@@ -2508,23 +2500,30 @@ stems_start:
         clr.l   stems_nopen
         clr.l   stems_wfail
         clr.l   stems_zdone         | nothing of this take on the card yet
-        bsr.w   stems_make_name
-        bsr.w   stems_make_folder
+        bsr.w   stems_make_name     | the clock is read once: the minute can't move between tries
+        bsr.w   stems_make_prefix
         tst.l   %d0
         bmi.w   .Ls_path
-        bsr.w   stems_ensure_parents | AUDIO/STEMS and AUDIO/STEMS/<project>
+        bsr.w   stems_ensure_parents | AUDIO/_STEMS
         tst.l   %d0
         bmi.w   .Ls_path
-        movea.l FS_EXISTS_PTR,%a0   | same minute as an earlier take: refuse
-        pea     stems_path
-        jsr     (%a0)
-        addq.l  #4,%sp
+        moveq   #1,%d2              | take n of the minute; the first has no number
+.Ls_name:
+        bsr.w   stems_name_taken
         tst.l   %d0
-        bne.w   .Ls_exists
-        movea.l FS_MKDIR_PTR,%a0    | an error is left to the opens
-        pea     stems_path
-        jsr     (%a0)
-        addq.l  #4,%sp
+        beq.s   .Ls_free
+        addq.l  #1,%d2
+        moveq   #TAKE_NUM_MAX,%d0
+        cmp.l   %d0,%d2
+        bhi.w   .Ls_exists          | 99 takes in one minute
+        move.l  %d2,-(%sp)
+        pea     fmt_num
+        pea     stems_name+11       | after YYMMDD-HHMM
+        jsr     SPRINTF
+        lea     12(%sp),%sp
+        bsr.w   stems_make_prefix
+        bra.s   .Ls_name
+.Ls_free:
         moveq   #0,%d3              | file j
 .Ls_file:
         cmp.l   stems_nf,%d3
@@ -3053,7 +3052,7 @@ stems_st_cline:
         bsr.w   stems_st_tail
         rts
 
-| ---- STATS.TXT: the readout, two sectors of text in the take's folder ----
+| ---- STATS.TXT: the readout, two sectors of text beside the take --------
 | After the take's files are closed (stems_finish), unless a card write
 | failed: the card may refuse this one too. Built in sector-0 copies 0 and 1,
 | free by then (about 500 bytes; the file's length is the
@@ -3196,16 +3195,7 @@ stems_stats:
         bsr.w   stems_st_tail
         move.l  %a3,%d7
         sub.l   %a2,%d7                             | d7: the text's length
-        lea     stems_path,%a0                      | <set>/AUDIO/STEMS/<project>/<take>/STATS.TXT
-        lea     stems_fpath,%a1
-.Lo_p1:
-        move.b  (%a0)+,(%a1)+
-        bne.s   .Lo_p1
-        subq.l  #1,%a1
-        lea     nm_stats,%a0
-.Lo_p2:
-        move.b  (%a0)+,(%a1)+
-        bne.s   .Lo_p2
+        bsr.w   stems_log_path
         pea     MODE_W
         pea     stems_fpath
         RAWCALL RAW_OPEN_PTR
