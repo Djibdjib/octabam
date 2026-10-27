@@ -712,42 +712,30 @@ Entries from here to the end of the file (5 Oct 2026) were recorded in other doc
 
 
 
-## DARK REV picked on T4's FX2 while a demand effect's code is in T4's block stops the DSP frame loop 🔴 open (octabam with homes, #926)
+## DARK REV picked on T4's FX2 while a demand effect's code is in T4's block stops the DSP frame loop ✅ measured, fixed (the guard's cells moved off `x:$3f7f..$3fbf`)
 
-Handover for another agent. Nothing here is fixed; `octabam` on `main` still has `Remix.window_homes`, so the sequence below is reachable on hardware (Sam, 28 Oct 2026: left as it is).
+- **Seen:** Sam's MKII, 28 Oct 2026, images `octabam` H1 to H3 (H1 = `main` after #926). Project `MXHOME_A`: MODULATION on T1's FX1, T3 and T4's FX2 on the stock DELAY, a noise loop on T1. Sequence: T3's FX2 to DARK REV (the pump moves MODULATION from T3's block to T4's), T3's FX2 to DELAY, T4's FX2 to DARK REV from the chooser. Within about 4 ms of the pick the DSP frame loop stops (the ColdFire frame-interrupt count, the DSP meter sequence and the pump's call counter stay constant; USB and the panel answer). 3 of 3 runs. The unit needs a power cycle.
+- **Cause:** payload B's frame routine writes `x:$3f7f..$3fbf` every frame; the guard kept its per-instance buffer bases at `x:$3f90 + idx` (T3 idx 40, T4 idx 43). The late resume of a dry reverb ran DARK REV's init and proc on a scratch value as the base. Payload A does not write there: T7 and T8 were unaffected. [The trap](TRAPS.md#trap-stock-x-scratch) has the evidence.
+- **Diagnostic builds, one run each on the same sequence (the tags are image names):**
 
-- **Seen:** Sam's MKII, 28 Oct 2026, images `octabam` H1, H2 and H3 (H1 = `main` after #926; H2 adds #932's bounded host-port wait; H3 adds a 145 ms settle before a move, not committed). Project `MXHOME_A`: MODULATION on T1's FX1, T3 and T4's FX2 on the stock DELAY, a noise loop on T1. Sequence: T3's FX2 to DARK REV (the pump moves MODULATION from T3's block to T4's, 0.26 s, fine), T3's FX2 back to DELAY, T4's FX2 to DARK REV (chooser, at the panel). Within about 4 ms of the pick the DSP frame loop stops. 3 of 3 runs. The unit needs a power cycle.
-- **After the stop (measured, `tools/hw/dl_state.py`, `load_meter.py`):** USB answers; the ColdFire frame-interrupt count, the DSP meter sequence and the pump's call counter stay constant over 2 s (the pump is called from the frame interrupt); the panel stayed responsive. The frame loop has stopped, not the ColdFire.
-- **Before the stop (poll every 4 ms, `tools/hw/dl_poll.py` in #932; one poll sees about one frame in ten):** no overload (core 1 at 43 to 49 %, the peak since reset unchanged), `tue` and `roe` 0.
-  - H1 (no bound): the pump armed the withdrawal at t = 130.830 s and the DSP sequence stopped at 130.834 s; the withdraw message had been written (chunks 193 to 194), the doorbell never was.
-  - H2: the same, and the bounded wait fired once: the doorbell write waited past 100,000 polls and was abandoned (DL_DIAG word 3 = 1). A healthy wait is 1 poll, on the unit and under the port. So core B stopped accepting host writes about two frames after the withdraw message went in, and the frame loop stopped with it.
-  - H3 (withdrawal delayed 145 ms): frozen with no pump activity at all (withdrawals armed unchanged). The pump is not the trigger.
-- **What does not freeze (all on the unit):**
+| build | after the code leaves T4's block | result |
+|---|---|---|
+| H1 to H3 | late stock init, then the stock proc in the same call | stop |
+| H4: guard always reports an overlap | the stock reverb never runs | no stop |
+| H5: a dry instance stays dry | the stock reverb never resumes | no stop |
+| H6: late init, then dry for good | init only | no stop |
+| H7: late init, stock proc on the next frame | proc runs | stop |
+| H8: stock proc for one frame, then dry | proc runs once | stop |
+| H9: stock proc 100 frames after the late init | proc runs | stop |
+| HA: buffer words from base + `$3800` to the extent zeroed before the late init | proc runs | stop |
+| P1, P2: probe images, guard as in H1 | proc runs | stop |
+| P4: guard cells at `x:$3dc0 + idx` and `x:$3e00 + idx` | proc runs | no stop, 3 sequences |
 
-| situation | result |
-|---|---|
-| DARK REV picked on T3, MODULATION's code in T3's block (the first move) | fine, 5 of 5 |
-| DARK REV picked on T7, then T8, over SPECTRUM's code in T7's and T8's blocks (core A, same allocator entry 7 and `r7` index 11 as T4) | fine |
-| DARK REV picked on T4 with no code in T4's block (code in T3's) | fine |
-| PLATE REV picked on T4 with code in T4's block (PLATE writes only below the code: no overlap, the guard lets it run) | fine |
-| DARK REV on T4 over code in T4's block, arriving by project load (`MXHOME_C` over a loaded MODULATION) | fine; the pump leaves it, toast `EVICT MODULATION 1ST` |
-| DARK REV on T4's FX2 from the project, MODULATION in T3's block, left running | fine |
-
-  So it needs T4, code in T4's block, DARK REV (the overlap), and a runtime pick. All four.
-- **Ruled out under the port (`dsp_host`, `ot_emu`):** the reverb guard (`modules/dlcopy/dlwrap.asm`) with the published span in every home of every demand effect, each FX2 slot's real allocator entry and `r7` (150 checks, `verify_dlwrap`); the move back and the chooser-driven pick on T4's track with the panel's keys (`verify_dlload` scenarios `moveback` and `pick-reverb-t4`, both finish; 2 loads and 1 withdrawal). The port does not reproduce it.
-- **Not explained:** why T4 (payload B, allocator entry 7, block `0x3C000`) and not T3 (payload B, entry 5, `0x38000`) or T7 and T8 (payload A, entries 5 and 7).
-- **Candidates, none tested (inference):**
-  - The guard's per-instance X words for T4 (`x:$3F7B` state, `x:$3FBB` base; also `x:$3fd0..$3fe7`, the stub's `x:$3f00..$3f4c`, DLCOPY's `x:$3fe8..`) collide with something live on core B. The only evidence that `X:0x2840..0x3fff` is free is "written by nothing in one project at two fill seeds" (`DEMAND_LOAD.md`, 🟡).
-  - Something about executing from, or writing around, `P/Y:0x3F820..0x3FE39` on core B when the stock DARK REV buffer range `0x3C000..0x3FDA2` runs dry beside it (the code ends 0x3FE39 above DARK REV's highest word, 0x3FDA2).
-  - Core B's host-command handler is left in a state that stops it (the stall began right after a host write), which would make the trigger the pick and not the write.
-- **Next steps:**
-  1. Move the guard's and the stub's X scratch (`$3f00..$3fea`) to other X addresses and retest the sequence; one build, one flash.
-  2. Publish X words over audio before the stop (a DLPROBE-style insert on a track of core B showing `x:$3F7B`, `x:$3FBB` and the entry at `x:$33da3`), then capture USB around the pick.
-  3. Put MODULATION's second home at another offset in T4's block, and try CHARACTER's and TRANSIENT's code in T4's block, to see whether it follows the code or the block.
-  4. Try the pick on T4 with the effect's code in T4's block and the guard's extent test forced "clear" (the guard lets DARK REV run over the code): if that does not stop the DSP either, the trigger is the dry path.
-- **Recipe:** `tools/hw/ot_project.py` `set_fx` and `stamp_defaults` on a copy of a fresh project (MODULATION on T1's FX1, DELAY on T3 and T4's FX2, `octabam`), `tools/hw/ot_sampleslot.py` for the noise loop with `--trig-every 4 --transport-receive`. Poll with `tools/hw/dl_poll.py` while picking. Reading the pump: `tools/hw/dl_state.py` (`effects loaded (bits)`, `blocks holding code (bits)`: bit 2 is T3's block, bit 3 T4's). Images: `make image REMIX=octabam BUILD=<tag>`.
-- **Traps while testing:** the unit rewrites the project it loads (restore from a clean copy on the card each time); REMIX SWITCH boots the card's last saved choice (see the entry above: check the running name against the flashed one); a project load and a runtime pick are different paths, and only the pick froze.
-- **Related PRs:** #926 (homes, merged), #932 (bounded host-port wait, DL_DIAG words 3 and 11, gates for every home, `dl_poll.py`; open).
+- **Probe readings (DLPROBE on T2's FX1, recorded over USB, [`modules/dlprobe`](../../modules/dlprobe/README.md)):** on P2 no guard instance other than T3's held a state of 1 to 3 in the last 0.33 s before the stop. On P3 (T3's pick only) the base cell `x:$3fb8` read `$ffb754` after a reboot and again after the guard's init; the allocator entry `$25a` held `$38000`. On P4 T3's base read `$038000` and T4's (entry `$25c`) `$03c000`; T4's state read 2, then 1 after the pump's move.
+- **What does not stop (all on the unit, before the fix):** DARK REV on T3 over MODULATION's code in T3's block (the first move); DARK REV on T7, then T8, over SPECTRUM's code (core A); DARK REV on T4 with no code in T4's block; PLATE REV on T4 with code in T4's block; DARK REV on T4 by project load.
+- **Not established:** what `func_00034f` computes, and whether another writer touches `x:$3dc0..$3e3f`. The stub's flags at `x:$3f00..$3f3f` are that routine's input.
+- **Recipe:** `tools/hw/ot_project.py` `set_fx` on a copy of a fresh project (MODULATION on T1's FX1, DELAY on T3 and T4's FX2, `octabam`), `tools/hw/ot_sampleslot.py` for the noise loop with `--trig-every 4 --transport-receive`. Pump state: `tools/hw/dl_state.py` (`effects loaded (bits)`, `blocks holding code (bits)`: bit 2 is T3's block, bit 3 T4's).
+- **Traps while testing:** the unit rewrites the project it loads (restore from a clean copy on the card each time); REMIX SWITCH boots the card's last saved choice (check the running name against the flashed one); a project load and a runtime pick are different paths.
 
 ## Sequencer stuck at play with a stock fallback: id 0 ran FILTER on every empty FX1 slot 🟡 cause inferred, refused at selection
 

@@ -178,6 +178,7 @@ moment it costs real work, and add its line here.
 - [The stock echo-freeze mix rewrites arena region 7 every frame](docs/contributing/TRAPS.md#trap-region7) — poke region 7 AND its staging zero in a tap check; expect zero on src-7.
 - [A gate that models a setting must boot that setting](docs/contributing/TRAPS.md#trap-post-cs1) — `--cs1-in` the block; an empty run reports which watch was empty, never crashes.
 - [The bench socket drops a large reply on EAGAIN](docs/contributing/TRAPS.md#trap-bench-socket) — poll POLLOUT in the write loop; a short line in the port log is display-only.
+- [Payload B's frame routine writes `x:$3f7f..$3fbf` every frame](docs/contributing/TRAPS.md#trap-stock-x-scratch) — the guard's base cells were there; read what the stock writes before putting state in X, and read the cells back on a unit.
 
 **ColdFire / DRAM side**
 
@@ -207,6 +208,8 @@ moment it costs real work, and add its line here.
 - [`--watch-mem` is one string](docs/contributing/TRAPS.md#trap-watchmem) — a second flag replaces the first; comma-join the ranges.
 - [A completion IRQ in the first-sector write window polls DRQ on the stale count](docs/contributing/TRAPS.md#trap-first-sector-irq) — the guard keeps the sector and its bookkeeping inside the existing mask; `verify_ata_write` gates it.
 - [The stock Part validator clamps a stored FX2 id to 31](docs/contributing/TRAPS.md#trap-id-clamp) — a poke bypasses it, a project does not; `idspace.convert` raises the two immediates to 63; `verify_ids64_load` loads a project.
+- [A floating cave rounded past the clone window landed on the chooser list](docs/contributing/TRAPS.md#trap-cave-round) — `… not free` names the victim; the overflow fallback takes any floating cave ending past the limit, starting past DELAY's kept bytes.
+- [A DRAM clone's `CLONE_<key>` export is its staging address](docs/contributing/TRAPS.md#trap-dram-clone-stage) — repointed only at the end; compare runtime addresses from `_psyms`.
 
 ## How claims are written here
 
