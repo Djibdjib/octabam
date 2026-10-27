@@ -1310,3 +1310,49 @@ under the port.
 cannot see the cache or the stale status, so a unit run (`load_meter.py`
 repeated, `--for 10`: `windows` near 20) is the check.
 
+
+<a name="trap-cave-round"></a>
+
+### A floating cave rounded past the clone window landed on the chooser list
+
+**THE OVERFLOW FALLBACK ASKED WHETHER THE CAVE STARTED INSIDE THE WINDOW, AND
+THE ROUNDING HAD ALREADY MOVED IT OUT.** A floating cave starts at the clone
+window's cursor rounded up to 128 bytes. `build_bus` sent one that ran past
+`cave_limit` to the overflow run at `0x400d24d0`, but only if its rounded start
+was still inside the window. A 57-module selection (26 Oct 2026) left the
+cursor at `0x400d7b9e` with the long chooser list at `0x400d7bbc`; the round
+put BATCH_BUGFIXES' 402-byte `PART_CHANGE_CARRYOVER_FIX` at `0x400d7c00`, on
+the list, so it was neither moved nor bounds-checked and the build stopped at
+`PART_CHANGE_CARRYOVER_FIX not free`, which names the victim and not the
+cause. Fix: a floating cave goes to the overflow run when it ends past the
+limit, wherever it starts, and one that fits neither region is refused with
+both regions' ends. Past `0x400d7c3c` the stock image is data (the first byte
+is nonzero), so no image that built before should move (inferred; `refhash`
+is the measurement, and a 64-id build is the case to watch: its
+`idspace.CAVE` limit sits below zero bytes the id tables fill only at the
+end). Gate: none of its own; the refusal names both regions.
+
+The run's own first bytes are not free either: the stock DELAY reads the 16
+past its coefficient table (`stock.DELAY_TABLE_END`, issue #771), and the
+first form of this fix put the cave on them in a selection listing DELAY (the
+kept-bytes check refused it: `DELAY keeps 0x400d24d0`). The overflow cursor
+now starts past every byte a selected module keeps stock in the run.
+
+<a name="trap-dram-clone-stage"></a>
+
+### A DRAM clone's `CLONE_<key>` export is its staging address
+
+**WITH A DRAM RUNTIME, `_exports["CLONE_<key>"]` IS WHERE THE CLONE IS BUILT,
+NOT WHERE IT LIVES.** The clones are written at a staging address past the
+image and every staged pointer is repointed to the runtime's `CLONE_<key>` at
+the end (`_rt_patch`). The MODE-renames formatters are DRAM units linked
+against the runtime's symbol, but the check that each equals its `emit()`
+resolved the descriptor from `_exports`: STUTTR's `lea` was `0x40ae6f4e` in
+the runtime and `0x40130836` in the emit, and the build refused with `the
+linked label formatter ... differs`. No committed remix carries MODE renames
+with DRAM clones; a selection with STUTTR, SPECTRUM and CHARACTER TXTR beside
+MEMORY and KITS (26 Oct 2026) was the first. Fix: the check resolves a
+module's own clone from `_psyms`, the runtime link. Rule: before comparing an
+address from `_exports` with one from the runtime, ask whether the staging
+repoint has run yet. Gate: the comparison itself, now that both sides are the
+runtime's.
