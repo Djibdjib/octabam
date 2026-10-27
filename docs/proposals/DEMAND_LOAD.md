@@ -25,7 +25,8 @@ replaced or shrunk. The window is stock's buffer memory, so the code goes only w
 | The ColdFire writes DSP X by host command `$08` (`HOST+4` = `0x88`), reaching `X:0..0x3fff` only, 16 data bits a word | ✅ port |
 | Payload B's frame loop stores `0x3fff` or `0x5fff` into the host handlers' address masks every frame (`P:0x70`, `0x72`, from the bank word); a chunk sent on a frame whose ping word (`0x800000e0`) is 1 is lost, one sent at ping 0 arrives whole | ✅ port: 0 of 3,126 halfwords differ at ping 0, 1,178 differ sending every frame. Why the lost chunks do not appear at `X:0x4901` is ⬜ |
 | Sending to core A at the frame interrupt's entry stops the stock ping words alternating: core A's chain stalls. HC polling and a settle loop did not change it | ✅ port; cause ⬜ |
-| `X:0x2840..0x3fff` was written by nothing in one project at two fill seeds | 🟡 |
+| `X:0x2840..0x3f7e` was written by nothing in one project at two fill seeds. The guard's cells at `x:$3dc0..$3e3f` held their values over three runs on a unit | 🟡 |
+| Payload B's frame routine at `P:0x7a` calls `func_00034f` (`r0 = $3f80`, `r1 = $3f00`) every frame: it reads `x:$3f00..$3f20` and writes `x:$3f7f..$3fbf`. The earlier claim that `X:0x2840..0x3fff` was free is wrong for that range. Payload A writes `x:$3f80` and `x:$3f81` only | ✅ disassembly; ✅ unit (the guard's base cell at `x:$3fb8` read `$ffb754` after the guard's init, with the allocator entry holding `$38000`). What the routine computes is ⬜ |
 | The live FX ids are `0x80000ec4[8]` (FX1) and `0x80000ecc[8]` (FX2), tracks 1-8 | ✅ |
 | The FX1 and FX2 choosers' select handlers are `0x400526e4` and `0x40052474`; the "same effect" test is `0x4005272a` / `0x400524ba` | ✅ |
 
@@ -86,7 +87,7 @@ Layout (words are `X:` or `P:` as in the window, which aliases):
 |---|---|
 | `x:$33da3 + 8 k` (k = 0..3, in the clear gap) | effect k's entry: +0 BOUND (`$b0a5ed`), +1 real init, +2 real proc, +3 first window word, +4 the word after |
 | `x:$2900` | staging: doorbell, k, destination offset, N, init offset, proc offset, then 2 N halfwords (code word as high 16 bits, then low 8), then the sum of the code words modulo 2^24 in the same form. Addresses are offsets into the window |
-| `x:$3f00..$3f4c` | the stub's per-instance flags and saved registers; `x:$3f50..$3fea` the guard's, and the copier's saved `b` |
+| `x:$3f00..$3f4c` | the stub's per-instance flags and saved registers; `x:$3dc0..$3e3f` the guard's state words and base cells, `x:$3fd0..$3fea` the trampolines' words, the guard's scratch and the copier's saved `b` |
 | `P:0x33dc3..0x33e34` | DLCOPY; the stub follows at `window_loader` (`0x33e40`), then the guard's trampolines for payload A and B, then its body (to `0x33fd2` in octabam) |
 | `P:0x37da3..0x37eff` | LOAD METER's DSP half (A and B) |
 | top of each slot | the effects, not uploaded: SPECTRUM `0x33820` (slot of T7), CHARACTER `0x37820` (T8), MODULATION `0x3b820` (T3), TRANSIENT `0x3fe00` (T4). The loader and LOAD METER sit above `0x33da3` and `0x37da3` in the first two slots, so those hold at most 1,411 words from `0x3820` (SPECTRUM, the larger of the two placed there, is 1,399); the third and fourth hold 2,016 |

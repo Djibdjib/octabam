@@ -178,6 +178,7 @@ moment it costs real work, and add its line here.
 - [The stock echo-freeze mix rewrites arena region 7 every frame](docs/contributing/TRAPS.md#trap-region7) — poke region 7 AND its staging zero in a tap check; expect zero on src-7.
 - [A gate that models a setting must boot that setting](docs/contributing/TRAPS.md#trap-post-cs1) — `--cs1-in` the block; an empty run reports which watch was empty, never crashes.
 - [The bench socket drops a large reply on EAGAIN](docs/contributing/TRAPS.md#trap-bench-socket) — poll POLLOUT in the write loop; a short line in the port log is display-only.
+- [Payload B's frame routine writes `x:$3f7f..$3fbf` every frame](docs/contributing/TRAPS.md#trap-stock-x-scratch) — the guard's base cells were there; read what the stock writes before putting state in X, and read the cells back on a unit.
 
 **ColdFire / DRAM side**
 
