@@ -2,7 +2,9 @@
 
 UP + REC opens STEMS (toggle); REC alone stays stock. In STEMS, REC arms
 a recording, or starts one if the sequencer is running; selecting it
-again stops it, and so does the sequencer stopping or 60 minutes. T1 to
+again stops it, and so does the sequencer stopping or 60 minutes. On the
+main page a second YES within 0.4 s does what REC does when no take runs
+(stock's ARM ALL still runs on both). T1 to
 T8, MAIN, CUE, AB and CD turn sources on and off (the eight tracks at
 boot; locked during a take); AB STEREO and CD STEREO (on at boot) record
 an input pair as one stereo file or two mono ones; 24 BIT (off at boot)
@@ -67,6 +69,13 @@ REC_STOCK = bytes.fromhex("4aaf0008" "670000c0")
 UI_RECV_SITE = 0x40056C7C
 UI_RECV_STOCK = bytes.fromhex("2040588f7110")
 
+# The main page's YES handler (both keymaps send 0x31 here, on press and
+# release; MAINMENU.md 6): `move.l 4(sp),d1; move.l 8(sp),d0`. The stub
+# replays both and calls the rest as a subroutine; a second press within
+# 0.4 s, with STEM REC idle, arms it (note 4 of 26 Oct 2026).
+YES_SITE = 0x4005E4C8
+YES_STOCK = bytes.fromhex("222f0004" "202f0008")
+
 # Core 0's gain table (X:0x6c00, 258 words, 3 bytes each, little-endian)
 # from the USER'S stock slice at build time: the OS reuses the RAM the
 # image holds it in after the DSP upload (docs/firmware/STEM_REC.md 18.4),
@@ -103,7 +112,10 @@ MODULE = Module(
                     kind="jmp", pad_to=8),
              Detour(UI_RECV_SITE, UI_RECV_STOCK, "stems", "stems_ui_tick",
                     "the UI task's next message: redraw STEMS when its labels moved",
-                    kind="jmp"),),
+                    kind="jmp"),
+             Detour(YES_SITE, YES_STOCK, "stems", "stems_yes_key",
+                    "the main page's YES: a double tap arms STEM REC, stock arms as before",
+                    kind="jmp", pad_to=8),),
     requires=("MEMORY",),
     dram_regions=(DramRegion("stems_ring", 0x800000),
                   DramRegion("stems_stack", 0x2000),

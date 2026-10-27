@@ -205,6 +205,17 @@ TRK` while `0x460d5db4` = 3. A release clears `0x46c7ff64`. A press never
 clears an arm bit, so a second press repeats the first. FUNC + YES is
 `0x4005e3d8` (`PARTS.md` section 7), which ends in the same `0x4005e294`.
 
+✅ Read 27 Oct 2026 (objdump, the EMAC gate passing): the handler starts
+`move.l 4(sp),d1; move.l 8(sp),d0`, the code and the edge, and passes
+them to `0x4005e294` with a `bra.w`. That routine reads the edge from
+`16(sp)` after pushing `d3` and `d2` (`0` is a release, `0x4005e3ca`). The
+toast is a tail call: `0x4005a2b8(text, 48)`, the text written over the
+code's slot and 48 over the edge's. STEM REC detours the handler's first
+eight bytes (`stems_yes_key`, note 4 of 26 Oct 2026): it runs the rest as
+a subroutine on copies of the two arguments, so stock still arms on every
+press, and a second press within 0.4 s, with no track key held and
+STEM REC idle, also arms STEM REC.
+
 - `FUN_400554e0(kind)`: the page switch. Writes the current-page-kind
   global `0x460d1684` (long; byte mirror `0x46c7d8d8`), resolves the
   descriptor via `FUN_40031ee0(-1,-1)` → `FUN_40031da4(track, kind)`,

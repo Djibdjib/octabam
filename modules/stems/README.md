@@ -196,6 +196,14 @@ Its rows, top to bottom:
    - If the sequencer is stopped, STEM REC arms. Recording starts on the
      first frame the sequencer plays. Press it again to cancel.
    - If the sequencer is running, recording starts at once.
+   - **Or, without opening STEMS:** press **YES** twice within 0.4 s on
+     the main page. It does the same as REC: it arms, or starts a take
+     while the sequencer plays, and the message reads `STEMS ARMED`. YES
+     still does its stock job on both presses (it arms every track for
+     recording, `ARM ALL`). A double tap never stops or cancels a take:
+     use STEMS or STOP for that. With a track key held, YES is stock's
+     alone (`ARM TRK`). The 0.4 s is measured under the port, not on the
+     unit.
 3. The take stops when the sequencer stops, when you press **STOP**, after
    60 minutes, or when the ring fills. The menu can be closed while it
    records.

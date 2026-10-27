@@ -338,6 +338,9 @@ stems_st_end:
 ui_key:          .long   -1         | what the labels last showed, packed (stems_ui)
 stems_lgen:      .long   0          | bumped after each label write by the task or the hook
 stems_drawn:     .long   -1         | stems_lgen when the window was last drawn
+stems_yes_t:     .long   0          | DTCN3 at the main page's last first tap of YES
+stems_yes_n:     .long   0          | 1 while that first tap waits for a second
+stems_yes_fire:  .long   0          | this press is a double tap that arms (stems_yes_key)
 stems_ui_bufs:                      | two buffers for each formatted line
 stat_buf0:       .space  16
 stat_buf1:       .space  16
@@ -519,6 +522,73 @@ stems_rec_key:
         movem.l (%sp),%d0-%d1/%a0-%a1
         lea     16(%sp),%sp
         rts
+| ---- the main page's YES: a double tap arms STEM REC (note 4) ----------
+| The detour at YES_SITE (MAINMENU.md 6): the handler gets (code, edge),
+| edge 0 a release, on press and on release. Stock arms every track on a
+| press with no track key held (ARM ALL), and does so on both taps as
+| before. A second such press within 0.4 s of the first, with STEM REC
+| IDLE, arms it too (or starts it, if the sequencer plays: the hook takes
+| ARMED to RECORDING on the next playing frame), and the toast then reads
+| STEMS ARMED over stock's ARM ALL. A double tap never stops or cancels a
+| take. With a track key held, or while another screen owns YES, the key is
+| stock's alone. In the UI task, as the REC row's action.
+        .equ    YES_BACK,      0x4005e4d0   | the handler after its two argument loads
+        .equ    YES_SCREEN,    0x460d1aec   | non-zero: another screen takes YES (stock jumps away)
+        .equ    YES_GATE,      0x800000b8   | non-zero: stock returns at once
+        .equ    TRK_HELD,      0x460d1736   | non-zero: a track key is held (ARM TRK)
+        .equ    TOAST,         0x4005a2b8   | (text, duration): the stock message popup
+        .equ    TOAST_TICKS,   48           | the duration stock gives ARM ALL
+        .equ    TAP_COUNTS,    52800000     | 0.4 s of DTCN3 at 132 counts a microsecond
+        .global stems_yes_key
+stems_yes_key:
+        clr.l   stems_yes_fire
+        tst.l   8(%sp)
+        beq.s   .Lyk_stock          | a release
+        tst.l   YES_SCREEN
+        bne.s   .Lyk_stock
+        tst.l   YES_GATE
+        bne.s   .Lyk_stock
+        tst.l   TRK_HELD
+        bne.s   .Lyk_stock          | ARM TRK: stock's alone, and no tap
+        move.l  DTCN3,%d0
+        tst.l   stems_yes_n
+        beq.s   .Lyk_first          | no first tap pending
+        move.l  %d0,%d1
+        sub.l   stems_yes_t,%d1     | counts since the first tap (unsigned: DTCN3 wraps)
+        cmpi.l  #TAP_COUNTS,%d1
+        bcc.s   .Lyk_first          | too late: this press is a first tap
+        clr.l   stems_yes_n         | a double tap: the pair is used up
+        tst.l   stems_state
+        bne.s   .Lyk_stock          | armed, recording or saving: never touched
+        moveq   #1,%d1
+        move.l  %d1,stems_yes_fire
+        bra.s   .Lyk_stock
+.Lyk_first:
+        move.l  %d0,stems_yes_t
+        moveq   #1,%d1
+        move.l  %d1,stems_yes_n
+.Lyk_stock:
+        move.l  8(%sp),-(%sp)       | the stock handler, as a subroutine, on copies
+        move.l  8(%sp),-(%sp)       | of its two arguments (it rewrites them for its toast)
+        bsr.s   .Lyk_call
+        addq.l  #8,%sp
+        tst.l   stems_yes_fire
+        beq.s   .Lyk_out
+        bsr.w   stems_action        | IDLE: arms (no card or no task: its row says so)
+        moveq   #ST_ARMED,%d0
+        cmp.l   stems_state,%d0
+        bne.s   .Lyk_out
+        pea     TOAST_TICKS
+        pea     lbl_yes_armed
+        jsr     TOAST
+        addq.l  #8,%sp
+.Lyk_out:
+        rts
+.Lyk_call:
+        move.l  4(%sp),%d1          | the stock's first two instructions, replayed
+        move.l  8(%sp),%d0
+        jmp     YES_BACK            | its rts, or its toast's, comes back here
+
 | ---- keys: UP/DOWN move (skip one heading); YES runs the row -----------
 stems_ud:
         move.l  %d2,-(%sp)
@@ -778,7 +848,8 @@ lbl_peak0:      .asciz  "PEAK 0%"
 err_ring:       .asciz  "RING FULL"         | ERR_OVERFLOW
 err_path:       .asciz  "PATH FAILED"       | ERR_PATH
 err_open:       .asciz  "OPEN FAILED"       | ERR_OPEN
-err_exists:     .asciz  "SAME MINUTE"       | ERR_EXISTS
+err_exists:     .asciz  "SAME MINUTE"       | ERR_EXISTS: 99 takes in the minute
+lbl_yes_armed:  .asciz  "STEMS ARMED"       | the main page's toast after a double tap of YES
 err_write:      .asciz  "WRITE FAILED"      | ERR_WRITE
 err_seek:       .asciz  "SEEK FAILED"       | ERR_SEEK
 err_close:      .asciz  "CLOSE FAILED"      | ERR_CLOSE

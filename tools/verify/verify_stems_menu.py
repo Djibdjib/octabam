@@ -27,6 +27,11 @@ as an MKII (MAIN MENU = PROJ) and as an MKI (FUNC+MIXER). Each boot:
 A PNG of the screen at each step goes to out/stems_runs/menu-<model>-*.png.
 Pass or fail comes from memory, never from a picture.
 
+A second boot per panel (note 4) taps YES on the main page: twice within
+0.4 s arms STEM REC, or starts it while playing; once, or twice 1 s apart,
+does not; a double tap never stops a take; with T1 held, or inside MAIN
+MENU (CONTROL, then AUDIO), YES stays stock's.
+
 Since 27 Oct 2026 (note 2) it also compares the screen with a fresh redraw
 from the labels in memory: opened during a take, and after 3,000 frames
 with no key, the window must already show them; closed, it must never
@@ -366,6 +371,83 @@ def walk(model, s, fx):
              names == ["MAIN.WAV"] + [f"T{k}.WAV" for k in (1, 2, 4, 5, 6, 7, 8)], f"{names}")
 
 
+def taps(p, gap_ms):
+    """Two YES presses on the main page, the second `gap_ms` after the first
+    starts (a press is held 40 ms), then 300 ms for the handler and the hook."""
+    p.press("yes", hold=40, settle=gap_ms - 40)
+    p.press("yes", hold=40, settle=300)
+
+
+def double_tap(model, s, fx):
+    """Note 4 of 26 Oct 2026, on its own boot: on the main page, a second
+    YES within 0.4 s arms STEM REC (or starts it while playing); one YES,
+    or two 1 s apart, does not; a double tap never stops a take; with a
+    track key held, or inside MAIN MENU, YES stays stock's."""
+    card = WORK / f"menu-{model}-yes.img"
+    shutil.copyfile(fx["card"], card)
+    st = lambda: p.long(s["stems_state"])               # noqa: E731
+    with MenuPort(vs.IMAGE, card, fx["set"], fx["project"], model == "mkii",
+                  log_path=WORK / f"menu-{model}-yes.log") as p:
+        p.settle()
+        p.press("yes", settle=600)
+        one = st()
+        single = p.screen()
+        taps(p, 1000)
+        slow = st()
+        vs.check(f"{model}: one YES, or two 1 s apart, leave STEM REC idle", (one, slow) == (vs.ST_IDLE,) * 2,
+                 f"one {one}, 1 s apart {slow}")
+        taps(p, 200)
+        armed = st()
+        p.png(WORK / f"menu-{model}-yes-armed.png")
+        vs.check(f"{model}: YES twice within 0.4 s arms STEM REC, and the toast is not stock's ARM ALL",
+                 armed == vs.ST_ARMED and diff_box(single, p.screen()) is not None, f"state {armed}")
+        p.chord("up", "rec", settle=400)                # STEMS opens on CANCEL: cancel, close
+        p.press(ENTER, settle=200)
+        p.press(CLOSE, settle=200)
+        vs.check(f"{model}: the armed take cancels from STEMS", st() == vs.ST_IDLE and not stems_open(p, s),
+                 f"state {st()}")
+        p.key("t1", True)
+        p.run(100)
+        taps(p, 200)
+        p.key("t1", False)
+        p.run(300)
+        held = st()
+        vs.check(f"{model}: with T1 held, a double tap stays stock's (ARM TRK), STEM REC idle",
+                 held == vs.ST_IDLE, f"state {held}")
+        p.open_menu()
+        while sel(p, ROOT_DESC) != 2:                   # CONTROL: its first row is AUDIO, a settings
+            p.press("down")                             # page (SYSTEM's is USB DISK MODE)
+        taps(p, 200)
+        inmenu = st()
+        for _ in range(3):
+            p.press(CLOSE, settle=200)                  # out of whatever YES entered
+        vs.check(f"{model}: inside MAIN MENU a double tap leaves STEM REC idle", inmenu == vs.ST_IDLE,
+                 f"state {inmenu}")
+        taps(p, 200)
+        p.press("play", settle=1500)
+        rec = st()
+        taps(p, 200)
+        still = st()
+        vs.check(f"{model}: armed by a double tap, PLAY records; a double tap never stops it",
+                 (rec, still) == (vs.ST_RECORDING,) * 2, f"after PLAY {rec}, after a double tap {still}")
+        p.press("stop", settle=500)
+        for _ in range(60):
+            if st() == vs.ST_IDLE:
+                break
+            p.run(500, wall=5)
+        p.press("play", settle=1000)
+        before = st()
+        taps(p, 200)
+        started = st()
+        p.press("stop", settle=500)
+        vs.check(f"{model}: while playing, a double tap starts a take",
+                 before == vs.ST_IDLE and started == vs.ST_RECORDING, f"before {before}, after {started}")
+        for _ in range(60):
+            if st() == vs.ST_IDLE:
+                break
+            p.run(500, wall=5)
+
+
 def main():
     from remix import registry
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
@@ -391,6 +473,7 @@ def main():
     WORK.mkdir(parents=True, exist_ok=True)
     for model in ("mkii",) if "--mkii" in sys.argv else ("mkii", "mki"):    # --mkii: a development switch
         walk(model, s, fx)
+        double_tap(model, s, fx)
     return 1 if vs.fails else 0
 
 
