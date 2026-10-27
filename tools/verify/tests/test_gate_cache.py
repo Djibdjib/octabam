@@ -37,6 +37,16 @@ class CacheTests(unittest.TestCase):
             with mock.patch.dict(os.environ, {"OCTABAM_GATE_CACHE": "0"}):
                 self.assertIsNone(gate_cache.lookup("k2"))
 
+    def test_the_key_covers_every_manifest_and_the_remix_data_files(self):
+        sys.path.insert(0, str(gate_cache.ROOT / "tools"))
+        from remix import registry
+        carried = {m.name for m in registry.selected(registry.remix("octabam"))}
+        other = next(p.parent.name for p in sorted((gate_cache.ROOT / "modules").glob("*/manifest.py"))
+                     if p.parent.name not in carried)
+        files = gate_cache.inputs(gate_cache.ROOT, "octabam", set(), {})
+        self.assertIn(f"modules/{other}/manifest.py", files)
+        self.assertIn("tools/remix/stock_labels.json", files)
+
 
 class SlotTests(unittest.TestCase):
     def test_one_slot_makes_the_second_holder_wait(self):
