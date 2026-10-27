@@ -84,9 +84,11 @@ WIN_COLS = slice(8, 120)        # inside STEMS' frame (columns 7 and 120 on the 
 
 
 def window(scr):
-    """The screen inside STEMS' frame only: the main page around it moves
-    while the sequencer plays."""
-    return [row[WIN_COLS] for row in scr]
+    """The screen with everything outside STEMS' frame blanked, still 128
+    by 64 (diff_box's size): the main page around it moves while the
+    sequencer plays."""
+    keep = range(128)[WIN_COLS]
+    return [[v if x in keep else 0 for x, v in enumerate(row)] for row in scr]
 
 
 def shows_labels(p, s, tries=3):
