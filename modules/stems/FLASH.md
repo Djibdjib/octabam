@@ -2,12 +2,24 @@
 
 ## Flash H — `stems`: Yves's six notes of 26 Oct (staged 27 Oct 2026)
 
-**Not built yet.** The image is built from branch `stems-next` only after
-every gate passes under the port. It carries the six notes (TODO.md,
-"Where the six notes stand"): the flat folder, the log under
-`/BRAIN/STEMS`, the `.ot` files, the window that redraws itself and the
-double tap of YES. Planned: `make image REMIX=stems BUILD=8
-VERSION=STEMS8`.
+It carries the six notes (TODO.md, "Where the six notes stand"): the flat
+folder, the log under `/BRAIN/STEMS`, the `.ot` files, the window that
+redraws itself and the double tap of YES.
+
+**The image.** Built 27 Oct 2026 from branch `stems-next` at `3d050e04`:
+`make image REMIX=stems BUILD=8 VERSION=STEMS8`. The unit's OS version
+reads `STEMS8`.
+
+| file | path | bytes | sha256 |
+|---|---|---|---|
+| card image | `out/OCTATRACK_STEMS8.bin` | 453,464 | `08dd6faa04711dc410869eae011a021d91c5539615d012742e64dbce72fb3d43` |
+| MIDI image | `out/OCTATRACK_OS1.40C_STEMS8.syx` | 633,417 | `deb0b2e9b506f7598d862f0027f001880e0127fef761f43ed353a0b4ad14baae` |
+| remix switch | `out/STEMS 8.RMX` | 1,120,122 | `529caa155f360ce7e3d982d4b3c76ff3e5691cade1fbb4dc13f2b0c89be02d44` |
+
+All three are built from your own 1.40C and never enter the repository.
+Copies are in `/home/yvez/xcheck/stems8`. The checks on that code, under
+the port: `verify_stems` 324 PASS, `verify_stems_menu` 83 PASS (MKII and
+MKI), `verify-docs` 0 problems; STEM REC with TUNER and SCOPE builds.
 
 **Before you flash.** As flash E: power cycle first if REC was pressed
 since power-on, the stock `.syx` and a DIN MIDI interface at hand, the
