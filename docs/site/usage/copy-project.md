@@ -5,22 +5,23 @@ those extras.
 
 ## Access
 
-MAIN MENU → PROJECT → COPY PROJECT (directly under SAVE TO NEW). Mount
-the set that holds the source first (CHANGE set if needed).
+MAIN MENU → PROJECT → CHANGE → highlight a project → FUNC+BANK → COPY
+(under RENAME / DELETE). Mount the set that holds the source first
+(CHANGE set if needed). Not available on `<CREATE EMPTY PROJECT>`.
 
 ## Operation
 
-1. Pick the source from the list (folders with `project.work` /
-   `project.strd`; `AUDIO` is skipped). LEVEL scrolls a row per detent.
-   Rows show the first 16 characters of the name; the copy uses the
-   full folder name.
-2. Edit the suggested name (`PROJECT` + date). With RND NAME in the
+1. Open the CHANGE project list and highlight the source.
+2. FUNC+BANK → COPY.
+3. Edit the suggested name (`PROJECT` + date). With RND NAME in the
    remix, FUNC+CUE fills `YYMMDD` + two pool words. The name editor
    caps at 32 characters.
-3. Confirm `COPY SRC -> DST?`.
-4. On success: `PROJECT COPIED` / `OPEN IT?` — YES loads the copy (stock
-   LOAD PROJECT), NO leaves the live project as it was. `COPY FAILED`
-   on error; a partial destination folder is removed.
+4. Confirm `COPY SRC -> DST?`.
+5. On success: `PROJECT COPIED` / `OPEN IT?` — YES closes CHOOSE PROJECT.
+   If the live project is dirty: `SAVE CURRENT PROJECT BEFORE OPENING
+   COPY?` (YES saves then loads, NO loads without saving). OPEN IT? NO
+   leaves the live project as it was. `COPY FAILED` on error; a partial
+   destination folder is removed.
 
 This copies whatever is on disk (including unsaved `.work` cache). SAVE
 PROJECT on the source first if you want the last saved state only. v1
