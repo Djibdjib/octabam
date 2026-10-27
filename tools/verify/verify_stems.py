@@ -130,8 +130,8 @@ SRC_FRAMES = 600
 # Fourteen files at 16 bits: the writer falls behind under the port's card
 # latency (frame 1,024 of 1,731 written at the stop) and needs 1,516 frames
 # from FINISHING to IDLE (3 Oct 2026, watch log), so 1,900 follow the stop.
-A14_FRAMES = 3600                  # THRU_STOP (1,700) + 1,900
-A14W_FRAMES = 5000                 # 24 bits: 1.5 times the data, so 3,300 follow the stop
+A14_FRAMES = 5900                  # IDLE at frame 4,721 (27 Oct 2026: the name check, the .ot files and the log), + 25%
+A14W_FRAMES = 6500                 # 24 bits: IDLE at frame 5,224 (27 Oct 2026), + 25%
 MAX_FRAMES = 9922500               # 60 minutes
 CHUNK_FRAMES = 512                 # stems.s
 
@@ -1623,7 +1623,7 @@ def slot_frames(dump_path, k, g=None):
 # latency (30b530a, 27 Sep 2026); the writer then needs 255 frames from
 # FINISHING to IDLE (measured the same day). It was 400 while the emulated
 # card answered at once.
-EIGHT_FRAMES = 700
+EIGHT_FRAMES = 1650                 # IDLE at frame 1,318 (27 Oct 2026: one lookup a file at the start, an .ot each at the end), + 25%
 
 
 def eight(s):
