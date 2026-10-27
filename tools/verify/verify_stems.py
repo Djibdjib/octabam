@@ -509,12 +509,19 @@ def capture(prefix, chans):
 
 
 def wav_fmt(data):
-    """(channels, bytes a second, block align, bits, data bytes) of a WAV header."""
+    """(channels, bytes a second, block align, bits, data bytes) of a WAV
+    header, all None for a file too short to hold one (a take that never
+    closed is a 0-byte file): a check that fails, not a crash that ends the
+    run's other checks."""
+    if data is None or len(data) < 44:
+        return (None,) * 5
     ch, rate, brate, align, bits = struct.unpack_from("<HIIHH", data, 22)
     return ch, brate, align, bits, struct.unpack_from("<I", data, 40)[0]
 
 
 def wav16(data):
+    if data is None or len(data) < 44:
+        return []
     return list(struct.unpack_from(f"<{(len(data) - 44) // 2}h", data, 44))
 
 
