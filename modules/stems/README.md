@@ -9,8 +9,10 @@ name starts each file's name: `YYMMDD-HHMM-T1.wav` to `-T8.wav`,
 `-MAIN.wav`, `-CUE.wav`, and the inputs as `-AB.wav` and `-CD.wav`
 (stereo) or `-A.wav` to `-D.wav` (mono). A second take in the same minute
 is named `YYMMDD-HHMM-2`, a third `YYMMDD-HHMM-3`, and so on up to 99, so
-no take overwrites another. A name counts as taken when any file of that
-name is on the card, whichever sources each take records. Takes already
+no take overwrites another. A name counts as taken when its log (see
+STATS.TXT below) is on the card, or any file the new take writes. Every
+take that ends writes a log, so a second take with other sources gets a
+number too. Takes already
 on a card in an older layout (`AUDIO/STEMS/<project>/YYMMDD-HHMM/`, or
 `AUDIO/YYMMDD-HHMM/`) stay where they are. A track's file is
 its share of MAIN: the track's audio times the gain the mix gives it, so

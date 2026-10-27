@@ -2376,22 +2376,18 @@ stems_make_prefix:
 
 | ---- a file path: stems_path + the name of file d3 ----------------------
 stems_make_file:
-        move.l  %d3,%d0
-        lsl.l   #2,%d0
-        lea     stems_ftab,%a0
-        move.l  (%a0,%d0.l),%d0
-        moveq   #24,%d1
-        lsr.l   %d1,%d0                     | the kind; on into stems_kind_path
-
-| ---- a file path by kind d0 (0-15): stems_path + -T<k+1>.wav, or -MAIN.wav
-| and so on, into stems_fpath. Clobbers d0-d1/a0-a1.
-stems_kind_path:
         lea     stems_path,%a0
         lea     stems_fpath,%a1
 .Lm_copy:
         move.b  (%a0)+,(%a1)+
         bne.s   .Lm_copy
         subq.l  #1,%a1
+        move.l  %d3,%d0
+        lsl.l   #2,%d0
+        lea     stems_ftab,%a0
+        move.l  (%a0,%d0.l),%d0
+        moveq   #24,%d1
+        lsr.l   %d1,%d0                     | the kind
         cmpi.l  #K_MAIN,%d0
         bcc.s   .Lm_named
         addq.l  #1,%d0                      | T<k+1>
@@ -2427,37 +2423,33 @@ stems_log_path:
         rts
 
 | ---- is the name in stems_path taken? d0 = 0 free, 1 taken -------------
-| Taken when any file a take of that name could write is on the card, of
-| any kind, whatever this take arms, or its log: so two takes of a minute
-| never share a name (Yves, 27 Oct 2026). Clobbers d0-d1/a0-a1.
+| Taken when its log is on the card (every take that ends writes one, so
+| an earlier take of the minute with other sources still counts), or any
+| file this take writes: so no take overwrites a file (Yves, 27 Oct 2026).
+| One lookup a file, as costly as an open under the port (27 Oct 2026),
+| so not the sixteen kinds. Clobbers d0-d1/a0-a1.
 stems_name_taken:
-        move.l  %d2,-(%sp)
-        moveq   #0,%d2                      | kind k
-.Lnt_kind:
-        move.l  %d2,%d0
-        bsr.w   stems_kind_path
-        movea.l FS_EXISTS_PTR,%a0
-        pea     stems_fpath
-        jsr     (%a0)
-        addq.l  #4,%sp
-        tst.l   %d0
-        bne.s   .Lnt_taken
-        addq.l  #1,%d2
-        moveq   #K_A+4,%d0                  | sixteen kinds: T1-T8, MAIN, CUE, AB, CD, A-D
-        cmp.l   %d0,%d2
-        bcs.s   .Lnt_kind
+        move.l  %d3,-(%sp)
         bsr.w   stems_log_path
+        moveq   #-1,%d3                     | the log first, then file d3
+.Lnt_look:
         movea.l FS_EXISTS_PTR,%a0
         pea     stems_fpath
         jsr     (%a0)
         addq.l  #4,%sp
         tst.l   %d0
         bne.s   .Lnt_taken
-        move.l  (%sp)+,%d2
+        addq.l  #1,%d3
+        cmp.l   stems_nf,%d3
+        bcc.s   .Lnt_free
+        bsr.w   stems_make_file
+        bra.s   .Lnt_look
+.Lnt_free:
+        move.l  (%sp)+,%d3
         moveq   #0,%d0
         rts
 .Lnt_taken:
-        move.l  (%sp)+,%d2
+        move.l  (%sp)+,%d3
         moveq   #1,%d0
         rts
 
