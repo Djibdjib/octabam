@@ -16,6 +16,7 @@ A remix is a named selection of modules; `make image REMIX=<name> BUILD=<n>` bui
 
 | remix | contains | proof |
 |---|---|---|
+| [`core-copy`](core-copy/README.md) | STACK CORE with COPY on CHANGE→FUNC+BANK; stock FX1 for a playable tip try. | port-gated: CORE + re-homed COPY PROJECT (CHANGE→FUNC+BANK); port-gated #931 |
 | [`cxosc-core`](cxosc-core/README.md) | CORE + REMIX SWITCH + CX OSC on the 14 stock effects. | `make check`: unit handoff: CORE + CX OSC; marker-less machine list, mono, stock LFOs |
 | [`octabam`](octabam/README.md) | The core ColdFire modules, all 14 stock effects, and SPECTRUM, CHARACTER, MODULATION and TRANSIENT, loaded on demand. | `make check` |
 
