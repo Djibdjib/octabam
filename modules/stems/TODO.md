@@ -86,6 +86,33 @@ takes go to `<set>/AUDIO/STEMS/<project>/<YYMMDD-HHMM>/` (`5822ebcc`).
    each take now checks for two more folders, and on a fresh card creates
    them, before it records.
 
+### Where the six notes stand (27 Oct 2026, branch `stems-next`)
+
+All six are in the code. The port runs them as one batch at the end
+(Yves, 27 Oct 2026); until it passes, nothing here is measured but note 6.
+
+- **Note 6, the flat folder:** `<set>/AUDIO/_STEMS/<take>-T1.wav`. A
+  second take in one minute is `<take>-2`, up to 99 (Yves, 27 Oct 2026: a
+  number instead of `SAME MINUTE`). A name is taken by its log or any file
+  the take writes. Measured under the port: a check of all sixteen file
+  kinds made 17 card lookups at every start, each as long as an open (1.6
+  M instructions), and 36 checks ran out of frames, so the check is one
+  lookup and one a file. On `stems-next` the take runs passed before the
+  change (73 of 73, measured), so what fails them on main isn't here;
+  that PR #927 fixed it is inferred, not bisected.
+- **Note 5, the log:** `/BRAIN/STEMS/<take>.TXT`. STEM REC makes the two
+  folders; a failure costs only the log.
+- **Note 1, the `.ot`:** the online session's writer, with the tempo from
+  `0x8000181c`, +12 dB on every file and the checksum from byte 20. Still
+  to check against a stock `.ot` (item 2 A).
+- **Note 2, the refresh:** `stems_enter` keeps the labels; a detour at
+  `0x40056c7c` in the UI task's loop redraws STEMS when they changed.
+- **Note 4, the double tap:** a detour on the main page's YES handler
+  (`0x4005e4c8`); 0.4 s; it arms or starts, never stops.
+- **Note 3, the figures:** no duplicate, so the log keeps every line
+  (README, "The log against BRAIN's PERFORMANCE page"). A proposal for Sam
+  is drafted, not sent.
+
 ## 1. The tempo isn't written to the stems
 
 **Now.** STEM REC writes a bare WAV and no `.ot` file. The `.ot` is the
