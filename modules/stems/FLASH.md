@@ -1,4 +1,37 @@
-# STEM REC: flashes A to J, and crosscheck's flash plan as a record
+# STEM REC: flashes A to K, and crosscheck's flash plan as a record
+
+## Flash K — `octabam` + STEM REC: a folder for each take, T1 at 24 bits (staged 27 Oct 2026)
+
+`STEMS11`, the same remix as flashes I and J, on branch `stems-next`
+rebased onto main `3b62cdef`:
+
+- Each take gets a folder of its own, `AUDIO/!STEMS/<take>/`, its files
+  still named `<take>-T1.wav` and so on. So a take's start no longer
+  slows as `!STEMS` fills (flash J: `RING FULL` with 88 files there).
+- At boot T1 alone is on, at 24 bits.
+
+**The image.** Built 27 Oct 2026 at `a585cd92` with the local remix
+`remixes/test/lm-stems` (as before): `make image REMIX=lm-stems BUILD=11
+VERSION=STEMS11`. The unit's OS version reads `STEMS11`.
+
+| file | path | bytes | sha256 |
+|---|---|---|---|
+| card image | `out/OCTATRACK_STEMS11.bin` | 612,140 | `dc2f4e096e628eb92af63897030c0e5d8dd999e3700b8737fb8088ad3ff1f9b0` |
+| MIDI image | `out/OCTATRACK_OS1.40C_STEMS11.syx` | 855,062 | `8e57de3e44f1fdd931d2085e3513256ada70c26c537242bd4745881a5051fe37` |
+| remix switch | `out/LM-STEMS 11.RMX` | 1,280,087 | `e22225a1b1c109a1e47ba4f5e7e11693ad5f98946da29624a26ff71eb711c4df` |
+
+Copies are in `/home/yvez/xcheck/stems11`. Under the port:
+`verify_stems_units` 115 pass; the pixel boot on `lm-stems` itself 9
+pass; the `crowded` run measures a take's start against a full `!STEMS`.
+
+**The tests, in order.**
+
+1. Boot, UP + REC: T1 alone has a checkbox ticked, and 24 BIT is ticked.
+2. Five or more takes of eleven files at 24 bits, as in flash J: each in
+   its own folder in `!STEMS`, and the logs' `ring peak` stays about
+   where the first take's is, with no `RING FULL`.
+3. The `.ot` beside each WAV in the take's folder, and the files load
+   from there in the browser.
 
 ## Flash J — `octabam` + STEM REC: STEMS drawn as PERSONALIZE (staged 27 Oct 2026)
 
