@@ -228,6 +228,28 @@ jobs:
           path: .git/octabam-port
           key: port-${{ steps.port.outputs.key }}
 
+      # check_shards orders its jobs longest-first from the durations of the last
+      # run (<git common dir>/octabam-gate-times.json) and skips a gate whose pass
+      # is recorded for the same image and inputs (octabam-gate-cache,
+      # tools/verify/gate_cache.py). Neither survives a runner, so both go
+      # through the cache, keyed by unit. A PR run restores the newest entry of
+      # its own branch, else of the base branch.
+      - name: 🔑 Name the Unit's Caches
+        id: unit
+        env:
+          UNIT: ${{ matrix.name }}
+        run: echo "slug=$(printf '%s' "$UNIT" | tr -c 'A-Za-z0-9\n' '-')" >> "$GITHUB_OUTPUT"
+
+      - name: 💾 Restore Gate Times and Passes
+        id: gatecache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            .git/octabam-gate-times.json
+            .git/octabam-gate-cache
+          key: gates-${{ steps.unit.outputs.slug }}-${{ github.run_id }}
+          restore-keys: gates-${{ steps.unit.outputs.slug }}-
+
       # the unit's name goes through the environment: it can carry a remix name
       - name: 🧪 Run Gates
         env:
@@ -261,6 +283,24 @@ jobs:
               echo '```'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # a pass is a file of its own; one unused for 14 days is dropped so the
+      # entry does not grow without bound
+      - name: 🧹 Prune Gate Passes
+        id: gatedone
+        if: always()
+        run: |
+          find .git/octabam-gate-cache -name '*.json' -mtime +14 -delete 2>/dev/null || true
+          [ -f .git/octabam-gate-times.json ] && echo recorded=true >> "$GITHUB_OUTPUT" || true
+
+      - name: 💾 Save Gate Times and Passes
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        if: always() && steps.gatedone.outputs.recorded == 'true'
+        with:
+          path: |
+            .git/octabam-gate-times.json
+            .git/octabam-gate-cache
+          key: gates-${{ steps.unit.outputs.slug }}-${{ github.run_id }}
 
       - name: 🧮 Check ColdFire Port Built
         id: portdone

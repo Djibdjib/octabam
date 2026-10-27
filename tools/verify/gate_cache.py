@@ -15,7 +15,12 @@ The key is a sha256 over:
     (reach.scan_deps: imports and the paths the code runs or reads), the
     Makefile, pyproject.toml and uv.lock;
   - every tracked file under the remix's directory and under the directory
-    of each module it carries (gates render module sources themselves);
+    of each module it carries (gates render module sources themselves), and
+    the manifest of every module (the registry loads all of them: 27 Oct
+    2026, a trace of dlstub, dlwrap, menu and labels read 52 manifests of
+    modules the remix does not carry that the key did not cover), and the
+    data files in tools/remix/ (stock_labels.json: opened by a path the
+    import graph does not see);
   - the port's source digest (reach.port_digest) and the host architecture;
   - dsp_asm and dsp_host, by content (the binary is not the source:
     AGENTS.md);
@@ -109,19 +114,9 @@ def file_digest(path):
     return h.hexdigest()
 
 
-def key(root, remix, job, argv, scripts, deps=None, env=None):
-    """The job's key in the tree at `root` (a shard, or this tree), after
-    `make bus REMIX=<remix>` there, for a job run with `env` (the project
-    is the job's OT_PROJECT, not this process's); None when the image is
-    missing."""
-    env = os.environ if env is None else env
-    import reach  # noqa: E402  (tools/verify; the graph and the port digest)
+def inputs(root, remix, scripts, deps):
+    """The repository files a job's key covers, relative to `root`."""
     from remix import registry  # noqa: E402
-    root = pathlib.Path(root)
-    image = root / "out/mainos_bus.bin"
-    if not image.is_file():
-        return None
-    deps = reach.scan_deps(root) if deps is None else deps
     files = set(ALWAYS) | closure(scripts, deps)
     # the shard is this tree's HEAD plus its diff, so the registry here
     # names the same files
@@ -129,6 +124,23 @@ def key(root, remix, job, argv, scripts, deps=None, env=None):
     dirs = [rdir.relative_to(registry.ROOT).as_posix()] if rdir else [f"remixes/{remix}.py"]
     dirs += [f"modules/{m.name}" for m in registry.selected(registry.remix(remix))]
     files |= set(tracked(root, *dirs))
+    files |= set(tracked(root, "modules/*/manifest.py", "tools/remix/*.json"))
+    return files
+
+
+def key(root, remix, job, argv, scripts, deps=None, env=None):
+    """The job's key in the tree at `root` (a shard, or this tree), after
+    `make bus REMIX=<remix>` there, for a job run with `env` (the project
+    is the job's OT_PROJECT, not this process's); None when the image is
+    missing."""
+    env = os.environ if env is None else env
+    import reach  # noqa: E402  (tools/verify; the graph and the port digest)
+    root = pathlib.Path(root)
+    image = root / "out/mainos_bus.bin"
+    if not image.is_file():
+        return None
+    deps = reach.scan_deps(root) if deps is None else deps
+    files = inputs(root, remix, scripts, deps)
     h = hashlib.sha256()
 
     def put(label, value):
