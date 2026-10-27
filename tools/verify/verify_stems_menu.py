@@ -79,8 +79,11 @@ def stems_open(p, s):
     return p.long(s["stems_win"]) != 0 and p.long(s["stems_live"]) != 0
 
 
-WIN_COLS = slice(8, 120)        # inside STEMS' frame (columns 7 and 120 on the 128-wide LCD, from
-                                # the gate's screenshots, 27 Oct 2026); the main page shows either side
+WIN_COLS = slice(8, 119)        # inside STEMS' frame (columns 7 and 120 on the 128-wide LCD, from
+                                # the gate's screenshots, 27 Oct 2026); the main page shows either side.
+                                # Column 119, rows 11-31, differs between the draw at open and a draw
+                                # after a key with the same labels and no take (probe, 27 Oct 2026),
+                                # so it's left out: it says nothing about the labels
 
 
 def window(scr):
