@@ -15,6 +15,10 @@ The project is a function of the image, the port's sources and the panel script,
 <git common dir>/octabam-fresh-cache/<sha256 of those>/ and a second run for the same inputs copies it
 (CI keeps the directory in the actions cache; OCTABAM_GATE_CACHE=0 makes every run boot the port).
 
+The firmware makes the project with MIDI program change, clock and transport receive off; STAMP switches them on in
+project.work and project.strd before the files are written or cached (verify_brain's `log` case sends a program
+change). Nothing else in the project is changed.
+
 What it cannot give: a project the unit made on a particular image. Which files it holds follows the image (with
 KITS, a kits.work; with PLOCKS P2, p2lk files). Run it on the remix the test is for.
 """
@@ -40,6 +44,37 @@ def panel_script():
     return s.text()
 
 
+# A project the firmware makes has MIDI program change, clock and transport receive off; a project made on a unit
+# for these gates has them on. verify_brain's `log` case sends a program change and expects the pattern queued.
+STAMP = {"MIDI_PROGRAM_CHANGE_RECEIVE": 1, "MIDI_PROGRAM_CHANGE_RECEIVE_CH": 0,
+         "MIDI_CLOCK_RECEIVE": 1, "MIDI_TRANSPORT_RECEIVE": 1}
+
+
+def stamp_settings(data, values=STAMP):
+    """project.work or project.strd with each KEY=value of `values` rewritten. A value keeps its width (zero-padded:
+    -1 becomes 00), so the file keeps its length. A key the file lacks is an error."""
+    import re
+    for key, v in values.items():
+        m = re.search(rb"(?m)^" + re.escape(key.encode()) + rb"=([^\r\n]*)", data)
+        if not m:
+            raise ValueError(f"{key} is not in the project file")
+        old = m.group(1)
+        new = str(v).rjust(len(old), "0").encode()
+        if len(new) != len(old):
+            raise ValueError(f"{key}={v} does not fit the width of {old!r}")
+        data = data[:m.start(1)] + new + data[m.end(1):]
+    return data
+
+
+def stamp_project(files):
+    """The project's files with its settings stamped (.work always; .strd when it carries the keys)."""
+    out = dict(files)
+    out["project.work"] = stamp_settings(files["project.work"])
+    if "project.strd" in files:
+        out["project.strd"] = stamp_settings(files["project.strd"])
+    return out
+
+
 def cache_dir(image, load_ms):
     """Where the project for this image, port and script is kept."""
     import hashlib
@@ -47,7 +82,7 @@ def cache_dir(image, load_ms):
     import reach
     h = hashlib.sha256()
     for part in (pathlib.Path(image).read_bytes(), reach.port_digest(ROOT / "tools/emu/ot_emu").encode(),
-                 panel_script().encode(), str(load_ms).encode()):
+                 panel_script().encode(), str(load_ms).encode(), repr(sorted(STAMP.items())).encode()):
         h.update(hashlib.sha256(part).digest())
     return gate_cache.store_dir(ROOT).parent / "octabam-fresh-cache" / h.hexdigest()
 
@@ -101,6 +136,7 @@ def main():
     projects = {n: fs for n, fs in projects.items() if "project.work" in fs and "bank01.work" in fs}
     if not projects:
         sys.exit(f"no project with a project.work and bank files on the card the firmware left; see {work / 'port.txt'}; files: {sorted(files)[:20]}")
+    projects = {n: stamp_project(fs) for n, fs in projects.items()}
     for name, fs in projects.items():
         dest = work / name
         dest.mkdir(exist_ok=True)
