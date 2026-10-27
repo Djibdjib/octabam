@@ -95,6 +95,16 @@ def project_stamp(path):
     edit on the card or in the port changes the mtime."""
     if path is None or not path.is_dir():
         return "none"
+    # A project tools/hw/ot_fresh.py made (or copied from its cache) carries
+    # the key of what made it, next to the project: the same inputs, the same
+    # project, whatever the files' times (a restored cache has new ones).
+    marker = path.parent / "fresh.key"
+    if marker.is_file():
+        h = hashlib.sha256()
+        for f in sorted(path.rglob("*")):
+            if f.is_file():
+                h.update(f"{f.relative_to(path)}\0{f.stat().st_size}\n".encode())
+        return f"fresh:{marker.read_text().strip()}:{h.hexdigest()}"
     h = hashlib.sha256()
     for f in sorted(path.rglob("*")):
         if f.is_file():

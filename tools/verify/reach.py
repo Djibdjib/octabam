@@ -24,7 +24,11 @@ verifier's callers. This reads the changed paths (committed and not,
 against the merge-base with `--base`) and prints the commands, one line
 each, with the paths that put them there; `--run` runs them in order and
 stops at the first failure (`--keep-going`: every one, then a table).
-There is no default remix. The FLOOR -- what a change to the build, the
+The default remix is `octabam` (DEFAULT_REMIX, the golden master, 27 Oct
+2026): QUICK checks it, and only it, for every module it carries, and it is
+the floor. A module it does not carry is checked on the remixes that do.
+Otherwise (FULL, or no `octabam`) there is no default remix. The FLOOR --
+what a change to the build, the
 port, a shared tool or an unclassified path reaches -- is the COVER: the
 fewest remixes that between them carry every module (greedy from the
 registry, 9 of 27 on 28 Sep 2026), so every module's gates and every kind
@@ -149,6 +153,11 @@ CLASSIFIER = ("tools/verify/reach.py",)
 # The bus's bit-identity gate, and the remix whose modules reach it.
 BUS_GATE = "tools/verify/verify_bus.py"
 BUS_REMIX = "bus"
+
+
+# The golden master: QUICK checks this remix for every module it carries and
+# takes it as the floor (the cover stands in when it does not exist).
+DEFAULT_REMIX = "octabam"
 
 
 def bus_modules():
@@ -456,7 +465,9 @@ class Context:
         self.include_tests = include_tests
         self.test_carriers = test_carriers or {}   # key -> test remixes carrying it (when they are left out)
         self.floor = list(remixes) if all_remixes else self.cover()
-        if quick and not all_remixes and self.floor:
+        if quick and not all_remixes and DEFAULT_REMIX in remixes:
+            self.floor = [DEFAULT_REMIX]
+        elif quick and not all_remixes and self.floor:
             # QUICK: the one cover remix carrying the most modules stands for
             # the cover (FULL=1 runs the cover)
             self.floor = [max(self.floor, key=lambda r: (self._modules_of().get(r, 0), r))]
@@ -485,9 +496,12 @@ class Context:
 
     def carriers(self, remixes):
         """The remixes a module change checks: all of them (FULL), or
-        (quick) the user-facing ones, else the smallest test remix."""
+        (quick) the default remix when it carries the module, else the
+        user-facing ones, else the smallest test remix."""
         if not self.quick or len(remixes) <= 1:
             return remixes
+        if DEFAULT_REMIX in remixes:
+            return [DEFAULT_REMIX]
         user = [r for r in remixes if r not in self.test_remixes]
         if user:
             return user
@@ -1062,7 +1076,16 @@ def replan(queue, extra, stress, jobs, keys_of=None):
 
 # The commands that take seconds and share one entry; every other command
 # is an entry of its own (a CI runner each, with the whole setup).
-LIGHT = ("verify_docs", "selftest", "test-acceptance")
+LIGHT = ("selftest",)
+
+# Commands a CI job of its own runs for every diff that plans them, so the
+# matrix has no unit for them (a local `make reach RUN=1` still runs them):
+# verify_docs by Docs, Site and Web Patches (always); test-acceptance by Acceptance Runner
+# Tests and ci (ci-dsp, ci-emu, test-acceptance, verify-docs) by it, DSP
+# Toolchain and ColdFire Port Unit Tests, whose path prefixes
+# (tools/verify/ci_paths.py) cover every path that plans `ci`: the Makefile
+# and .github/.
+DEDICATED = ("verify_docs", "test-acceptance", "ci")
 
 
 def entry_name(kind, command):
@@ -1071,29 +1094,36 @@ def entry_name(kind, command):
     return kind
 
 
-# Units that would set the wall time on one runner, cut in two (a CI runner
-# each). A remix: the gate jobs named here on one runner (check_shards
-# --only-jobs), every other on the other (--skip-jobs); a name that is no gate
-# job is refused there, so a rename cannot drop a gate. The shared half: its
-# module_gates step on one, every other step on the other (Makefile
-# SHARED_PART). Times of run 40467801048: remix-switch 481 s and image 256 s of
-# octabam's 1886 s over 3 shards; module_gates --shared 353 s of the shared
+# Units that would set the wall time on one runner, cut up (a CI runner each).
+# A remix: each part is the gate jobs named here (check_shards --only-jobs, the
+# unit `check-remix <remix> (<part>)`), the unit `check-remix <remix>` every
+# other (--skip-jobs); a name that is no gate job is refused there, so a
+# rename cannot drop a gate. The `project` part is the jobs that read
+# OT_PROJECT: its unit alone gets the generated project (ci.yml, tools/hw/
+# ot_fresh.py, 255 s on a runner), the others run as they did without one.
+# `image` is not in it: with a project its verify_brain fails and the job took
+# 2869 s on cxosc-core (27 Oct 2026). The shared half: its module_gates step on
+# one unit, every other step on the other (Makefile SHARED_PART). Times of run
+# 40467801048: remix-switch 481 s of octabam's 1886 s over 3 shards (the other
+# jobs: 1405 s, 468 s over 3 shards); module_gates --shared 353 s of the shared
 # half's 645 s, run serially.
-SPLIT_REMIX_JOBS = {"octabam": ("remix-switch", "image")}
+SPLIT_REMIX_JOBS = {"octabam": {"long": ("remix-switch",), "project": ("set", "mode-defaults", "plocks-p2")}}
 
 
 def entries(items, jobs):
     """The plan as units that run independently, for a caller that gives
     each its own machine (the CI matrix): [{"name", "items"}], `items` as
-    in the plan. The quick commands are one entry, `light`; a check_shards
+    in the plan. The quick commands (LIGHT) are one entry, `selftest`; DEDICATED ones are none; a check_shards
     line becomes one line per remix (`--jobs` shards on that machine); every
-    other command is its own entry. `light` comes last: the dear units start first. A unit is run alone with `--only NAME`,
+    other command is its own entry. `selftest` comes last: the dear units start first. A unit is run alone with `--only NAME`,
     which plans again from the same diff: `jobs` must match between the two
     calls. `identity` still queues the checks of the remixes it names inside
     its own entry."""
     out, light = [], []
     for item in items:
         kind, command, paths = item
+        if kind in DEDICATED:
+            continue
         if kind in LIGHT:
             light.append(item)
         elif is_shards(item):
@@ -1102,9 +1132,12 @@ def entries(items, jobs):
                 line = lambda extra="": (f"python3 tools/verify/check_shards.py --jobs {jobs} "
                                          + (f'--modules "{",".join(modules)}" ' if modules else "") + extra + r)
                 if r in SPLIT_REMIX_JOBS:
-                    names = ",".join(SPLIT_REMIX_JOBS[r])
-                    out.append({"name": f"check-remix {r}", "items": [(kind, line(f"--skip-jobs {names} "), paths)]})
-                    out.append({"name": f"check-remix {r} (long)", "items": [(kind, line(f"--only-jobs {names} "), paths)]})
+                    parts = SPLIT_REMIX_JOBS[r]
+                    every = ",".join(n for names in parts.values() for n in names)
+                    out.append({"name": f"check-remix {r}", "items": [(kind, line(f"--skip-jobs {every} "), paths)]})
+                    for part, names in parts.items():
+                        out.append({"name": f"check-remix {r} ({part})",
+                                    "items": [(kind, line(f"--only-jobs {','.join(names)} "), paths)]})
                 else:
                     out.append({"name": f"check-remix {r}", "items": [(kind, line(), paths)]})
         elif kind == "check-shared":
@@ -1113,7 +1146,7 @@ def entries(items, jobs):
         else:
             out.append({"name": entry_name(kind, command), "items": [item]})
     if light:
-        out.append({"name": "light", "items": light})
+        out.append({"name": "selftest", "items": light})
     seen = {}
     for e in out:
         n = seen[e["name"]] = seen.get(e["name"], 0) + 1

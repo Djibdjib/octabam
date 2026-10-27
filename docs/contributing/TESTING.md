@@ -58,8 +58,12 @@ skipped.
 ## 2. `make check`: the two halves
 
 `make check REMIX=<name>` is `bus`, `cycles`, then `verify`, and `verify`
-is two halves (`Makefile`: `verify-shared`, `verify-remix`). There is no
-default remix.
+is two halves (`Makefile`: `verify-shared`, `verify-remix`). No make target
+has a default remix; `make reach` (QUICK) and CI take `octabam` (the golden
+master, `reach.DEFAULT_REMIX`): a module it carries is checked on it alone, and
+it is the floor for tool, build and unclassified changes. A module it does not
+carry is checked on the remixes that do; FULL=1 checks every carrier and the
+cover.
 
 **The shared half** (`make check-shared REMIXES="a b c"`) does not depend
 on which remix is selected, so a run over several remixes does it once:
@@ -394,16 +398,26 @@ key cannot see a file a gate reads through a path built at run time, or
 anything outside the repository other than the toolchain and the project.
 The shared half and `make accept` are not cached.
 
-**CI units cut in two** (`reach.entries`, `reach.SPLIT_REMIX_JOBS`). Each
-unit of the CI matrix is a runner with its own setup. `check-remix octabam`
-runs as two units: `check_shards --only-jobs remix-switch,image` (`(long)`)
-and `--skip-jobs remix-switch,image` (every other gate job); a name that is
-no gate job is refused, so the parts always cover every gate job once.
+**CI units cut up** (`reach.entries`, `reach.SPLIT_REMIX_JOBS`). Each unit of
+the CI matrix is a runner with its own setup. `check-remix octabam` runs as
+three units, each `check_shards --only-jobs ...` over a part of the gate jobs:
+`(long)` is `remix-switch`, `(project)` is `set`, `mode-defaults` and
+`plocks-p2` (the jobs that read `OT_PROJECT`), and the unit without a suffix is
+`--skip-jobs` of both (every other job, `image` among them). A name that is no
+gate job is refused, so the parts always cover every gate job once. Only the
+`(project)` unit makes a project: `tools/hw/ot_fresh.py` boots the port and
+creates one with the panel script (100 s locally, 255 s in CI), and keeps it in
+`<git common dir>/octabam-fresh-cache/<sha256 of image, port sources, script>`
+(CI: the same actions cache as the gate passes), so a rerun for the same inputs
+is the image build alone (41 s locally). `image` is outside it: with a project it
+failed in `verify_brain` and ran 2869 s on cxosc-core (27 Oct 2026).
 `check-shared` runs as two units: `make check-shared SHARED_PART=modules`
 (`module_gates --shared`) and `SHARED_PART=rest` (every other step of
 `verify-shared`); a bare `make verify-shared` runs both, in that order. A
 part's gate durations are recorded per job; the remix's total is not (it
-would be the part's).
+would be the part's). A shard's submodules are cloned from the copy of the tree
+that makes it (`check_shards.local_submodule_update`): 3 s, against 41 s from
+GitHub.
 
 **Virtual card retention (enabled by default).** `make check`,
 `make check-remix`, `make verify-shared`, `make verify-remix`, the split
@@ -718,13 +732,15 @@ PR; a first-time contributor's run waits for maintainer approval:
 | ✅ Acceptance Runner Tests | `make test-acceptance` | the runner refuses skipped, failed, incomplete and over-budget evidence; `reach` routes as documented; the shard runner covers the recipe |
 | 🎛️ DSP Toolchain — dsp56300 | `make ci-dsp` | the vendored DSP emulator at its pin takes our patch, builds, passes upstream's runner; `dsp_asm` emits the one-word displaced move |
 | 🔌 ColdFire Port Unit Tests | `make ci-emu` | `ot_emu` builds on both hosts (the fork unshare has a macOS and a Linux path) and passes `emac` and `periph` |
-| 📚 Docs and Links | `make verify-docs` | the rendered tables are current, every remix has a README, every link between tracked files resolves |
+| 📚 Docs, Site and Web Patches | `make verify-docs`; `tools/web/stale.py`; on a PR that reaches the site, `mkdocs build --strict` | the rendered tables are current, every remix has a README, every link between tracked files resolves; the web builder's patch manifest matches its patch files; the manual site builds |
 
 **Units.** `reach.py --json` prints `matrix`, the plan as units (`entries()`):
-`light` (`verify_docs`, `selftest`, `test-acceptance`, last), one `check-remix
-<remix>` per remix (`check_shards.py --jobs 3` on that runner), and every
-other command as its own unit (`check-shared`, `refhash`, `verify-bus`,
-`identity`, `ci`, ...). `--only <unit>` plans again from the same diff and
+`selftest` (last), one `check-remix <remix>` per remix (`check_shards.py --jobs 3`
+on that runner), and every other command as its own unit (`check-shared`,
+`refhash`, `verify-bus`, `identity`, ...). `verify_docs`, `test-acceptance`
+and `ci` are no unit: Docs, Acceptance Runner Tests, DSP Toolchain and ColdFire
+Port Unit Tests run them for every diff that plans them (`reach.DEDICATED`;
+a local `make reach RUN=1` still runs them). `--only <unit>` plans again from the same diff and
 keeps that unit, so the plan job and the unit jobs must pass the same
 `--jobs`. A unit's setup is the whole job's (checkout, caches, `make os`,
 `make recon`, `make emu-setup`, ports from the cache): 60 s on a warm run
