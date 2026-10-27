@@ -60,6 +60,13 @@ ATA_FIRST_STOCK = bytes.fromhex("207946c8c594")
 REC_SITE = 0x40048774
 REC_STOCK = bytes.fromhex("4aaf0008" "670000c0")
 
+# The UI task's loop, after its queue_receive returns: `movea.l %d0,%a0;
+# addq.l #4,%sp; mvs.b (%a0),%d0`, no PC-relative operand. The stub replays
+# them and redraws STEMS when its labels changed since the last draw (note 2
+# of 26 Oct 2026). TUNER and SCOPE claim the loop's head, 0x40056c72.
+UI_RECV_SITE = 0x40056C7C
+UI_RECV_STOCK = bytes.fromhex("2040588f7110")
+
 # Core 0's gain table (X:0x6c00, 258 words, 3 bytes each, little-endian)
 # from the USER'S stock slice at build time: the OS reuses the RAM the
 # image holds it in after the DSP upload (docs/firmware/STEM_REC.md 18.4),
@@ -93,7 +100,10 @@ MODULE = Module(
                     kind="jmp"),
              Detour(REC_SITE, REC_STOCK, "stems", "stems_rec_key",
                     "REC press: UP held toggles STEMS; else stock grid recording",
-                    kind="jmp", pad_to=8),),
+                    kind="jmp", pad_to=8),
+             Detour(UI_RECV_SITE, UI_RECV_STOCK, "stems", "stems_ui_tick",
+                    "the UI task's next message: redraw STEMS when its labels moved",
+                    kind="jmp"),),
     requires=("MEMORY",),
     dram_regions=(DramRegion("stems_ring", 0x800000),
                   DramRegion("stems_stack", 0x2000),

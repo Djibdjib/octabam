@@ -27,11 +27,15 @@ as an MKII (MAIN MENU = PROJ) and as an MKI (FUNC+MIXER). Each boot:
 A PNG of the screen at each step goes to out/stems_runs/menu-<model>-*.png.
 Pass or fail comes from memory, never from a picture.
 
-What it cannot see: what the window draws for its status rows (their
-labels are read from memory, so a window drawn from stale labels passes:
-on main since 15 Oct 2026 it opens on REC and READY whatever the take is
-doing, until a key), the unit's key timing, its card speed while STEMS is
-open, and the MKII's hardware (flash A)."""
+Since 27 Oct 2026 (note 2) it also compares the screen with a fresh redraw
+from the labels in memory: opened during a take, and after 3,000 frames
+with no key, the window must already show them; closed, it must never
+draw. Before, a window drawn from stale labels passed (it opened on REC
+and READY whatever the take was doing, until a key).
+
+What it cannot see: the unit's key timing, how often the unit's UI task
+gets a message (the redraw's rate), its card speed while STEMS is open,
+and the MKII's hardware (flash A)."""
 import json
 import os
 import pathlib
@@ -68,6 +72,20 @@ def redraw(p):
 
 def stems_open(p, s):
     return p.long(s["stems_win"]) != 0 and p.long(s["stems_live"]) != 0
+
+
+def shows_labels(p, s, tries=3):
+    """Does the screen show the labels in memory now? It is compared with
+    what a redraw draws from them (DOWN then UP, REC selected). A label
+    that changes during the redraw (the take's clock) makes a try void;
+    after `tries` void tries the answer is None."""
+    for _ in range(tries):
+        t_a, scr_a = texts(p, s), p.screen()
+        redraw(p)
+        t_b, scr_b = texts(p, s), p.screen()
+        if t_a == t_b:
+            return diff_box(scr_a, scr_b) is None
+    return None
 
 
 def sel(p, desc):
@@ -290,9 +308,22 @@ def walk(model, s, fx):
 
         p.press("play", settle=1500)
         reopen_stems(p, s, model)
+        p.run(100, wall=5)                              # the task's next pass, then the UI task's next message
+        t0 = texts(p, s)
+        shown = shows_labels(p, s)
+        vs.check(f"{model}: opened during a take, the window shows the take (STOP, REC mm:ss), no key",
+                 shown is True and t0[0] == "STOP" and t0[1].startswith("REC "), f"{shown}, {t0[:2]}")
         t0 = texts(p, s)
         before = p.screen()
         shot("recording")
+        lgen0 = p.long(s["stems_lgen"])
+        p.run(3000, wall=45)                            # no key, 1.09 s: the window redraws itself
+        idle = p.screen()
+        drawn, lgen1 = p.long(s["stems_drawn"]), p.long(s["stems_lgen"])
+        vs.check(f"{model}: the window redraws itself while recording (no key in 3,000 frames)",
+                 lgen1 > lgen0 and lgen1 - drawn <= 1 and diff_box(before, idle) is not None
+                 and shows_labels(p, s) is True,
+                 f"labels written {lgen1 - lgen0} times, last drawn {drawn} of {lgen1}")
         p.run(2500, wall=30)
         redraw(p)
         t1 = texts(p, s)
@@ -312,6 +343,12 @@ def walk(model, s, fx):
         vs.check(f"{model}: NO closes STEMS while recording",
                  not stems_open(p, s),
                  f"win {p.long(s['stems_win']):#x}")
+        drawn0, lgen0 = p.long(s["stems_drawn"]), p.long(s["stems_lgen"])
+        p.run(3000, wall=45)                            # 1.09 s: labels move on; the closed window must not draw
+        drawn1, lgen1 = p.long(s["stems_drawn"]), p.long(s["stems_lgen"])
+        vs.check(f"{model}: a closed window is never drawn while the labels move on",
+                 lgen1 > lgen0 and drawn1 == drawn0 and not stems_open(p, s),
+                 f"labels written {lgen1 - lgen0} times, drawn {drawn0} -> {drawn1}")
         p.press("stop", settle=500)
         for _ in range(60):
             if p.long(s["stems_state"]) == vs.ST_IDLE:

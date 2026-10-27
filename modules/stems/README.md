@@ -204,12 +204,16 @@ Its rows, top to bottom:
    off only when the status reads `DONE`.** The folder isn't a signal: it
    appears when the take starts.
 
-**The status updates when you press a key.** The menu redraws on keys,
-not on its own (STEM_REC.md 16.1), so the time and `DONE` show when you
-open the menu or press any key in it, UP or DOWN for example.
+**The status updates by itself.** STEMS opens on what the take is doing,
+and while it's open the window redraws whenever its labels change: the
+time, `SAVING` to `DONE`, `RING FULL`. The redraw runs in the UI task, at
+its next message after the change (the detour at `0x40056c7c`, after the
+loop's head that TUNER and SCOPE claim). Until 27 Oct 2026 the status
+changed only at a key (STEM_REC.md 16.1). How often the unit's UI task
+gets a message isn't measured on the unit.
 
 The error names: `RING FULL` (the card fell behind; the files still play),
-`SAME MINUTE` (a take already exists for this minute), `WRITE FAILED`,
+`SAME MINUTE` (99 takes in this minute already), `WRITE FAILED`,
 `OPEN FAILED`, `PATH FAILED` (no set mounted, or its path too long),
 `SEEK FAILED`,
 `CLOSE FAILED` and `TASK FAILED`.

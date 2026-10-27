@@ -336,6 +336,8 @@ stems_st_wfast:  .long   0          | NOT the fastest card write's counts a sect
 stems_st_end:
         .equ    ST_LONGS,      (stems_st_end-stems_st)/4
 ui_key:          .long   -1         | what the labels last showed, packed (stems_ui)
+stems_lgen:      .long   0          | bumped after each label write by the task or the hook
+stems_drawn:     .long   -1         | stems_lgen when the window was last drawn
 stems_ui_bufs:                      | two buffers for each formatted line
 stat_buf0:       .space  16
 stat_buf1:       .space  16
@@ -445,12 +447,8 @@ stems_enter:
         move.l  %d0,stems_list+0x14
         lea     stems_rows,%a0
         move.l  %a0,stems_list+0x18
-        lea     lbl_rec,%a0
-        move.l  %a0,stems_rows
-        lea     lbl_ready,%a0
-        move.l  %a0,stems_rows+ROW_LEN
-        moveq   #-1,%d0
-        move.l  %d0,ui_key
+        moveq   #-1,%d0             | the labels stay what the take shows; the task
+        move.l  %d0,ui_key          | rewrites them on its next pass (note 2 of 26 Oct 2026)
         rts
 | ---- open / close (tuner shape) ----------------------------------------
 stems_open:
@@ -608,6 +606,8 @@ stems_draw:
         movem.l %d2-%d7/%a2-%a5,(%sp)
         move.l  stems_win,%d0
         beq.w   .Lsw_dout
+        move.l  stems_lgen,%d2          | the labels this draw shows (stems_ui_tick)
+        move.l  %d2,stems_drawn
         move.l  %d0,%a5
         lea     36(%a5),%a5             | surface
         move.l  %a5,-(%sp)
@@ -683,6 +683,33 @@ stems_draw:
         movem.l (%sp),%d2-%d7/%a2-%a5
         lea     44(%sp),%sp
         rts
+| ---- the UI task's loop, after each message: redraw STEMS if it's stale -
+| The detour at UI_RECV_SITE replaces the three stock instructions after
+| the loop's queue_receive returns (d0 = the message). TUNER and SCOPE
+| claim the loop's head, 0x40056c72; this is the site after it. Only the
+| UI task draws: the writer task and the hook rewrite labels and bump
+| stems_lgen after, and a draw records the stems_lgen it shows. So a
+| change shows at the UI task's next message, never into a closed window
+| (WDESTROY zeroes stems_win). d0 is the stock's from mvs.b on; a0 is the
+| message, kept.
+        .equ    UI_RECV_BACK,  0x40056c82   | the stock's moveq #1,%d1 after the three
+        .global stems_ui_tick
+stems_ui_tick:
+        movea.l %d0,%a0             | stock: the message
+        addq.l  #4,%sp              | stock: queue_receive's argument
+        tst.l   stems_win
+        beq.s   .Lut_stock          | STEMS closed: nothing to draw
+        move.l  stems_lgen,%d0
+        cmp.l   stems_drawn,%d0
+        beq.s   .Lut_stock          | the screen shows these labels already
+        lea     -16(%sp),%sp
+        movem.l %d0-%d1/%a0-%a1,(%sp)
+        bsr.w   stems_draw
+        movem.l (%sp),%d0-%d1/%a0-%a1
+        lea     16(%sp),%sp
+.Lut_stock:
+        mvs.b   (%a0),%d0           | stock: the message's kind
+        jmp     UI_RECV_BACK
 | Input layer: {0, keys, encoders, 0, 0, -1, -1}. Key record 26 B.
         .balign 4
 STEMS_LAYER:
@@ -1175,6 +1202,7 @@ stems_m8check:
         lea     trk8_on,%a0
 .Lm8_set:
         move.l  %a0,stems_rows+(ROW_SRC0+7)*ROW_LEN
+        addq.l  #1,stems_lgen       | after the label: the UI task redraws (stems_ui_tick)
         movea.l (%sp)+,%a0
 .Lm8_out:
         move.l  (%sp)+,%d0
@@ -2186,7 +2214,8 @@ stems_task:
 | number is formatted into the buffer its row isn't showing, and the row's
 | label pointer then switches. NO CARD and TASK FAILED change nothing in
 | the key, so they stay until the next change. The screen shows a change
-| at the next key (STEM_REC.md 16.1).
+| at the UI task's next message (stems_ui_tick; until 27 Oct 2026 at the
+| next key, STEM_REC.md 16.1).
 stems_ui:
         lea     -28(%sp),%sp
         movem.l %d2-%d6/%a2-%a3,(%sp)
@@ -2277,6 +2306,7 @@ stems_ui:
         jsr     SPRINTF
         lea     16(%sp),%sp
         move.l  %a2,stems_rows+ROW_PEAK*ROW_LEN
+        addq.l  #1,stems_lgen               | after the labels: the UI task redraws (stems_ui_tick)
 .Lu_out:
         movem.l (%sp),%d2-%d6/%a2-%a3
         lea     28(%sp),%sp

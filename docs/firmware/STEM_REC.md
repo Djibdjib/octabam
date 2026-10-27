@@ -7106,7 +7106,10 @@ the seconds, `SAVING` to `DONE`, `RING FULL`. Yves chose (29 Sep 2026) to
 keep the design and let the status refresh on any key: opening the menu, or
 a key inside it, shows it current. A status that ticks by itself needs a
 redraw request from outside a key handler, which is left for piece 7's
-recording window.
+recording window. (27 Oct 2026, note 2: STEMS is its own window now, and
+a detour in the UI task's loop, `0x40056c7c`, redraws it at the task's next
+message when a label changed. `verify_stems_menu` checks the screen
+against a fresh redraw.)
 
 The first probe run pressed NO to leave CONTROL, which closed the menu, so
 its items 3 to 5 measured a closed menu; that run is void, and item 7
