@@ -77,7 +77,10 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-          submodules: true
+
+      # actions/checkout updates submodules one at a time; these are 16 clones
+      - name: 📥 Submodules
+        run: git submodule update --init --force --depth 1 --jobs 16
 
       - name: 🐍 Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -139,7 +142,10 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-          submodules: true
+
+      # actions/checkout updates submodules one at a time; these are 16 clones
+      - name: 📥 Submodules
+        run: git submodule update --init --force --depth 1 --jobs 16
 
       - name: 🐍 Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -379,8 +385,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          # the runner tests load the registry, whose manifests read the author submodules (test_check_shards)
-          submodules: true
+
+      # actions/checkout updates submodules one at a time; these are 16 clones
+      - name: 📥 Submodules
+        run: git submodule update --init --force --depth 1 --jobs 16
 
       - name: 🐍 Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -395,7 +403,18 @@ jobs:
         run: make test-acceptance
 
   docs:
-    name: 📚 Docs and Links
+    # Docs, the manual site and the web builder's patches: all load the
+    # registry, whose manifests read the author submodules, so one checkout
+    # serves them. The site builds with MkDocs shadcn: the generator runs the
+    # registry, and mkdocs --strict fails on a bad manifest, a broken link or
+    # a broken snippet include; the deploy is the Pages workflow on main, a PR
+    # builds without deploying. The patches (docs/site/builder/) need no
+    # firmware: the manifest must match the patch files, and on main each
+    # remix the code has moved past is reported as a warning (rebuilt from a
+    # machine with the user's 1.40C: make webpatch BUILD=N).
+    name: 📚 Docs, Site and Web Patches
+    needs: classify
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -403,8 +422,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          # the rendered tables load the registry, whose manifests read the author submodules
-          submodules: true
+          fetch-depth: 0
+
+      # actions/checkout updates submodules one at a time; these are 16 clones
+      - name: 📥 Submodules
+        run: git submodule update --init --force --depth 1 --jobs 16
 
       - name: 🐍 Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -419,60 +441,6 @@ jobs:
       - name: 🔗 Verify Docs
         run: make verify-docs
 
-  site:
-    # The manual site builds with MkDocs shadcn: the generator runs the registry, and
-    # mkdocs --strict fails on a bad manifest, a broken link or a broken
-    # snippet include. The deploy is the Pages workflow on main; a PR
-    # builds without deploying.
-    name: 🌐 Manual Site Build
-    needs: classify
-    if: github.event_name == 'pull_request' && needs.classify.outputs.site == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: 📥 Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          # the generator loads the registry, whose manifests read the author submodules
-          submodules: true
-
-      - name: 🐍 Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.12'
-
-      - name: 📦 Install Site Dependencies
-        run: pip install -r docs/site/requirements.txt
-
-      - name: 📝 Generate Pages
-        run: python3 tools/site/gen_pages.py
-
-      - name: 🏗️ Build Site
-        run: mkdocs build --strict --config-file docs/site/mkdocs.yml
-
-  web-patches:
-    # The web builder's committed patches (docs/site/builder/). Needs no
-    # firmware: the manifest must match the patch files, and on main each
-    # remix the code has moved past is reported as a warning. The patches are
-    # rebuilt from a machine with the user's 1.40C: make webpatch BUILD=N.
-    name: 🧩 Web Builder Patches
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: 📥 Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-          # the staleness check loads the registry, whose manifests read the author submodules
-          submodules: true
-
-      - name: 🐍 Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.12'
-
       - name: 🧩 Check Patch Manifest
         run: |
           if [ -f docs/site/builder/manifest.json ]; then
@@ -481,6 +449,14 @@ jobs:
           else
             echo "no published patches yet"
           fi
+
+      - name: 📦 Install Site Dependencies
+        if: github.event_name == 'pull_request' && needs.classify.outputs.site == 'true'
+        run: pip install -r docs/site/requirements.txt
+
+      - name: 🏗️ Build Site
+        if: github.event_name == 'pull_request' && needs.classify.outputs.site == 'true'
+        run: mkdocs build --strict --config-file docs/site/mkdocs.yml
 
   dsp-toolchain:
     name: 🎛️ DSP Toolchain — dsp56300 (${{ matrix.os }})

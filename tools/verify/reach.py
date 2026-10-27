@@ -1062,7 +1062,16 @@ def replan(queue, extra, stress, jobs, keys_of=None):
 
 # The commands that take seconds and share one entry; every other command
 # is an entry of its own (a CI runner each, with the whole setup).
-LIGHT = ("verify_docs", "selftest", "test-acceptance")
+LIGHT = ("selftest",)
+
+# Commands a CI job of its own runs for every diff that plans them, so the
+# matrix has no unit for them (a local `make reach RUN=1` still runs them):
+# verify_docs by Docs, Site and Web Patches (always); test-acceptance by Acceptance Runner
+# Tests and ci (ci-dsp, ci-emu, test-acceptance, verify-docs) by it, DSP
+# Toolchain and ColdFire Port Unit Tests, whose path prefixes
+# (tools/verify/ci_paths.py) cover every path that plans `ci`: the Makefile
+# and .github/.
+DEDICATED = ("verify_docs", "test-acceptance", "ci")
 
 
 def entry_name(kind, command):
@@ -1076,24 +1085,26 @@ def entry_name(kind, command):
 # --only-jobs), every other on the other (--skip-jobs); a name that is no gate
 # job is refused there, so a rename cannot drop a gate. The shared half: its
 # module_gates step on one, every other step on the other (Makefile
-# SHARED_PART). Times of run 40467801048: remix-switch 481 s and image 256 s of
-# octabam's 1886 s over 3 shards; module_gates --shared 353 s of the shared
-# half's 645 s, run serially.
-SPLIT_REMIX_JOBS = {"octabam": ("remix-switch", "image")}
+# SHARED_PART). Times of run 40467801048: remix-switch 481 s of octabam's 1886 s
+# over 3 shards (the other jobs: 1405 s, 468 s over 3 shards); module_gates
+# --shared 353 s of the shared half's 645 s, run serially.
+SPLIT_REMIX_JOBS = {"octabam": ("remix-switch",)}
 
 
 def entries(items, jobs):
     """The plan as units that run independently, for a caller that gives
     each its own machine (the CI matrix): [{"name", "items"}], `items` as
-    in the plan. The quick commands are one entry, `light`; a check_shards
+    in the plan. The quick commands (LIGHT) are one entry, `selftest`; DEDICATED ones are none; a check_shards
     line becomes one line per remix (`--jobs` shards on that machine); every
-    other command is its own entry. `light` comes last: the dear units start first. A unit is run alone with `--only NAME`,
+    other command is its own entry. `selftest` comes last: the dear units start first. A unit is run alone with `--only NAME`,
     which plans again from the same diff: `jobs` must match between the two
     calls. `identity` still queues the checks of the remixes it names inside
     its own entry."""
     out, light = [], []
     for item in items:
         kind, command, paths = item
+        if kind in DEDICATED:
+            continue
         if kind in LIGHT:
             light.append(item)
         elif is_shards(item):
@@ -1113,7 +1124,7 @@ def entries(items, jobs):
         else:
             out.append({"name": entry_name(kind, command), "items": [item]})
     if light:
-        out.append({"name": "light", "items": light})
+        out.append({"name": "selftest", "items": light})
     seen = {}
     for e in out:
         n = seen[e["name"]] = seen.get(e["name"], 0) + 1
