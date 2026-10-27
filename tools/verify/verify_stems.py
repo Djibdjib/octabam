@@ -126,7 +126,7 @@ CUE_STEPS = [f"1:poke:0x{CUE_ON:x}=1", f"1:poke:0x{CUE_T1:x}=127"]
 # The source takes stop at 180; four files need more than 120 frames from
 # FINISHING to IDLE under the port's card latency (3 Oct 2026: a 300-frame
 # run ended FINISHING with every file still 0 bytes), so 420 follow.
-SRC_FRAMES = 600
+SRC_FRAMES = 1050                  # sources IDLE at frame 822, mono at 634 (27 Oct 2026: the .ot and the log at the end), + 25%
 # Fourteen files at 16 bits: the writer falls behind under the port's card
 # latency (frame 1,024 of 1,731 written at the stop) and needs 1,516 frames
 # from FINISHING to IDLE (3 Oct 2026, watch log), so 1,900 follow the stop.
@@ -731,7 +731,7 @@ def master8(s):
 def master(s):
     """Review Focus 5: MASTER TRACK on (STEM_REC.md 18.8): the take is whole --
     T1.wav as long as the frames recorded, and the task ends IDLE with no error."""
-    log, dump, card, words, _ = port(s, 300, stop_at=180, tag="master", fixture=FIXTURE_THRU1_MASTER)
+    log, dump, card, words, _ = port(s, 550, stop_at=180, tag="master", fixture=FIXTURE_THRU1_MASTER)  # IDLE at 431 (27 Oct 2026)
     st, status, _, wr, rd, nfr = words
     files = dict(take_files(card, FIXTURE_THRU1_MASTER))
     data = files.get("T1.wav") or files.get("T1.WAV")
@@ -1142,7 +1142,7 @@ def wrap(s):
     does (the hook's past the frame it staged and never published), and the
     file must equal the read-back at the pre-roll lag."""
     pokes = [(s["stems_zlead"] + 3, 1)]
-    log, dump, card, words, _ = port(s, 400, stop_at=300, tag="wrap", pokes_before=pokes,
+    log, dump, card, words, _ = port(s, 660, stop_at=300, tag="wrap", pokes_before=pokes,  # IDLE at 523 (27 Oct 2026)
                                      mems=((s["stems_rsize"], 4, "rsize"), (s["stems_wpos"], 4, "wpos"),
                                            (s["stems_rpos"], 4, "rpos")))
     st, status, _, wr, rd, nfr = words

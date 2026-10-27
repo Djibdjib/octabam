@@ -79,15 +79,25 @@ def stems_open(p, s):
     return p.long(s["stems_win"]) != 0 and p.long(s["stems_live"]) != 0
 
 
+WIN_COLS = slice(8, 120)        # inside STEMS' frame (columns 7 and 120 on the 128-wide LCD, from
+                                # the gate's screenshots, 27 Oct 2026); the main page shows either side
+
+
+def window(scr):
+    """The screen inside STEMS' frame only: the main page around it moves
+    while the sequencer plays."""
+    return [row[WIN_COLS] for row in scr]
+
+
 def shows_labels(p, s, tries=3):
-    """Does the screen show the labels in memory now? It is compared with
-    what a redraw draws from them (DOWN then UP, REC selected). A label
-    that changes during the redraw (the take's clock) makes a try void;
-    after `tries` void tries the answer is None."""
+    """Does the window show the labels in memory now? It is compared with
+    what a redraw draws from them (DOWN then UP, REC selected), inside the
+    window's frame. A label that changes during the redraw (the take's
+    clock) makes a try void; after `tries` void tries the answer is None."""
     for _ in range(tries):
-        t_a, scr_a = texts(p, s), p.screen()
+        t_a, scr_a = texts(p, s), window(p.screen())
         redraw(p)
-        t_b, scr_b = texts(p, s), p.screen()
+        t_b, scr_b = texts(p, s), window(p.screen())
         if t_a == t_b:
             return diff_box(scr_a, scr_b) is None
     return None
@@ -326,7 +336,7 @@ def walk(model, s, fx):
         idle = p.screen()
         drawn, lgen1 = p.long(s["stems_drawn"]), p.long(s["stems_lgen"])
         vs.check(f"{model}: the window redraws itself while recording (no key in 3,000 frames)",
-                 lgen1 > lgen0 and lgen1 - drawn <= 1 and diff_box(before, idle) is not None
+                 lgen1 > lgen0 and lgen1 - drawn <= 1 and diff_box(window(before), window(idle)) is not None
                  and shows_labels(p, s) is True,
                  f"labels written {lgen1 - lgen0} times, last drawn {drawn} of {lgen1}")
         p.run(2500, wall=30)
@@ -373,7 +383,12 @@ def walk(model, s, fx):
 
 def taps(p, gap_ms):
     """Two YES presses on the main page, the second `gap_ms` after the first
-    starts (a press is held 40 ms), then 300 ms for the handler and the hook."""
+    starts (a press is held 40 ms), then 300 ms for the handler and the hook.
+    First 600 ms with no key, so a press before this pair can't make its
+    first press a second tap (27 Oct 2026: the pair after the 1 s pair
+    started 340 ms after it, armed on its first press, and its second
+    press's ARM ALL covered STEMS ARMED)."""
+    p.run(600)
     p.press("yes", hold=40, settle=gap_ms - 40)
     p.press("yes", hold=40, settle=300)
 
@@ -389,7 +404,7 @@ def double_tap(model, s, fx):
     with MenuPort(vs.IMAGE, card, fx["set"], fx["project"], model == "mkii",
                   log_path=WORK / f"menu-{model}-yes.log") as p:
         p.settle()
-        p.press("yes", settle=600)
+        p.press("yes", settle=300)                     # the same delay as a pair's last press: ARM ALL still up
         one = st()
         single = p.screen()
         taps(p, 1000)
@@ -399,7 +414,7 @@ def double_tap(model, s, fx):
         taps(p, 200)
         armed = st()
         p.png(WORK / f"menu-{model}-yes-armed.png")
-        vs.check(f"{model}: YES twice within 0.4 s arms STEM REC, and the toast is not stock's ARM ALL",
+        vs.check(f"{model}: YES twice within 0.4 s arms STEM REC, and the toast differs from one YES's ARM ALL",
                  armed == vs.ST_ARMED and diff_box(single, p.screen()) is not None, f"state {armed}")
         p.chord("up", "rec", settle=400)                # STEMS opens on CANCEL: cancel, close
         p.press(ENTER, settle=200)
