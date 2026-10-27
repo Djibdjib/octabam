@@ -1,6 +1,61 @@
-# STEM REC: flashes A to H, and crosscheck's flash plan as a record
+# STEM REC: flashes A to I, and crosscheck's flash plan as a record
+
+## Flash I — `octabam` + STEM REC: the fixes from flash H (staged 27 Oct 2026)
+
+`STEMS9`, on `octabam` (BRAIN, KITS, TUNER and the rest) with STEM REC, as
+LMSTEMS1 was. It fixes what flash H showed on Yves's MKII:
+
+- The folder is `!STEMS`: `_` sorted after the letter folders, and `!`
+  sorts before digits and letters. Takes in `_STEMS` stay there.
+- The column that flickered with each new second is gone (the selection
+  bar inverted one column past the window's clear).
+- The double tap's window is 0.5 s, not 0.4 s, and the take's log has a
+  new line, `yes gap N ms, double taps N`: the last gap between two YES
+  presses on the main page, and the double taps since boot.
+
+**The image.** Built 27 Oct 2026 from branch `stems-next` at `26d45d81`
+with a local remix, `remixes/test/lm-stems` (octabam's definition, plus
+STEM REC and MEMORY; not committed): `make image REMIX=lm-stems BUILD=9
+VERSION=STEMS9`. The unit's OS version reads `STEMS9`.
+
+| file | path | bytes | sha256 |
+|---|---|---|---|
+| card image | `out/OCTATRACK_STEMS9.bin` | 611,348 | `d6534d7cf9ef6eddbb3859a2b52e659f0a1e4522daef2620dbb7dfb611bca719` |
+| MIDI image | `out/OCTATRACK_OS1.40C_STEMS9.syx` | 853,948 | `bbb51d0bf662ab5eba4ef4d6c31d71b92c516a880ebead1fde0acb9f9fdbb528` |
+| remix switch | `out/LM-STEMS 9.RMX` | 1,279,287 | `e248efa736bfce54d02a0185dc1bb695c596c7c9c3f2caed152521ebd424f68e` |
+
+Copies are in `/home/yvez/xcheck/stems9`. The checks, under the port:
+`verify_stems` (the take runs this round touched) 158 PASS;
+`verify_stems_menu` on `stems` 85 PASS; on octabam with STEM REC every
+STEM REC check passes, and one stock check differs: with T1 held, stock
+arms nothing there (STEM REC stays idle, as it should).
+
+**LOAD METER refuses STEM REC** (its manifest), so the image is built from
+a local remix with that refusal lifted for the build only, as LMSTEMS1
+was. Not measured together on a unit: LOAD METER's worst frame (336.5 µs
+on `octabam-bus`) plus STEM REC's hook (29 µs at eight tracks, 24 bits)
+is about 365 µs, over the frame's 362.8 µs. If takes at 24 bits misbehave
+on this image and didn't on STEMS8, that's the first suspect.
+
+**The tests, in order.**
+
+1. Boot; MAIN MENU › SYSTEM › OS UPGRADE still opens; BRAIN is on MAIN
+   MENU's root.
+2. One take: the files go to `AUDIO/!STEMS/`, first in the browser.
+3. STEMS open during the take: the time moves, nothing flickers.
+4. On the main page, stopped: YES twice quickly arms (`STEMS ARMED`). If it
+   doesn't, record any take from STEMS and send its log
+   (`/BRAIN/STEMS/<take>.TXT`): its `yes gap` line says how far apart your
+   two presses were.
 
 ## Flash H — `stems`: Yves's six notes of 26 Oct (staged 27 Oct 2026)
+
+**Flashed** on Yves's MKII, reported 27 Oct 2026: the `.ot` files are fine
+(tempo and gain) and the naming is good. Four findings, fixed in flash I:
+`_STEMS` sorted after the letter folders, not first; the time refreshed by
+itself, but a column of pixels flickered with each new second; BRAIN was
+missing (the `stems` remix doesn't carry it); and a double tap of YES on
+the main page did nothing, though one YES showed `ARM ALL`.
 
 It carries the six notes (TODO.md, "Where the six notes stand"): the flat
 folder, the log under `/BRAIN/STEMS`, the `.ot` files, the window that
