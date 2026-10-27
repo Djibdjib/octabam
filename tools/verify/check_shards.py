@@ -44,6 +44,11 @@ ONE REMIX IS SPLIT TOO (11 Oct 2026). A run of one remix over more than
 one shard runs it as gate jobs: run whole it took one shard and left the
 rest idle.
 
+A PART OF ONE REMIX (27 Oct 2026). `--only-jobs a,b` / `--skip-jobs a,b`
+run a remix as gate jobs, cut to the named ones or without them (CI runs
+the two as separate units, reach.SPLIT_REMIX_JOBS). A name that is no gate
+job is refused.
+
 CACHED (11 Oct 2026). Each job (a remix's whole half, or one gate job)
 builds the remix's image first and looks itself up in
 tools/verify/gate_cache.py: a pass recorded for the same image and the
@@ -383,6 +388,17 @@ def remix_jobs(remix_name, shard):
     return jobs
 
 
+def pick_jobs(jobs, only, skip):
+    """`jobs` (remix_jobs) cut to the named ones, or without the skipped
+    ones. A name that is no job is refused: a renamed gate would otherwise
+    fall out of the part that ran it, and into neither."""
+    have = {j[0] for j in jobs}
+    unknown = sorted((set(only) | set(skip)) - have)
+    if unknown:
+        raise SystemExit(f"check_shards: no gate job {', '.join(unknown)} (have: {', '.join(sorted(have))})")
+    return [j for j in jobs if (not only or j[0] in only) and j[0] not in skip]
+
+
 def choose_split(remixes, spec, times, jobs):
     """The remixes to run as gate jobs: named, none, or (auto) a remix run
     alone, and those whose last recorded time would set the wall time;
@@ -524,7 +540,15 @@ def _main(argv, owners):
     ap.add_argument("--split", default="auto",
                     help="auto (the default): split the remixes that would set the wall time into gate jobs; "
                          "none; or a comma-separated list")
+    ap.add_argument("--only-jobs", default="",
+                    help="one remix: run only these comma-separated gate jobs (as gate jobs, whatever --split says)")
+    ap.add_argument("--skip-jobs", default="",
+                    help="one remix: run every gate job but these (as gate jobs, whatever --split says)")
     a = ap.parse_args(argv)
+    only_jobs = [j for j in a.only_jobs.split(",") if j]
+    skip_jobs = [j for j in a.skip_jobs.split(",") if j]
+    if (only_jobs or skip_jobs) and (len(set(a.remixes)) != 1 or a.by_gate):
+        sys.exit("check_shards: --only-jobs and --skip-jobs take exactly one remix, without --by-gate")
     # reach runs the shared gates in ROOT while this coordinator dispatches
     # jobs to separate shard worktrees. Own the coordinator's logs/schedule,
     # not ROOT's card output; each shard still takes its normal card lock.
@@ -543,7 +567,9 @@ def _main(argv, owners):
     shared_times = times_path()
     times = read_times(shared_times)
     split = set()
-    if not a.by_gate and a.jobs > 1:
+    if only_jobs or skip_jobs:
+        split = set(remixes)
+    elif not a.by_gate and a.jobs > 1:
         split = choose_split(remixes, a.split, times, a.jobs)
     if a.by_gate:
         work = [("gate", remixes[0], j) for j in gate_jobs]
@@ -553,6 +579,7 @@ def _main(argv, owners):
             if r in split:
                 gj = remix_jobs(r, a.shards / "0")
                 check_recipe(gj)
+                gj = pick_jobs(gj, only_jobs, skip_jobs)
                 work += [("gate", r, j) for j in gj]
             else:
                 work.append(("remix", r, None))
@@ -643,7 +670,7 @@ def _main(argv, owners):
             continue            # a cache hit is not the job's duration
         key = f"{remixes[0]}:{n}" if a.by_gate else n
         run[key] = r["seconds"]
-    for rname in ({remixes[0]} if a.by_gate else split):
+    for rname in ({remixes[0]} if a.by_gate else () if only_jobs or skip_jobs else split):
         parts = [s for k, s in run.items() if k.startswith(rname + ":")]
         if parts and not any(r.get("cached") for n, r in results.items()
                              if (f"{remixes[0]}:{n}" if a.by_gate else n).startswith(rname + ":")):

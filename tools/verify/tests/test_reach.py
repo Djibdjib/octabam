@@ -5,6 +5,7 @@ import os
 import pathlib
 import sys
 import unittest
+from unittest import mock
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 import reach
@@ -545,10 +546,32 @@ class PlanJsonTests(unittest.TestCase):
 
     def test_entries_group_the_quick_commands_and_split_the_shards_per_remix(self):
         got = {e["name"]: [c for _, c, _ in e["items"]] for e in reach.entries(self.items(), 3)}
-        self.assertEqual(list(got), ["refhash", "check-shared", "check-remix x", "check-remix y", "light"])
+        self.assertEqual(list(got), ["refhash", "check-shared", "check-shared (module gates)",
+                                     "check-remix x", "check-remix y", "light"])
+        self.assertEqual(got["check-shared"], ['make check-shared REMIXES="x y" SHARED_PART=rest'])
+        self.assertEqual(got["check-shared (module gates)"], ['make check-shared REMIXES="x y" SHARED_PART=modules'])
         self.assertEqual(got["light"], ["python3 tools/verify/verify_docs.py", "make test-acceptance"])
         self.assertEqual(got["check-remix y"],
                          ['python3 tools/verify/check_shards.py --jobs 3 --modules "K1,K2" y'])
+
+    def test_a_remix_with_a_long_share_is_two_units_that_cover_every_gate_job_once(self):
+        items = [("check-remix", "python3 tools/verify/check_shards.py --jobs 3 --modules \"K1\" x octabam", ["e"])]
+        with mock.patch.dict(reach.SPLIT_REMIX_JOBS, {"octabam": ("remix-switch", "image")}):
+            got = {e["name"]: e["items"][0][1] for e in reach.entries(items, 3)}
+        self.assertEqual(got["check-remix x"], 'python3 tools/verify/check_shards.py --jobs 3 --modules "K1" x')
+        self.assertEqual(got["check-remix octabam"],
+                         'python3 tools/verify/check_shards.py --jobs 3 --modules "K1" --skip-jobs remix-switch,image octabam')
+        self.assertEqual(got["check-remix octabam (long)"],
+                         'python3 tools/verify/check_shards.py --jobs 3 --modules "K1" --only-jobs remix-switch,image octabam')
+        for line in got.values():
+            self.assertEqual(reach.shards_line(line)[0], [line.split()[-1]])
+
+    def test_recipe_scripts_follow_an_implementation_cut_into_halves(self):
+        mk = ("verify-shared: ## x\n\t$(MAKE) -j1 verify-shared-impl\n\n"
+              "verify-shared-impl: verify-shared-rest-impl $(if $(Y),,verify-shared-modules-impl)\n\n"
+              "verify-shared-rest-impl:\n\tpython3 tools/a.py\n\n"
+              "verify-shared-modules-impl:\n\tpython3 tools/b.py\n")
+        self.assertEqual(reach.recipe_scripts(mk, "verify-shared"), {"tools/a.py", "tools/b.py"})
 
     def test_entries_name_a_lone_check_and_make_repeated_names_unique(self):
         items = [("check", "make check REMIX=x", []), ("check", "make check REMIX=x", []),

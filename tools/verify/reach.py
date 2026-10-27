@@ -183,12 +183,13 @@ def cmd_check_remix(remix, modules=None):
 
 
 def shards_line(command):
-    """A check_shards line's (remixes, modules or None)."""
+    """A check_shards line's (remixes, modules or None); --only-jobs and
+    --skip-jobs (a unit's share of one remix, entries()) are not read."""
     import shlex
     words = shlex.split(command.split("check_shards.py", 1)[1])
     remixes, modules, i = [], None, 0
     while i < len(words):
-        if words[i] in ("--jobs", "--modules"):
+        if words[i] in ("--jobs", "--modules", "--only-jobs", "--skip-jobs"):
             if words[i] == "--modules":
                 modules = words[i + 1].split(",")
             i += 2
@@ -385,13 +386,18 @@ def makefile_changes(base_text, head_text):
 
 
 def recipe_scripts(make_text, target):
-    m = re.search(r"^%s:[^\n]*\n((?:\t[^\n]*\n)+)" % re.escape(target), make_text, re.M)
+    m = re.search(r"^%s:([^\n]*)\n((?:\t[^\n]*\n)*)" % re.escape(target), make_text, re.M)
     if not m:
         return set()
-    scripts = set(re.findall(r"tools/\S+\.py", m.group(1)))
+    scripts = set(re.findall(r"tools/\S+\.py", m.group(2)))
     # Card-retention wrappers delegate to the serial implementation recipe.
-    if re.search(r"\$\(MAKE\)[^\n]*\b" + re.escape(target + "-impl") + r"(?:\s|$)", m.group(1)):
+    if re.search(r"\$\(MAKE\)[^\n]*\b" + re.escape(target + "-impl") + r"(?:\s|$)", m.group(2)):
         scripts |= recipe_scripts(make_text, target + "-impl")
+    # An implementation recipe cut into halves lists them as prerequisites
+    # (verify-shared-impl: verify-shared-rest-impl verify-shared-modules-impl).
+    if target.endswith("-impl"):
+        for half in re.findall(r"\b%s-[\w-]+-impl\b" % re.escape(target[:-len("-impl")]), m.group(1)):
+            scripts |= recipe_scripts(make_text, half)
     return scripts
 
 
@@ -1065,6 +1071,17 @@ def entry_name(kind, command):
     return kind
 
 
+# Units that would set the wall time on one runner, cut in two (a CI runner
+# each). A remix: the gate jobs named here on one runner (check_shards
+# --only-jobs), every other on the other (--skip-jobs); a name that is no gate
+# job is refused there, so a rename cannot drop a gate. The shared half: its
+# module_gates step on one, every other step on the other (Makefile
+# SHARED_PART). Times of run 40467801048: remix-switch 481 s and image 256 s of
+# octabam's 1886 s over 3 shards; module_gates --shared 353 s of the shared
+# half's 645 s, run serially.
+SPLIT_REMIX_JOBS = {"octabam": ("remix-switch", "image")}
+
+
 def entries(items, jobs):
     """The plan as units that run independently, for a caller that gives
     each its own machine (the CI matrix): [{"name", "items"}], `items` as
@@ -1082,9 +1099,17 @@ def entries(items, jobs):
         elif is_shards(item):
             remixes, modules = shards_line(command)
             for r in remixes:
-                line = (f"python3 tools/verify/check_shards.py --jobs {jobs} "
-                        + (f'--modules "{",".join(modules)}" ' if modules else "") + r)
-                out.append({"name": f"check-remix {r}", "items": [(kind, line, paths)]})
+                line = lambda extra="": (f"python3 tools/verify/check_shards.py --jobs {jobs} "
+                                         + (f'--modules "{",".join(modules)}" ' if modules else "") + extra + r)
+                if r in SPLIT_REMIX_JOBS:
+                    names = ",".join(SPLIT_REMIX_JOBS[r])
+                    out.append({"name": f"check-remix {r}", "items": [(kind, line(f"--skip-jobs {names} "), paths)]})
+                    out.append({"name": f"check-remix {r} (long)", "items": [(kind, line(f"--only-jobs {names} "), paths)]})
+                else:
+                    out.append({"name": f"check-remix {r}", "items": [(kind, line(), paths)]})
+        elif kind == "check-shared":
+            out.append({"name": "check-shared", "items": [(kind, command + " SHARED_PART=rest", paths)]})
+            out.append({"name": "check-shared (module gates)", "items": [(kind, command + " SHARED_PART=modules", paths)]})
         else:
             out.append({"name": entry_name(kind, command), "items": [item]})
     if light:

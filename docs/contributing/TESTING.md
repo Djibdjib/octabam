@@ -389,6 +389,17 @@ key cannot see a file a gate reads through a path built at run time, or
 anything outside the repository other than the toolchain and the project.
 The shared half and `make accept` are not cached.
 
+**CI units cut in two** (`reach.entries`, `reach.SPLIT_REMIX_JOBS`). Each
+unit of the CI matrix is a runner with its own setup. `check-remix octabam`
+runs as two units: `check_shards --only-jobs remix-switch,image` (`(long)`)
+and `--skip-jobs remix-switch,image` (every other gate job); a name that is
+no gate job is refused, so the parts always cover every gate job once.
+`check-shared` runs as two units: `make check-shared SHARED_PART=modules`
+(`module_gates --shared`) and `SHARED_PART=rest` (every other step of
+`verify-shared`); a bare `make verify-shared` runs both, in that order. A
+part's gate durations are recorded per job; the remix's total is not (it
+would be the part's).
+
 **Virtual card retention (enabled by default).** `make check`,
 `make check-remix`, `make verify-shared`, `make verify-remix`, the split
 `check_shards` jobs and `make accept` remove generated `out/**/*.img` cards
