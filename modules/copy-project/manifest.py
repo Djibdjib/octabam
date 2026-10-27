@@ -24,8 +24,8 @@ MODULE = Module(
     category=Category.UTILITIES,
     author="ilia-murzinov",
     author_url="https://github.com/ilia-murzinov",
-    proof=Proof.PORT,
-    proof_note="re-homed to CHANGE→FUNC+BANK (#931); prior MKII flash was PROJECT-menu entry",
+    proof=Proof.HARDWARE,
+    proof_note="FUNC+BANK (#931); CORE CP on MKII 27 Oct 2026: COPY + OPEN IT? loads/closes CHOOSE, no save prompt",
     doc="CHANGE project list > FUNC+BANK > COPY: duplicate the selected project folder on the card.",
     requires=("STORE",),  # STORE's encoder hook: LEVEL scrolls LISTPOP (name pick unused now; keep for confirm paths)
     linked=(Linked("cp", "modules/copy-project/copyproj.s", cpu="5475", dram=True),),

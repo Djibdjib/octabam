@@ -29,16 +29,36 @@ live card set they show up next to `project.work` / `bankNN.work` (e.g.
 4. Edit the suggested name (`PROJECT YYMMDD`, or FUNC+CUE with RND NAME)
    and YES. The name editor itself caps at 32 characters.
 5. Confirm `COPY SRC -> DST?` (16-char display cap on the line).
-6. On success: `PROJECT COPIED` / `OPEN IT?` — YES closes CHOOSE PROJECT,
-   and if the live project is dirty asks `SAVE CURRENT PROJECT BEFORE
-   OPENING COPY?` (YES = stock SAVE / card sync, then load; NO = load
-   without saving). OPEN IT? NO leaves the live project as it was.
+6. On success: `PROJECT COPIED` / `OPEN IT?` — YES loads the copy and
+   closes CHOOSE PROJECT. NO leaves the live project as it was.
    `COPY FAILED` on error; a partial destination folder is removed so a
    retry does not hit `NAME ALREADY IN USE!`.
 
-This is a card-to-card copy of whatever is on disk (including unsaved
-`.work` cache). SAVE PROJECT on the source first if you want the last
-saved state only.
+## What gets copied (disk only)
+
+COPY is **card-to-card**: the highlighted folder as it sits on the CF,
+including stock `.work` / `.strd` and module sidecars (`kits.*`,
+`scenes.*`, `brain.*`, `p2lk*`, `BUFFERS/`, …). It does **not** read live
+RAM.
+
+**Trigs / banks.** Stock already autosaves the loaded project into
+`.work` (and flushes dirty banks ~1 s after STOP). So edits you hear
+after a stop are usually already on disk; CHANGE often has nothing to
+ask. A short window (still playing, or before that flush) can leave RAM
+ahead of the card — SAVE PROJECT if you care about that snapshot before
+copying.
+
+**No “save before open” prompt.** An earlier build asked every time by
+calling `0x400255ec`, which means “a project is open”, not “dirty”.
+There is no reliable cheap dirty check here; OPEN IT? just loads the
+copy. SAVE the live project yourself first if you need `.strd` / sidecar
+commits.
+
+**Recorder buffers (PERSISTENT BUFFERS).** That module writes
+`BUFFERS/RECn.wav` only on **PROJECT → SAVE**, and reloads them on LOAD.
+COPY will carry `BUFFERS/` only if SAVE already wrote it. Takes that
+exist only in RAM are not in the folder and will not appear in the copy.
+SAVE TO NEW still drops these sidecars; COPY keeps them when present.
 
 Limits that refuse with `COPY FAILED` (no silent truncate / partial
 copy): more than 64 projects in the set, a directory with more than 256
@@ -63,9 +83,10 @@ intact, and a retry with the same name does not read
 
 ## On the unit
 
-Flashed with CF card update and tested on the author's MKII (17 Oct 2026)
-as PROJECT-menu COPY PROJECT. BUILD of that flash was not recorded.
-Re-home to FUNC+BANK (#931) is port-gated; hardware re-check pending.
+- **17 Oct 2026 (MKII):** PROJECT-menu COPY (pre-#931). BUILD not recorded.
+- **27 Oct 2026 (MKII), `CORE CP`:** FUNC+BANK COPY; OPEN IT? YES loads the
+  copy and closes CHOOSE PROJECT with no save prompt; OPEN IT? NO leaves
+  the live project. Owner report on this tip.
 
 U1 (`LATEST U1`, 19 Oct 2026): a long project name stretched the pick
 list until nothing drew — fixed by the 16-char display cap (full name
@@ -77,7 +98,6 @@ entries, or copying while the sequencer plays.
 ## Open
 
 - Cross-set copy (v1 is the mounted set only).
-- Hardware confirm of the FUNC+BANK entry.
 
 ## Gates
 

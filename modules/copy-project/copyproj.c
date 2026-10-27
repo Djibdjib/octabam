@@ -22,10 +22,6 @@ typedef unsigned int u32;
 #define LIST_CLOSE   ((void (*)(void))0x4006d754)
 #define TOAST_CLOSE  ((void (*)(void))0x40056bec)
 #define CHOOSE_CLOSE ((void (*)(void))0x40063ee4)
-/* Nonzero if the live project has unsaved bank state (SYNC TO CARD / SAVE). */
-#define PROJECT_DIRTY ((int (*)(void))0x400255ec)
-/* PROJECT → SAVE / card sync (GK_STOCK_CURRENT_PROJECT_CARD_SYNC). */
-#define SAVE_PROJECT ((void (*)(void))0x400919e4)
 /* Stock CREATE / SAVE TO NEW name fill: strcpy "PROJECT ", date YYMMDD, strcat. */
 #define STRCPY   ((void (*)(char *, const char *))0x40013f40)
 #define STRCAT   ((void (*)(char *, const char *))0x40013f94)
@@ -393,37 +389,16 @@ static int copy_tree(u32 depth)
 	return 0;
 }
 
-static void cp_open_load(void)
-{
-	TOAST_CLOSE();
-	POST_LOAD(dst_name);
-	/* Stock CHANGE does this after POST_LOAD; without it CHOOSE PROJECT stays up. */
-	CHOOSE_CLOSE();
-}
-
-static void cp_save_then_open(u32 answer)
-{
-	/* POPUP flags 3: 0 = YES (save then open), non-zero = NO (open without save). */
-	if (!answer)
-		SAVE_PROJECT();
-	cp_open_load();
-}
-
 static void cp_open_answer(u32 answer)
 {
 	/* POPUP flags 3: 0 = YES, non-zero = NO (remix-switch / BRAIN). */
 	if (answer)
 		return;
 	LIST_CLOSE();
-	if (PROJECT_DIRTY()) {
-		/* Drop CHOOSE PROJECT before the save prompt so it cannot stick. */
-		CHOOSE_CLOSE();
-		msg[0] = "SAVE CURRENT PROJECT";
-		msg[1] = "BEFORE OPENING COPY?";
-		POPUP("COPY PROJECT", 2, msg, 3, (u32)cp_save_then_open);
-		return;
-	}
-	cp_open_load();
+	TOAST_CLOSE();
+	POST_LOAD(dst_name);
+	/* Stock CHANGE does this after POST_LOAD; without it CHOOSE PROJECT stays up. */
+	CHOOSE_CLOSE();
 }
 
 static void cp_job(void)
