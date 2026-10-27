@@ -24,7 +24,11 @@ verifier's callers. This reads the changed paths (committed and not,
 against the merge-base with `--base`) and prints the commands, one line
 each, with the paths that put them there; `--run` runs them in order and
 stops at the first failure (`--keep-going`: every one, then a table).
-There is no default remix. The FLOOR -- what a change to the build, the
+The default remix is `octabam` (DEFAULT_REMIX, the golden master, 27 Oct
+2026): QUICK checks it, and only it, for every module it carries, and it is
+the floor. A module it does not carry is checked on the remixes that do.
+Otherwise (FULL, or no `octabam`) there is no default remix. The FLOOR --
+what a change to the build, the
 port, a shared tool or an unclassified path reaches -- is the COVER: the
 fewest remixes that between them carry every module (greedy from the
 registry, 9 of 27 on 28 Sep 2026), so every module's gates and every kind
@@ -149,6 +153,11 @@ CLASSIFIER = ("tools/verify/reach.py",)
 # The bus's bit-identity gate, and the remix whose modules reach it.
 BUS_GATE = "tools/verify/verify_bus.py"
 BUS_REMIX = "bus"
+
+
+# The golden master: QUICK checks this remix for every module it carries and
+# takes it as the floor (the cover stands in when it does not exist).
+DEFAULT_REMIX = "octabam"
 
 
 def bus_modules():
@@ -456,7 +465,9 @@ class Context:
         self.include_tests = include_tests
         self.test_carriers = test_carriers or {}   # key -> test remixes carrying it (when they are left out)
         self.floor = list(remixes) if all_remixes else self.cover()
-        if quick and not all_remixes and self.floor:
+        if quick and not all_remixes and DEFAULT_REMIX in remixes:
+            self.floor = [DEFAULT_REMIX]
+        elif quick and not all_remixes and self.floor:
             # QUICK: the one cover remix carrying the most modules stands for
             # the cover (FULL=1 runs the cover)
             self.floor = [max(self.floor, key=lambda r: (self._modules_of().get(r, 0), r))]
@@ -485,9 +496,12 @@ class Context:
 
     def carriers(self, remixes):
         """The remixes a module change checks: all of them (FULL), or
-        (quick) the user-facing ones, else the smallest test remix."""
+        (quick) the default remix when it carries the module, else the
+        user-facing ones, else the smallest test remix."""
         if not self.quick or len(remixes) <= 1:
             return remixes
+        if DEFAULT_REMIX in remixes:
+            return [DEFAULT_REMIX]
         user = [r for r in remixes if r not in self.test_remixes]
         if user:
             return user

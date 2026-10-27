@@ -86,6 +86,36 @@ def note(path, c=None):
     return reach.classify([path], c or ctx())[0][2]
 
 
+class DefaultRemixTests(unittest.TestCase):
+    """QUICK checks octabam, and only it, for every module it carries."""
+
+    def quick(self, remixes_of, remixes):
+        return reach.Context(
+            module_key={"character": "CHARACTER", "miniverb": "MINIVERB"}, remixes_of=remixes_of, gate_owners={},
+            remixes=remixes, deps={}, shared_scripts=(), remix_scripts=(), quick=True, test_remixes=(),
+            make_base=MAKE_BASE, make_head=MAKE_BASE)
+
+    def test_a_module_octabam_carries_is_checked_on_octabam_alone(self):
+        c = self.quick({"CHARACTER": ["bamsep26", "octabam", "usb"], "MINIVERB": ["miniverb"]},
+                       ["bamsep26", "miniverb", "octabam", "usb"])
+        self.assertEqual(c.carriers(["bamsep26", "octabam", "usb"]), ["octabam"])
+        self.assertEqual(c.carriers(["miniverb"]), ["miniverb"])
+        self.assertEqual(c.carriers(["bamsep26", "usb"]), ["bamsep26", "usb"])
+
+    def test_octabam_is_the_floor_and_the_cover_stands_in_without_it(self):
+        both = self.quick({"CHARACTER": ["bamsep26", "octabam"], "MINIVERB": ["miniverb"]}, ["bamsep26", "miniverb", "octabam"])
+        self.assertEqual(both.floor, ["octabam"])
+        without = self.quick({"CHARACTER": ["bamsep26"], "SEND": ["bamsep26"], "MINIVERB": ["miniverb"]}, ["bamsep26", "miniverb"])
+        self.assertEqual(without.floor, ["bamsep26"])
+
+    def test_full_checks_every_carrier_and_the_cover(self):
+        c = reach.Context(module_key={"character": "CHARACTER"}, remixes_of={"CHARACTER": ["bamsep26", "octabam"]},
+                          gate_owners={}, remixes=["bamsep26", "octabam"], deps={}, shared_scripts=(),
+                          remix_scripts=(), quick=False, test_remixes=(), make_base=MAKE_BASE, make_head=MAKE_BASE)
+        self.assertEqual(c.carriers(["bamsep26", "octabam"]), ["bamsep26", "octabam"])
+        self.assertEqual(c.floor, ["bamsep26"])
+
+
 class ModuleAndRemixTests(unittest.TestCase):
     def test_module_reaches_every_remix_that_carries_it(self):
         # the shared half scoped to the module's own shared gates
