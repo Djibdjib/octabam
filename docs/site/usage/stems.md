@@ -18,8 +18,7 @@ in it.
 
 Hold **UP** and press **REC** (UP first). The same chord closes STEMS. REC
 alone stays stock grid recording, and MAIN MENU is unchanged. Not in an
-official remix; build the test remix `stems`. On a MKII it ran STEMS1 to
-STEMS3; the card writer and menu are measured under the port.
+official remix; build the test remix `stems`.
 
 ## Operation
 
