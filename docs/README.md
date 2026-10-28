@@ -9,6 +9,7 @@ Where each doc is, by who reads it. A module's own page is
 | doc | what it is |
 |---|---|
 | [site/index.md](site/index.md) | the musician-facing manual site: choose a remix, build and flash it, use BRAIN, and recover to stock OS |
+| [../tools/site/README.md](../tools/site/README.md) | the site generator, including the per-remix manuals it renders from the manifests (`gen_manual.py`) |
 | [guide/BUILDING.md](guide/BUILDING.md) | what to install (macOS, Linux/WSL2), the toolchain, your own OS 1.40C, building an image, flashing from the card or over MIDI, after the flash, recovery, back to stock |
 | [../remixes/README.md](../remixes/README.md) | the remixes you can flash, with where each has run |
 | [guide/COMPOSING.md](guide/COMPOSING.md) | composing your own remix: a `remix.py` by hand |
