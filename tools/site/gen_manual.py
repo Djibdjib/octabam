@@ -339,8 +339,7 @@ def manual(name: str, r, mods) -> dict[str, str]:
         k = 1
         about = [f"### 1.1 About {heading}", "", r.doc, ""]
     intro += ["## 1 Introduction", ""] + about
-    intro += [f"**Where it has run:** {index.proof_text(r)}.", "",
-              f"### 1.{k + 1} Conventions", "",
+    intro += [f"### 1.{k + 1} Conventions", "",
               "Names in capitals are what the unit's screen prints. Effects sit on the FX1 and "
               "FX2 keys; each has two pages of six knobs, A to F, reached with the PAGE keys "
               "as on any Octatrack effect. A module's **Test status** says how far it has been proven:", "",
