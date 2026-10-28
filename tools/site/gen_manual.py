@@ -326,7 +326,8 @@ def manual(name: str, r, mods) -> dict[str, str]:
     intro += ["## Contents", "",
               "- [1 Introduction](#1-introduction)", "- [2 Installing](#2-installing)"]
     intro += [f"- [{n} {t}]({page}.md)" for n, page, t, _ in numbered]
-    intro += [f"- [{t}]({page}.md)" for page, t in APPENDICES] + [""]
+    has = set(pages_of(r, mods))
+    intro += [f"- [{t}]({page}.md)" for page, t in APPENDICES if page in has] + [""]
     # The introduction: a hand-written fragment per remix (the site's manual
     # directory), written for the manual page it lands in, so its links are
     # relative to reference/manual/<remix>/. Without one, the remix's own line.
