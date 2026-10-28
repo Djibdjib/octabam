@@ -2,7 +2,7 @@
 
 Class-compliant USB-MIDI in and out on the Octatrack's own USB port,
 mirroring the DIN ports, beside a UAC2 audio function at 44.1 kHz, 24-bit:
-the unit into the host on EP3 IN (2 to 22 channels by the settings), the host
+the unit into the host on EP3 IN (2 to 20 channels by the settings), the host
 into the Octatrack's inputs on EP3 OUT (a stereo pair or four channels by
 IN). The USB controller bursts first on the SDRAM and SRAM-backdoor
 slaves (SCM BCR, XBS PRS/CRS), written once at the stock USB controller init
@@ -36,7 +36,7 @@ from the first enumeration):
 | | POST | 16 channels: the tracks after their own MAIN gain |
 | MAIN (ON) | Binary | 2 channels: MAIN |
 | CUE (ON) | Binary | 2 channels: CUE |
-| MASTER (OFF) | Binary | 2 channels: track 8's L/R |
+| MASTER (OFF) | Binary | 2 channels: track 8's L/R (not with TRACKS) |
 | IN (OFF) | OFF | no host -> device stream |
 | | AB | host channels 1/2 = inputs A/B; C/D stay on the jacks |
 | | CD | host channels 1/2 = inputs C/D; A/B stay on the jacks |
@@ -45,9 +45,14 @@ from the first enumeration):
 
 The pair rule: IN ≠ OFF requires TRACKS ≠ OFF or MAIN or CUE or MASTER
 (the build refuses the combination, brain.c usb_pair_ok; cfgsel forces IN
-off on a bad block). The channel count is 16 × TRACKS(≠ OFF) + 2 × (MAIN
-+ CUE + MASTER): 22 channels at most (TRACKS MAIN CUE MASTER), polled at
-125 µs (bInterval 1); up to 20 channels polls at 250 µs. Every
+off on a bad block). TRACKS with MASTER is refused the same three ways
+(brain.c usb_master_ok; cfgsel clears MASTER): MASTER is track 8's L/R,
+which TRACKS already carries. Scrubbed 27 Oct 2026 at Sam's request: it was
+a layout from before the checkboxes, the only combination over 20
+channels (it needed 125 µs polling), never run on a unit, and with TRACKS
+on the old producer stored MASTER into the next frame's track 8 field, so
+its channels never carried it. The channel count is 16 × TRACKS(≠ OFF) +
+2 × (MAIN + CUE + MASTER): 20 at most, polled at 250 µs (bInterval 2). Every
 combination's full-speed form is two channels, and IN is served at high
 speed only.
 
@@ -314,7 +319,6 @@ the audio function is added to its composite device.
 | MASTER | 2 channels: track 8's L/R | track 8's L/R |
 | MAIN CUE | 4 channels: MAIN, CUE | MAIN |
 | MAIN | 2 channels: MAIN | MAIN |
-| TRACKS MAIN CUE MASTER | 22 channels, polled at 125 µs | the tracks' stereo sum |
 
 Until 6 Oct 2026 each layout was a module of its own (USB AUDIO OUT TRACKS
 MAIN CUE, OUT TRACKS, OUT MASTER, OUT MAIN CUE, OUT MAIN); each remix's
