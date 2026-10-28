@@ -14,23 +14,24 @@ units, and the memory claims are the ABCD maxima.
                     MAIN gain), or OFF
   MAIN              the 2-channel MAIN mix in the stream
   CUE               the 2-channel CUE mix in the stream
-  MASTER            track 8's L/R as a 2-channel pair in the stream
+  MASTER            track 8's L/R as a 2-channel pair in the stream (not
+                    with TRACKS, which already carries track 8)
   IN                which inputs the host's channels stand in for (AB, CD,
                     ABCD), or OFF for no host -> device stream
   MIDI              USB MIDI in/out, or OFF (the device is MSC only, or
                     MSC + audio)
 
 The stream is the checked boxes in slot order (TRACKS, MAIN, CUE, MASTER):
-0, 2, 4, 6, 16, 18, 20 or 22 channels, 24-bit samples in 4-byte subslots at
+0, 2, 4, 6, 16, 18 or 20 channels, 24-bit samples in 4-byte subslots at
 high speed, the 8-byte stereo sum at full speed (sum priority: TRACKS >
 MAIN > CUE > MASTER). IN needs an output stream beside it (EP3 IN is the
 implicit-feedback source for EP3 OUT): the build refuses a resolved pair
 (descriptors.remix_inc), the unit's SETTINGS page refuses the move
-(brain.c), and cfgsel forces IN off on a bad block. The defaults (TRACKS
+(brain.c), and cfgsel forces IN off on a bad block. TRACKS with MASTER is
+refused the same three ways (cfgsel clears MASTER). The defaults (TRACKS
 PRE, MAIN, CUE, MIDI) are the released image's TRACKS MAIN CUE. With MIDI
-off the audio interfaces renumber (AC 3/AS 4/IN 5 -> 1/2/3); the 22-channel
-combo polls EP3 IN at bInterval 1 (125 us): 22 ch x 4 B is 88 B a frame, 12
-frames = 1,056 B, over one 1,024 B transaction. README.md has the design
+off the audio interfaces renumber (AC 3/AS 4/IN 5 -> 1/2/3). Every combo
+polls EP3 IN at bInterval 2 (250 us). README.md has the design
 and what was measured per combo, per direction, and on units.
 """
 import importlib.util
@@ -269,7 +270,7 @@ MODULE = Module(
                       doc="the 2-channel CUE mix in the host stream; takes effect at the next boot"),
               Setting(10, "MASTER", Binary(), default=0, apply=Apply.NEXT_BOOT,
                       early=True,
-                      doc="track 8's L/R as a 2-channel pair in the host stream; takes effect at the next boot"),
+                      doc="track 8's L/R as a 2-channel pair in the host stream (refused with TRACKS on); takes effect at the next boot"),
               Setting(11, "IN", Option("OFF", "AB", "CD", "ABCD"), default="OFF", apply=Apply.NEXT_BOOT,
                       early=True,
                       doc="which inputs the host's channels stand in for (AB, CD, ABCD), or OFF for no host -> device stream; needs an output stream beside it; takes effect at the next boot"),

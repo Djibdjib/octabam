@@ -1,4 +1,4 @@
-| usbaudio.s -- USB AUDIO OUT: up to 22 channels over USB (UAC2), the
+| usbaudio.s -- USB AUDIO OUT: up to 20 channels over USB (UAC2), the
 | TRACKS / MAIN / CUE / MASTER / IN / MIDI run-time settings.
 |
 | Based on markandrus/octemu custom/coldfire/usb-audio.s at 6a9ff68 (MIT).
@@ -42,9 +42,9 @@
 | profiler). The full-speed stream is the 8-byte stereo sum
 | (aud_sum) in every combination -- sum priority tracks > MAIN > CUE >
 | MASTER -- 44/45 frames a packet; the high-speed packet is 11/12 frames x
-| the combination's frame bytes at bInterval 2 (250 us), except the
-| 22-channel combination, which polls at bInterval 1 (125 us): 22 ch x 4 B
-| is 88 B a frame, 12 frames = 1,056 B, over one 1,024 B transaction. The
+| the combination's frame bytes at bInterval 2 (250 us). TRACKS with
+| MASTER is refused (MASTER is track 8's L/R, already in TRACKS; cfgsel),
+| so no combination exceeds 20 channels. The
 | geometry (usb_nch, usb_frame_bytes, usb_hs_cap, usb_hs_step) is latched
 | by cfgsel with the four config-table pointers; the four config responders
 | serve the matching set (descriptors.py, cfg.s).
@@ -155,20 +155,17 @@
 | Why the poll is 250 us: 20 ch x 4 B at 44.1 kHz is 3,528 B per
 | millisecond, and one high-speed isochronous transaction carries at most
 | 1,024 B. At bInterval 2 a packet is 11.025 frames x the combination's
-| frame bytes, at most 12 frames with the servo. The 22-channel combination
-| is 88 B a frame: 12 frames = 1,056 B, so it polls at bInterval 1 (125 us)
-| with 5.5125 frames a packet (usb_hs_step 5512), at most 6 frames = 528 B.
+| frame bytes, at most 12 frames with the servo: 960 B at 20 channels.
 | Full speed carries the stereo sum only: 44.1 frames x 8 B = 353 B per 1 ms
 | frame, under the 1,023 B cap. UAC1 cannot poll faster than 1 ms even at
 | high speed (Apple TN3190: bInterval must be 4); this is why the
 | descriptors are UAC2.
-.set SLOT_BYTES,   88           | the largest frame (22 ch): the ring's size per frame
+.set SLOT_BYTES,   80           | the largest frame (20 ch): the ring's size per frame
 .set AUD_SPILL,    12           | frames past the ring's end a wrapping packet runs into (the HS cap)
 .set SUM_BYTES,    8            | sum slot: (L,R) x 4 B
 .set PKT_MAX_FS,   45*SUM_BYTES | 360: the largest 1 ms packet
 .set PKT_BUF,      960          | packet buffer stride (>= the HS cap, 12*80)
 .set STEP_HS,      11025        | 11.025 frames per 250 us packet, x1000 (<= 20 ch)
-.set STEP_HS_22,   5512         | 5.5125 frames per 125 us packet, x1000 (22 ch)
 .set STEP_FS,      44100        | 44.1 frames per 1 ms packet, x1000
 .set SERVO_SHIFT,  1            | proportional gain G = 2^SERVO_SHIFT: x1000
                                 | frames per packet per frame of fill error
@@ -391,7 +388,7 @@ audio_isr_shim:
 
 | ---- the iso packet builder -------------------------------------------------
 | Each packet holds the next n frames from the ring: n = 11/12 at high speed
-| (11025/1000 per packet; 5/6 at the 22-channel 125 us poll) or 44/45 at
+| (11025/1000 per packet) or 44/45 at
 | full speed (44100/1000), so the emitted stream is an exact, gap-free
 | substring of what the producer wrote. Underrun queues nothing (the host's
 | IN gets an empty packet); a producer that laps the ring (host stopped
@@ -812,7 +809,7 @@ audio_ep3_up:
     bpls    1b
     moveal  qh_ep3,%a0              | resolved just above
     | The SPEED decides the stream: the combination's channels in <= the HS
-    | cap every 250 us at high speed (125 us for 22 channels), the stereo sum
+    | cap every 250 us at high speed, the stereo sum
     | in <= 360 B packets every 1 ms at full speed. PORTSC1 bits 27:26 are
     | the negotiated speed (2 = high); the responder picks the config
     | descriptor by the same bits, so the format the host was told and the
@@ -1508,6 +1505,9 @@ cfgsel:
     tstl    %d0
     beqs    1f
     moveq   #1,%d0
+    tstl    %d1                     | TRACKS on: MASTER is refused (track 8's
+    beqs    1f                      | L/R is already in the stream; brain.c
+    moveq   #0,%d0                  | usb_master_ok)
 1:  moveb   %d0,usb_master
     movel   %d0,%d4
     CFG_READ CS1_USB_IN, usb_in_def
@@ -1596,9 +1596,9 @@ cfgsel:
     addl    %d1,%d0
     addl    %d1,%d0                 | nch = 16 x TRACKS + 2 x (MAIN + CUE + MASTER)
     moveb   %d0,usb_nch
-    | the frame bytes (nch x 4) and the high-speed cap and step: <= 20
-    | channels polls at 250 us (11.025 frames, at most 12 x fb); 22 channels
-    | polls at 125 us (5.5125 frames, at most 6 x fb = 528 B)
+    | the frame bytes (nch x 4) and the high-speed cap and step: every
+    | combination (at most 20 channels) polls at 250 us, 11.025 frames,
+    | at most 12 x fb
     lsll    #2,%d0                  | fb
     movel   %d0,usb_frame_bytes
     movel   %d0,%d1
@@ -1606,21 +1606,10 @@ cfgsel:
     movel   %d0,%d2
     lsll    #3,%d2                  | fb x 8
     addl    %d2,%d1                 | fb x 12
-    cmpil   #1024,%d1
-    bles    3f
-    movel   %d0,%d1
-    lsll    #2,%d1                  | fb x 4
-    movel   %d0,%d2
-    lsll    #1,%d2                  | fb x 2
-    addl    %d2,%d1                 | fb x 6
     movel   %d1,usb_hs_cap
-    movel   #STEP_HS_22,%d1
-    movel   %d1,usb_hs_step
-    bras    4f
-3:  movel   %d1,usb_hs_cap           | fb x 12
     movel   #STEP_HS,%d1
     movel   %d1,usb_hs_step
-4:  | the interface numbers: 0 with no audio function (no alt 1 is ever
+    | the interface numbers: 0 with no audio function (no alt 1 is ever
     | offered, so the shims' compares cannot match a real interface)
     clrb    usb_ac_iface
     clrb    usb_as_iface
@@ -2219,7 +2208,7 @@ post_xlv:          POST_XLV_TABLE
 | so no cached datum shares a line with it (a write-back of a line the CPU
 | dirtied through its cached address would land on the ring).
     .balign 32
-aud_ring:          .space (AUD_FRAMES+AUD_SPILL)*SLOT_BYTES  | at most 88 B a frame (22 ch)
+aud_ring:          .space (AUD_FRAMES+AUD_SPILL)*SLOT_BYTES  | at most 80 B a frame (20 ch)
 aud_bufs:          .space NSLOT*PKT_BUF          | full speed's packets (<= 360 B, one stride per slot)
 
     .balign 4
