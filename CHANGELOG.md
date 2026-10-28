@@ -160,10 +160,11 @@ Docs
 
 ## STEMS11 — 28 Oct 2026 (local remix `lm-stems`, branch `stems-next`, PR #965)
 
-On the unit (Yves's MKII, flash K): every test passed. Each take wrote its
-own folder. Eleven files at 24 bits, every track a Static machine with
-every trig filled, ran 49 s with the ring at most 34% full, and no take
-reached 100% (his report). The `.ot`
+On the unit (Yves's MKII, flash K): each take wrote its own folder.
+Eleven files at 24 bits, every track a Static machine with every trig
+filled, ran 49 s with the ring at most 34% full, and no take reached 100%
+(his report). The logs hold one eleven-file take, so the peak from take
+to take isn't measured on the unit yet. The `.ot`
 files hold the take's tempo and +12 dB. `lm-stems` is `octabam` plus STEM
 REC and MEMORY, with LOAD METER's refusal of STEM REC lifted in that build
 only; it isn't committed (`modules/stems/FLASH.md` flash K).

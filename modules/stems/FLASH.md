@@ -4,8 +4,9 @@
 
 **Flashed** on Yves's MKII, reported 28 Oct 2026: "tests are ok! No 100%
 encountered, even after pushing hard with a lot of triggers as before."
-All three tests below passed, by his report. From the first three takes'
-logs and files (his folder, not the repository):
+His card's logs hold three takes on STEMS11 (his folder, not the
+repository). Tests 1 and 3 passed; test 2 only in part, since the logs
+hold one eleven-file take, not a series. From those logs and files:
 - The first take was T1 alone at 24 bits, the boot default.
 - Each take wrote its own folder, `!STEMS/261028-2000/` and so on, and the
   second take in one minute was named `261028-2008-2`.
@@ -16,6 +17,11 @@ logs and files (his folder, not the repository):
   emptied folder. The card wrote 140,156 KB in 35.8 s of the 49 (255 µs
   a KB), its longest write 447 ms; the hook took 32 µs a frame on
   average, 69 µs at most. No take reached 100%, by his report.
+- Not measured on the unit yet: the peak from take to take. Flash J's
+  logs show the climb over a series (36%, 37%, 60%, 89%, then `RING
+  FULL`); STEMS11's logs have no such series. Under the port, the
+  `crowded` run measures the same peak with 0, 40 or 88 files in
+  `!STEMS`.
 - Every WAV's length is its log's frame count × 16. Every `.ot` holds the
   take's tempo (63 and 139 BPM, as the project had them) and a gain of
   +12 dB.
