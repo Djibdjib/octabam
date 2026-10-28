@@ -2589,6 +2589,50 @@ mkgo:""",
         print(f"  reverb guard  trampolines P:0x{loader_next:05x}..0x{_rat:05x} ({_lt} words), records P:0x{_rat:05x}..0x{_bat:05x} "
               f"({len(_recs)} words), body P:0x{_bat:05x}..0x{_bat + len(_bw):05x} ({len(_bw)} words)")
         loader_next = _bat + len(_bw)
+    # ---- HOOKED DEMAND MODULES (docs/proposals/SC_DEMAND_LOAD.md) --------------------------------------
+    # A Remix.window_demand module reached by DspHooks, not by an id (SIDECHAIN_COMPRESSOR): its hooks
+    # run whether or not its code is loaded, so each jsr goes to a resident stub, reserved here and
+    # assembled once the body's and any bridged hook's addresses are known (_hook_stub_words). The stub
+    # tests the module's BOUND word (x:$33da3 + 8 k) and enters the body when it is loaded; otherwise
+    # it replays the displaced instruction and returns. At a site a bridge overrides
+    # (schema.DspOverride) it calls the body when loaded and then jumps to the overridden hook's entry,
+    # which replays the instruction itself. A stub serves every payload whose site holds the same stock
+    # words, except a bridged one, whose chain target is that payload's.
+    DSP_OVR = {}                # (payload, site) -> the module key whose hook a bridge stands in for
+    for _k in REMIX.modules:
+        for _o in getattr(remix_modules()[_k], "dsp_overrides", ()):
+            for _t in ("A", "B"):
+                if _o.site_on(_t) is not None:
+                    DSP_OVR[(_t, _o.site_on(_t))] = _o.module
+    hook_stub_at = {}           # (module key, hook label, payload) -> the stub's P address
+    hook_stub_plan = []         # (record key, P address, words, module key, hook, payloads, bridged)
+    hook_bodies = {}            # (module key, hook label) -> the body's P address (one copy, both payloads)
+    hook_chain = {}             # (payload, site) -> the overridden hook's entry, the bridge's jump target
+    STUB_WORDS, BRIDGE_WORDS = 9, 10
+    for _k in DEMAND:
+        _m = remix_modules()[_k]
+        if not _m.dsp.hooks:
+            continue
+        if HOMES.get(_k):
+            sys.exit(f"{_k}: a hooked demand module has one home (its stubs jump to fixed addresses); "
+                     f"Remix.window_homes names others")
+        for _h in _m.dsp.hooks:
+            _tags = [t for t in ("A", "B") if _h.on(t) and t in _m.dsp.payloads]
+            _groups = {}
+            for _t in _tags:
+                _br = (_t, _h.site_on(_t)) in DSP_OVR
+                _groups.setdefault(("bridge", _t) if _br else ("plain", tuple(_h.stock_on(_t))), []).append(_t)
+            for (_kind, _), _ts in _groups.items():
+                _n = BRIDGE_WORDS if _kind == "bridge" else STUB_WORDS
+                _rk = f"hook stub {_k} {_h.label} {''.join(_ts)}"
+                _loader_check(_rk, loader_next, _n)
+                window_records[_rk] = (loader_next, [0] * _n)
+                hook_stub_plan.append((_rk, loader_next, _n, _k, _h, tuple(_ts), _kind == "bridge"))
+                for _t in _ts:
+                    hook_stub_at[(_k, _h.label, _t)] = loader_next
+                print(f"  hook stub     P:0x{loader_next:05x}..0x{loader_next + _n:05x} ({_n} words)  {_k} {_h.label}, "
+                      f"payload {'/'.join(_ts)}{', bridging ' + DSP_OVR[(_ts[0], _h.site_on(_ts[0]))] if _kind == 'bridge' else ''}")
+                loader_next += _n
     pathlib.Path("out/dsp/demand_records.json").unlink(missing_ok=True)   # DLPUMP's table reads it after this stage
     for tag, va, ln in PAYLOADS:
         pp = PP[tag]
@@ -3350,10 +3394,13 @@ hostquit:
                                      f"{_o.owner}'s {_o.what} "
                                      f"(0x{_o.start:05x}..0x{_o.end:05x})")
                     for _on, (_oa, _ow) in window_records.items():
+                        if name in DEMAND and _on.removesuffix(":B") in DEMAND:
+                            continue     # two demand effects' blocks: never uploaded, and DLPUMP loads one a block
                         if _oa < _wa + len(_ww) and _wa < _oa + len(_ow):
                             sys.exit(f"{name} and {_on} overlap in the shared window")
                     window_records[_wk] = (_wa, _ww)
-                    demand_syms[_wk] = (_wsyms.get("init"), _wsyms.get("proc"))
+                    # a hooked module has no init/proc: its entry's two words then name the block's first word
+                    demand_syms[_wk] = (_wsyms.get("init", _wa), _wsyms.get("proc", _wa))
                 if name in DEMAND and _wk == name:
                     # the effect's other homes (Remix.window_homes): assembled at each address by each payload, which must agree
                     from remix import dsp_ranges as _dr
@@ -3385,10 +3432,21 @@ hostquit:
                         sys.exit(f"payload {tag}: {name}'s hook site P:0x{_hs:05x} holds "
                                  f"{_got[0]:06x} {_got[1]:06x}, not stock "
                                  f"{_want[0]:06x} {_want[1]:06x}; refusing")
+                    if DSP_OVR.get((tag, _hs)) == name:
+                        # a bridge stands in for this hook: the jsr here is the bridged demand module's stub,
+                        # which jumps to this entry after its own body
+                        hook_chain[(tag, _hs)] = _wsyms[_h.label]
+                        print(f"  {'HOOK':13} P:0x{_hs:05x}    {name} {_h.label} P:0x{_wsyms[_h.label]:05x} "
+                              f"BRIDGED: the jsr here is a demand module's stub, which jumps to this entry")
+                        continue
+                    _to = _wsyms[_h.label]
+                    if name in DEMAND:
+                        hook_bodies[(name, _h.label)] = _to
+                        _to = hook_stub_at[(name, _h.label, tag)]
                     wrw_p_at(_hs, 0x0BF080)
-                    wrw_p_at(_hs + 1, _wsyms[_h.label])
+                    wrw_p_at(_hs + 1, _to)
                     print(f"  {'HOOK':13} P:0x{_hs:05x} -> {name} {_h.label} "
-                          f"P:0x{_wsyms[_h.label]:05x}  {_h.note}")
+                          f"P:0x{_to:05x}  {_h.note}{' (its resident stub; the body is loaded on demand)' if name in DEMAND else ''}")
                 if _wd.hooks:
                     print(f"  {name:13} P:0x{_wa:05x}..0x{_wa + len(_ww):05x} ({len(_ww):4} words)  "
                           f"no dispatch entry: reached by its hook(s)  IN THE SHARED WINDOW")
@@ -4047,6 +4105,50 @@ hostquit:
     # The window's records are not in the OS image's payload: tools/build/dsp_modmap.py's memory
     # dumps (every gate that runs an effect in dsp_host) read them from here and append them.
     # Remix.window_demand records are loaded at run time by the ColdFire, not uploaded at boot.
+    def _displaced_text(words):
+        """The stock instruction(s) in two words, as source text: disassembled, then checked by the stub's
+        own assembly (the stub refuses unless they reassemble to the same words)."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as _td:
+            _f = pathlib.Path(_td) / "d.txt"
+            _f.write_text(" ".join(f"{w:06x}" for w in words))
+            _out = subprocess.run([str(DISASM), "-in", str(_f), "-pc", "0"], capture_output=True, text=True).stdout
+        _lines = [re.sub(r"\s+", " ", l.split(":", 1)[1].split(";", 1)[0]).strip()
+                  for l in _out.splitlines() if re.match(r"^[0-9a-f]{6}: ", l)]
+        if not _lines or any(_l.startswith(("dc", "nop")) for _l in _lines):
+            sys.exit(f"hook stub: the displaced words {words[0]:06x} {words[1]:06x} do not disassemble to instructions")
+        return "".join(f"        {_l}\n" for _l in _lines)
+
+    def _hook_stub_words(at, key, hook, tags, bridged):
+        """One hooked demand module's stub for `hook`, at `at`, serving `tags`. dsp_asm writes a long
+        branch's operand as the displacement itself (AGENTS.md, the brclr trap), so each one is spelled
+        as target - the branch's own address."""
+        bound = DL_ENTRY + DL_STRIDE * DEMAND[key]
+        body = hook_bodies[(key, hook.label)]
+        head = (f"zqhs:\n        move    x:>${bound:x},a\n        cmp     #>$b0a5ed,a\n")
+        if bridged:
+            t = tags[0]
+            chain = hook_chain.get((t, hook.site_on(t)))
+            if chain is None:
+                sys.exit(f"hook stub {key} {hook.label}: the bridged hook at P:0x{hook.site_on(t):05x} on payload "
+                         f"{t} was not placed in the window, so the stub has no entry to jump to")
+            src = head + (f"        bne     >$4\n"
+                          f"        bsr     >${(body - (at + 6)) & 0xFFFFFF:x}\n"
+                          f"        bra     >${(chain - (at + 8)) & 0xFFFFFF:x}\n")
+        else:
+            stock = tuple(hook.stock_on(tags[0]))
+            src = head + f"        beq     >${(body - (at + 4)) & 0xFFFFFF:x}\n" + _displaced_text(stock) + "        rts\n"
+        words, _ = assemble_syms(src, at, label=f"hook stub {key} {hook.label}")
+        if not bridged and tuple(words[6:8]) != stock:
+            sys.exit(f"hook stub {key} {hook.label}: the replayed instruction assembled to "
+                     f"{words[6]:06x} {words[7]:06x}, not the stock {stock[0]:06x} {stock[1]:06x}")
+        return list(words)
+
+    for _rk, _at, _n, _k, _h, _ts, _br in hook_stub_plan:
+        _w = _hook_stub_words(_at, _k, _h, _ts, _br)
+        if len(_w) != _n:
+            sys.exit(f"{_rk}: assembled {len(_w)} words, {_n} reserved")
+        window_records[_rk] = (_at, _w)
     demand_records = {k: window_records.pop(k) for k in list(window_records) if k in DEMAND}
     _df = pathlib.Path("out/dsp/demand_records.json")
     if demand_records:

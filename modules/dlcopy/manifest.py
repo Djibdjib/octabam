@@ -23,5 +23,5 @@ MODULE = Module(
         hooks=(DspHook({"B": 0x76}, (0x667000, 0x000207), "dlc_start",
                        "frame head, after the host handlers' masks are set: the staged block is copied"),),
     ),
-    gates=(Gate("tools/verify/verify_dlstub.py"), Gate("tools/verify/verify_dlwrap.py")),
+    gates=(Gate("tools/verify/verify_dlstub.py"), Gate("tools/verify/verify_dlwrap.py"), Gate("tools/verify/verify_dlhook.py")),
 )

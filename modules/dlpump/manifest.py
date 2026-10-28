@@ -15,6 +15,13 @@ REVERBS = ("PLATE REV", "SPRING REV", "DARK REV")
 TOAST_NAME_MAX = 10             # "EVICT <name> 1ST" must fit the popup, so a longer name is cut: 20 characters. Measured on the unit, 27 Oct 2026: 22 clipped slightly, 19 fitted; a newline does not break the line
 
 
+def _soft(module):
+    """A demand effect that keeps a stock effect's dispatch (MenuEntry.stock_dsp: SIDECHAIN_COMPRESSOR is
+    COMPRESSOR): while its code is not loaded the track runs the stock effect, so DLPUMP never refuses it
+    and never refuses a reverb for it; a reverb that reaches its code takes the block at once."""
+    return bool(module.menu is not None and module.menu.stock_dsp)
+
+
 def table_inc(modules, remix):
     """remix.inc: one record per Remix.window_demand effect (id, the track of its first home's block, its home table,
     the number of homes, the withdraw message, the two toasts), then per effect a table of homes and a staged block
@@ -35,7 +42,8 @@ def table_inc(modules, remix):
     rows.append("dl_tab:")
     for k, key in enumerate(keys):
         track = BLOCK_TRACK[(addrs[key][0] - WIN) >> 14 & 3]
-        rows.append(f"        .long   0x{modules[key].menu.fx2_id:02x}, {track}, dl_hm{k}, {len(addrs[key])}, dl_off{k}, dl_need{k}, dl_hold{k}, 0")
+        rows.append(f"        .long   0x{modules[key].menu.fx2_id:02x}, {track}, dl_hm{k}, {len(addrs[key])}, dl_off{k}, dl_need{k}, dl_hold{k}, "
+                    f"{int(_soft(modules[key]))}")
     for k, key in enumerate(keys):
         homes = recs[key]["homes"] if key in recs else []
         rows.append(f"dl_hm{k}:")
@@ -66,8 +74,13 @@ def table_inc(modules, remix):
             rows.append(f"dl_blk{k}_{h}_end:")
         rows.append(f"dl_off{k}:  .word   {k}, 0, 0, 0, 0")
         name = modules[key].menu.fullname.decode().upper()[:TOAST_NAME_MAX]      # as the chooser lists it, cut to fit
-        rows.append(f'dl_need{k}: .asciz "EVICT T{track + 1} FX2 1ST"')
-        rows.append(f'dl_hold{k}: .asciz "EVICT {name} 1ST"')
+        if _soft(modules[key]):
+            # nothing is refused: the track's effect runs as the stock one, so the toast says the key is off and why
+            rows.append(f'dl_need{k}: .asciz "SC KEY OFF: T{track + 1} FX2"')
+            rows.append(f'dl_hold{k}: .asciz "SC KEY OFF: T{track + 1} REV"')
+        else:
+            rows.append(f'dl_need{k}: .asciz "EVICT T{track + 1} FX2 1ST"')
+            rows.append(f'dl_hold{k}: .asciz "EVICT {name} 1ST"')
         rows.append("        .balign 2")
     return "\n".join(rows) + "\n"
 

@@ -1479,6 +1479,30 @@ class Override:
 
 
 @dataclass(frozen=True)
+class DspOverride:
+    """This bridge stands in for another module's DspHook at `site`: the DSP form of Override.
+    The build does not plant the overridden module's jsr there; the one other hook at the site,
+    which must be a Remix.window_demand module's, gets a resident stub that runs its own body
+    when the module is loaded and then jumps to the overridden hook's entry, which replays the
+    displaced instruction (docs/proposals/SC_DEMAND_LOAD.md: SIDECHAIN_COMPRESSOR's moncommit
+    and LOAD METER's otop_e2 at P:0x50e / 0x303). `site` is one int for every payload or
+    {"A": addr, "B": addr}, as DspHook.site."""
+
+    site: int | Mapping[str, int]
+    module: str
+
+    def __post_init__(self):
+        if isinstance(self.site, Mapping):
+            object.__setattr__(self, "site", MappingProxyType(dict(self.site)))
+            if not self.site or set(self.site) - {"A", "B"}:
+                raise ValueError(f"DspOverride of {self.module!r}: site keys are payload tags A/B")
+
+    def site_on(self, payload: str):
+        """The site on that payload, or None where the override does not apply."""
+        return self.site.get(payload) if isinstance(self.site, Mapping) else self.site
+
+
+@dataclass(frozen=True)
 class Module:
     """One contribution, as declared by modules/<name>/manifest.py."""
 
@@ -1515,6 +1539,8 @@ class Module:
     # Claims of OTHER modules this module's own stand in for
     # (schema.Override) -- a bridge chaining two mods' hooks at one site.
     overrides: tuple[Override, ...] = ()
+    # DspHooks of OTHER modules this one stands in for (schema.DspOverride) -- the DSP bridge.
+    dsp_overrides: tuple[DspOverride, ...] = ()
     # Module KEYS this one is meaningless without -- a bridge whose overrides
     # skip another module's writes on the promise that a third module's
     # stubs stand at those sites (scenes-p2-kits). The ledger refuses a
