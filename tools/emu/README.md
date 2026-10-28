@@ -591,13 +591,17 @@ that third.
      reload, the same-value DCR renewal (no observed effect) and the ESAI
      LOG lines.
    - The 12 Oct halt did not recur as a halt. What was measured: with
-     upstream's `3cee91c9` rule unchanged, `verify_remix_switch` failed in
-     CI (`ok d0=0`: neither core took the park command; then `callAsMain`
-     did not return in 400000000 steps). With the pre-`3cee91c9` arming rule
-     behind `DSP::setDmaTriggerOnArm` (set by `ot_emu` in both modes) the
-     gate passes. Not measured: why the rule matters to that gate, and
-     whether the 12 Oct halt at frame 8 is the same failure; neither was
-     run under the firmware here.
+     upstream's `3cee91c9` rule for every request source,
+     `verify_remix_switch` failed in CI and under the port (`ok d0=0`:
+     neither core took the park command; then `callAsMain` did not return
+     in 400000000 steps). An arm log showed DMA channels 0 and 1 armed on
+     `HostReceiveData` and `HostTransmitData` with the request raised, and
+     not served; the run with the older rule showed 6,612 further arms of
+     those two. The patch serves a raised request at arm for those two
+     sources only (the ESAI keeps `3cee91c9`); the gate passes. Not
+     measured: why those flags raise no new request (inferred: they change
+     only when a word moves), and whether the 12 Oct halt at frame 8 is the
+     same failure; it was not run.
    - Also changed: upstream names `M_PCRE` and `M_PRRE` in the disassembler
      (`2dee93df`), so `verify_dsp_vectors` lists them. Inferred, not
      measured: the payloads wrote those addresses before and only the name
