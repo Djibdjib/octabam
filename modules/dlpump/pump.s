@@ -271,8 +271,13 @@ dg_wait:
         clr.l   %a1@
         bra.w   dl_wd
 dl_lu:  tst.l   %d7                             | used: a reverb reaches its code and another home is free: move it
-        beq.w   dg_used
-        clr.l   %a1@
+        bne.w   1f
+        tst.l   %d5                             | a soft effect a reverb reaches, with nowhere to move, gives the block
+        beq.w   dg_used                         | up at once (the track's effect runs as the stock one)
+        tst.l   %a2@(28)
+        bne.w   dg_now
+        bra.w   dg_used
+1:        clr.l   %a1@
         bra.w   dl_wd                           | a move is a withdrawal; the next pass loads the effect elsewhere
 dg_used:
         clr.l   %a1@                            | used again: the grace starts over
@@ -450,6 +455,8 @@ dl_veto:
         sne     %d4                             | d4.b: loaded
         cmp.l   %a2@,%d1
         bne.w   5f
+        tst.l   %a2@(28)                        | a soft effect (it runs as the stock one until loaded) is never refused
+        bne.w   9f
         tst.b   %d4                             | the effect chosen
         bne.w   9f                              | loaded: goes on
         tst.l   %d5
@@ -462,7 +469,9 @@ dl_veto:
         bpl.w   9f
         move.l  %a2@(20),%d0                    | EVICT Tn FX2 1ST
         bra.w   9f
-5:      tst.b   %d4                             | a reverb chosen on the FX2 slot of a loaded effect's current home
+5:      tst.l   %a2@(28)                        | a soft effect never refuses a reverb: it is withdrawn instead
+        bne.w   7f
+        tst.b   %d4                             | a reverb chosen on the FX2 slot of a loaded effect's current home
         beq.w   7f
         tst.l   %d5
         beq.w   7f

@@ -8,7 +8,7 @@ staged project, each on its own boot, setting track effect ids by poking the liv
 (0x80000ec4 FX1, 0x80000ecc FX2) and the Part bytes behind them. Effects are numbered as in
 Remix.window_demand (k):
 
-  used       T1.. use effects 0.. on FX1 from the start -> each bound, its entry and code in the window
+  used       T1.. use effects 0..3 on FX1 from the start (one a block) -> each bound, its entry and code in the window
                                                           word for word, seen from both cores
   withdrawn  the same, T1's FX1 back to FILTER at 2 s  -> effect 0 unbound after the 2 s grace, its span empty, the rest bound
   grace      effect 0 unused at 2 s and used again at 3 s -> still bound, loaded once
@@ -17,7 +17,7 @@ Remix.window_demand (k):
   unused     no track uses any                          -> none bound
   plate-ok / spring-ok  effect 0 in use with PLATE or SPRING REV on its block's track -> loaded, no toast (neither reaches the code)
   race       effect 0 in use, a DARK REV on its block 60 ms later (inside the load debounce) -> never loaded, no block received
-  toast text  each effect's toast strings (EVICT Tn FX2 1ST, EVICT <name> 1ST) name the track of its own block and the effect's chooser name (the generated table)
+  toast text  each effect's toast strings (EVICT Tn FX2 1ST, EVICT <name> 1ST; a soft effect's SC KEY OFF: Tn FX2 / REV) name the track of its own block and the effect's chooser name, and its table row's soft flag is set for a stock_dsp effect only (the generated table)
   two-b, two-a, two-ab-b, two-ab-a  effect 0 on two tracks of one core, and on one track of each core: the instances each have their own r7 (a pcwatch on the proc)
   runs-b<k> / runs-a<k>  T1 (core B) / T5 (core A) uses effect k -> its loaded proc is reached on that core (--dsp-pcwatch)
   reverb-late effect 0 in use and loaded, then at 2 s the FX2 of its block's track becomes DARK REV (a route the choosers do not guard) -> effect 0 moves to its second home
@@ -98,7 +98,10 @@ def main():
         if f.is_file() and f.suffix.lower() == ".work":
             shutil.copy2(f, copy / f.name)
 
-    every = ";".join(poke(FX1_LIVE, FX1_PART, t, r["id"]) for t, r in enumerate(recs))
+    # one effect a block: the window has four, so with more demand effects than that the ones past the fourth are
+    # left out of `used` (each still loads and runs on its own: runs-b<k>, runs-a<k>)
+    used = recs[:4]
+    every = ";".join(poke(FX1_LIVE, FX1_PART, t, r["id"]) for t, r in enumerate(used))
     block_track = {0: 6, 1: 7, 2: 2, 3: 3}[(rec["addr"] - 0x30000) >> 14 & 3]       # modules/dlpump/manifest.py
     # the chooser that lists effect 0 (FX1 when it has a row there) and its row, from the image's id -> row tables
     img = image.read_bytes()
@@ -199,7 +202,7 @@ def main():
         return [int(t, 16) for t in m.group(1).split()] if m else []
 
     print("used:")
-    for k, r in enumerate(recs):
+    for k, r in enumerate(used):
         n = len(r["words"])
         for c in (1, 0):
             entry = peek("used", c, "X", 0x33DA3 + 8 * k)
@@ -215,7 +218,7 @@ def main():
     print("withdrawn:")
     entry = peek("withdrawn", 1, "X", 0x33DA3)
     check(f"{recs[0]['key']} is unbound and its span empty", entry[:1] == [0] and entry[3:5] == [0, 0], f"{[hex(w) for w in entry]}")
-    for k, r in enumerate(recs[1:], 1):
+    for k, r in enumerate(used[1:], 1):
         check(f"{r['key']} stays bound", peek("withdrawn", 1, "X", 0x33DA3 + 8 * k)[:1] == [0xB0A5ED])
     print("grace:")
     entry = peek("grace", 1, "X", 0x33DA3)
@@ -313,8 +316,14 @@ def main():
         name = registry.modules()[key].menu.fullname.decode().upper()[:10]
         need = re.search(rf'dl_need{k}: \.asciz "([^"]*)"', text).group(1)
         hold = re.search(rf'dl_hold{k}: \.asciz "([^"]*)"', text).group(1)
-        check(f"{key}: its toasts name its block's track T{track}",
-              need == f"EVICT T{track} FX2 1ST" and hold == f"EVICT {name} 1ST", f"{need!r}, {hold!r}")
+        soft = bool(registry.modules()[key].menu.stock_dsp)       # DLPUMP's soft effect (modules/dlpump/README.md)
+        if soft:
+            want_need, want_hold = f"SC KEY OFF: T{track} FX2", f"SC KEY OFF: T{track} REV"
+        else:
+            want_need, want_hold = f"EVICT T{track} FX2 1ST", f"EVICT {name} 1ST"
+        check(f"{key}: its toasts name its block's track T{track}{' (soft: nothing is refused)' if soft else ''}",
+              need == want_need and hold == want_hold, f"{need!r}, {hold!r}")
+        check(f"{key}: its table row's soft flag is {int(soft)}", rows[k][7] == str(int(soft)), f"{rows[k][7]!r}")
     print("PASS" if not FAILS else "FAIL")
     return 1 if FAILS else 0
 

@@ -1479,6 +1479,30 @@ class Override:
 
 
 @dataclass(frozen=True)
+class DspOverride:
+    """This bridge stands in for another module's DspHook at `site`: the DSP form of Override.
+    The build does not plant the overridden module's jsr there; the one other hook at the site,
+    which must be a Remix.window_demand module's, gets a resident stub that runs its own body
+    when the module is loaded and then jumps to the overridden hook's entry, which replays the
+    displaced instruction (docs/proposals/SC_DEMAND_LOAD.md: SIDECHAIN_COMPRESSOR's moncommit
+    and LOAD METER's otop_e2 at P:0x50e / 0x303). `site` is one int for every payload or
+    {"A": addr, "B": addr}, as DspHook.site."""
+
+    site: int | Mapping[str, int]
+    module: str
+
+    def __post_init__(self):
+        if isinstance(self.site, Mapping):
+            object.__setattr__(self, "site", MappingProxyType(dict(self.site)))
+            if not self.site or set(self.site) - {"A", "B"}:
+                raise ValueError(f"DspOverride of {self.module!r}: site keys are payload tags A/B")
+
+    def site_on(self, payload: str):
+        """The site on that payload, or None where the override does not apply."""
+        return self.site.get(payload) if isinstance(self.site, Mapping) else self.site
+
+
+@dataclass(frozen=True)
 class Module:
     """One contribution, as declared by modules/<name>/manifest.py."""
 
@@ -1515,6 +1539,8 @@ class Module:
     # Claims of OTHER modules this module's own stand in for
     # (schema.Override) -- a bridge chaining two mods' hooks at one site.
     overrides: tuple[Override, ...] = ()
+    # DspHooks of OTHER modules this one stands in for (schema.DspOverride) -- the DSP bridge.
+    dsp_overrides: tuple[DspOverride, ...] = ()
     # Module KEYS this one is meaningless without -- a bridge whose overrides
     # skip another module's writes on the promise that a third module's
     # stubs stand at those sites (scenes-p2-kits). The ledger refuses a
@@ -2043,14 +2069,15 @@ class Remix:
     # Core 1 running code that sits in payload A's half is measured on the unit
     # (modules/pextprobe). The build refuses an address inside another owner's range
     # (tools/remix/dsp_ranges.py) or a module whose two payload sources assemble differently.
-    # A module placed this way has no hooks, no LFO or second table, and no tail.
+    # A module with DspHooks and no init/proc is reached by its hooks alone; its LFO table, ptable and ptable2 follow
+    # the code in that order. It has no tail and no pins.
     window: tuple[tuple[str, int], ...] = ()
     # DEMAND-LOADED WINDOW EFFECTS (docs/proposals/DEMAND_LOAD.md): module keys, each also in `window`
     # (at the address its code runs from). The module is assembled and placed as above but left out of
     # payload A's upload: its words, address, entry points and id go to out/dsp/demand_records.json for
     # the ColdFire loader (modules/dlpump). Its id's dispatch entries point at a trampoline of the stub
     # (modules/dlcopy/dlstub.asm) that passes the audio through until DLCOPY has published the code. The
-    # position in this tuple is the effect's index k, 0..3 (the entry at x:$33da3 + 8 k).
+    # position in this tuple is the effect's index k (the entry at x:$33da3 + 8 k; a fifth or later moves DLCOPY up 8 words each).
     window_demand: tuple[str, ...] = ()
     # OTHER HOMES OF A DEMAND EFFECT: (key, P address) pairs, any number per key. The effect's address in `window` is its
     # first home; each pair here is another, in a different FX2 block of the window. The build assembles the effect once per
