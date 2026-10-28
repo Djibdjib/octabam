@@ -121,6 +121,7 @@ nav:
       - Dlpump: reference/modules/dlpump.md
       - Load Meter: reference/modules/load-meter.md
       - Pext Probe: reference/modules/pextprobe.md
+      - Sc Load Meter Bridge: reference/modules/sc-loadmeter-bridge.md
       - Testgen: reference/modules/testgen.md
       - Wave Load: reference/modules/waveload.md
   - Remix Reference:

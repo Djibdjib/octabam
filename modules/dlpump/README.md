@@ -17,6 +17,13 @@ choice that would collide (an effect with no free home, or a reverb on a loaded 
 the effect has nowhere to move) and show a toast saying why. Collisions made by other routes (song load, pattern,
 paste) are toasted at the next page key by a detour at `0x4005578c`.
 
+A **soft** effect, one that keeps a stock effect's dispatch (`MenuEntry.stock_dsp`: SIDECHAIN_COMPRESSOR is
+COMPRESSOR, id `0x18`), is never refused: while its code is not loaded the track runs the stock effect. The
+choosers let it and any reverb through, a reverb that reaches its loaded code takes the block at once (the
+effect is withdrawn and the track runs as stock), and its toasts say so (`SC KEY OFF: T4 FX2` when no home is
+free, `SC KEY OFF: T4 REV` when a reverb took it). The flag is the eighth long of the effect's `dl_tab` row
+(`table_inc`'s `_soft`). Not run on a unit.
+
 `remix.inc` (the effect table and the blocks) is generated per remix from
 `out/dsp/demand_records.json`; the unit reserves 2,600 code words an effect on every link.
 

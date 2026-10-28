@@ -89,6 +89,9 @@ def run(memfile, init, proc, tag, vals):
 
 
 for k, key in enumerate(R.window_demand):
+    if registry.by_key(key).dsp.hooks:
+        print(f"{key} (effect {k}): reached by hooks, not by an id stub -- verify_dlhook's")
+        continue
     print(f"{key} (effect {k}):")
     mod = registry.modules()[key]
     rec = RECS[key]

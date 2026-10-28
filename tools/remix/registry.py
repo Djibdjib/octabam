@@ -133,6 +133,7 @@ def validate_keys(mods: dict[str, object]) -> list[str]:
         named = [("conflicts", k) for k, _why in getattr(m, "conflicts", ())]
         named += [("requires", k) for k in getattr(m, "requires", ())]
         named += [("overrides", o.module) for o in getattr(m, "overrides", ())]
+        named += [("dsp_overrides", o.module) for o in getattr(m, "dsp_overrides", ())]
         for field, key in named:
             if key not in mods:
                 bad.append(f"{m.name}: {field} names {key!r}, which no module has")

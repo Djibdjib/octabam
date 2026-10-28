@@ -114,7 +114,8 @@ dw_ix:
         lua     (r3-64),r4
         rts
 
-; a = 1 when the range [x1, x1 + extent) covers any word of any loaded effect's code, else 0.
+; a = 1 when the range [x1, x1 + extent) covers any word of any loaded effect's code, else 0. The build sets the loop's
+; count to the remix's entries (4, or more when it has more demand effects).
 dw_over:
         clr     b
         move    #>$33da3,r5
