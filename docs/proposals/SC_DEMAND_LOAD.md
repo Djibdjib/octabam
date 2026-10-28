@@ -38,6 +38,11 @@ exists, `build_bus.py:3208`) and the body reads them: 🟡 about 100-120 words f
 `verify_dlwrap`'s, which runs under `dsp_host` and can be run locally on the change, and only `octabam` and `test/dlspike` carry
 it. It is the first change to make; the rest of this proposal waits on it.
 
+✅ **Done, 28 Oct 2026** (this branch): the trampolines are 70 words and the records 18 (88, from 156; the body is unchanged
+at 152). The guard now ends at `0x33fb6`, so **74 words are free at `0x33fb6..0x33fff`**, plus the 6 and 9 beside LOAD METER:
+89 in all, against the 39 SC needs. `verify_dlwrap` passes on `octabam` (199 checks) and `test/dlspike` (125); a mutated
+loader (extent and stock proc swapped) hangs `dsp_host` on the first wrapper run. Not run: `refhash` (CI), the unit.
+
 ## Why the resident placement does not fit
 
 | need | words | status |
