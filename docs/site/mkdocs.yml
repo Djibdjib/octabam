@@ -31,9 +31,44 @@ nav:
       - Feature Directory: reference/modules.md
       - About: about.md
   - Manuals:
-      - Octabam Manual: reference/manual/octabam.md
-      - Octabam Bus Manual: reference/manual/octabam-bus.md
-      - CX Osc Core Manual: reference/manual/cxosc-core.md
+      - Octabam Manual:
+          - Introduction: reference/manual/octabam/index.md
+          - Bus and effect setup: reference/manual/octabam/bus-setup.md
+          - Effects: reference/manual/octabam/effects.md
+          - Machines and the sequencer: reference/manual/octabam/machines.md
+          - Parts, Kits and scenes: reference/manual/octabam/parts.md
+          - MIDI and USB: reference/manual/octabam/midi-usb.md
+          - Settings and memory: reference/manual/octabam/settings.md
+          - Utilities: reference/manual/octabam/utilities.md
+          - Fixes to stock behaviour: reference/manual/octabam/fixes.md
+          - Diagnostics: reference/manual/octabam/diagnostics.md
+          - Effect Controls: reference/manual/octabam/appendix-controls.md
+          - Test Status: reference/manual/octabam/appendix-status.md
+          - Credits: reference/manual/octabam/credits.md
+      - Octabam Bus Manual:
+          - Introduction: reference/manual/octabam-bus/index.md
+          - Bus and effect setup: reference/manual/octabam-bus/bus-setup.md
+          - Effects: reference/manual/octabam-bus/effects.md
+          - Machines and the sequencer: reference/manual/octabam-bus/machines.md
+          - Parts, Kits and scenes: reference/manual/octabam-bus/parts.md
+          - MIDI and USB: reference/manual/octabam-bus/midi-usb.md
+          - Settings and memory: reference/manual/octabam-bus/settings.md
+          - Utilities: reference/manual/octabam-bus/utilities.md
+          - Fixes to stock behaviour: reference/manual/octabam-bus/fixes.md
+          - Diagnostics: reference/manual/octabam-bus/diagnostics.md
+          - Effect Controls: reference/manual/octabam-bus/appendix-controls.md
+          - Test Status: reference/manual/octabam-bus/appendix-status.md
+          - Credits: reference/manual/octabam-bus/credits.md
+      - CX Osc Core Manual:
+          - Introduction: reference/manual/cxosc-core/index.md
+          - Machines and the sequencer: reference/manual/cxosc-core/machines.md
+          - Parts, Kits and scenes: reference/manual/cxosc-core/parts.md
+          - MIDI and USB: reference/manual/cxosc-core/midi-usb.md
+          - Settings and memory: reference/manual/cxosc-core/settings.md
+          - Utilities: reference/manual/cxosc-core/utilities.md
+          - Fixes to stock behaviour: reference/manual/cxosc-core/fixes.md
+          - Test Status: reference/manual/cxosc-core/appendix-status.md
+          - Credits: reference/manual/cxosc-core/credits.md
   - Effects:
       - BBD Delay: reference/modules/bbd.md
       - Character: reference/modules/character.md

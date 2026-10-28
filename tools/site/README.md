@@ -32,14 +32,19 @@ Generated, gitignored:
 ## The remix manuals
 
 `gen_manual.py` (run by `gen_pages.py`) writes one manual per official
-remix, `reference/manual/<remix>.md`, in the order of the Octatrack's own
-manual: 1 Introduction, 2 Installing, then one numbered chapter per module
-category the remix has (the bus, effects, stock effects, machines, Parts and
-scenes, MIDI and USB, settings, utilities, fixes, diagnostics), then
-Appendix A (every effect's knobs, page 1 and 2, A to F), B (test status) and
-C (credits). A remix with no module in a category has no chapter for it.
+remix under `reference/manual/<remix>/`, one page per chapter, in the order
+of the Octatrack's own manual: `index.md` (1 Introduction, 2 Installing and
+the contents), then a numbered chapter per module category the remix has
+(bus setup, effects, machines, Parts and scenes, MIDI and USB, settings,
+utilities, fixes, diagnostics), then Appendix A (every effect's knobs, page
+1 and 2, A to F), B (test status) and C (credits). A remix with no module in
+a category has no page for it. Stock effects are not documented.
 
-Each module is a numbered section. From the manifest, never typed: the
+The chapter pages are listed by hand under Manuals in `mkdocs.yml`, as the
+module pages are; `verify_docs.py` refuses a nav that differs from the pages
+the manifests produce, naming the page.
+
+Each module is a numbered section of its chapter. From the manifest, never typed: the
 byline, test status, which chooser it is in (FX1, FX2, read from the remix's
 `fx1` and the module's `SLOTS` setting), the knob layout (name, values,
 default, one-line meaning), what a MODE renames, the settings with the value
@@ -52,8 +57,8 @@ line, so the manual has no hole.
 
 To improve a knob's row in the manual, edit the `Param` `doc` in the
 manifest. To improve a module's prose, edit its usage fragment. The remix's
-own paragraph is `Remix.doc`. A new official remix needs a nav entry under
-Manuals in `mkdocs.yml` (`verify_docs.py` refuses it without).
+own paragraph is `Remix.doc`. A new official remix, or a module in a category the remix had none of,
+needs its nav entries (`verify_docs.py` names them).
 
 ## Rules the doclinks gate forces on these files
 

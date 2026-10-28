@@ -3,65 +3,66 @@
 
     python3 tools/site/gen_manual.py        # also run by gen_pages.py
 
-Writes, gitignored like the rest of the generated site:
+Writes, gitignored like the rest of the generated site, under
+reference/manual/<remix>/ :
 
-  reference/manual/<remix>.md    the remix's manual: numbered chapters, one
-                                 numbered section per module, in the order of
-                                 the Octatrack's own manual (introduction,
-                                 installing, the effects, then the features by
-                                 area, then appendices)
+  index.md           introduction, installing, the contents
+  <chapter>.md       one page per chapter the remix has: bus-setup, effects,
+                     machines, parts, midi-usb, settings, utilities, fixes,
+                     diagnostics
+  appendix-controls.md, appendix-status.md, credits.md
+
+The order is the Octatrack manual's: introduction, installing, the effects,
+then the features by area, then appendices. A category the remix has no
+module in gets no chapter. Stock effects are not documented here.
 
 Everything that can be read from the manifests is: the contents, which effect
 is on FX1 and FX2, the knob layout of each effect's two pages (A to F, the
 MODE renames), the settings and what this remix sets them to, the test status,
-the credits. The prose is the hand-written usage fragment of each module
-(the site's usage directory), inlined with its headings pushed down under the
-module's section. A module with no fragment gets its manifest line, so the
-manual never has a hole.
+the credits. The prose is the hand-written usage fragment of each module (the
+site's usage directory), inlined with its headings pushed down under the
+module's section; its own Parameters table is dropped, since the knobs are
+printed from the manifest. A module with no fragment gets its manifest line,
+so the manual never has a hole.
 
-The pages sit two levels under the site root, like the per-module pages, so
-the image and page links the fragments already carry resolve unchanged.
+The chapter pages are listed by hand in the nav of mkdocs.yml, as the module
+pages are; chapters() is the list and tools/verify/verify_docs.py refuses a
+nav that does not match it.
 """
 
 import pathlib
 import re
 import sys
-import unicodedata
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1])); import toolpath  # noqa: E402,F401  (every tools/ dir on sys.path)
 
 import gen_pages  # noqa: E402
-from gen_pages import OUT, _author, _label, _records, _hero_key, _figure, title_case  # noqa: E402
+from gen_pages import OUT, _author, _label, _records, _hero_key, title_case  # noqa: E402
 from remix import index  # noqa: E402
-from remix.schema import CATEGORY_TITLE, PROOF_TEXT, Category, Formatter, Option, Binary, Number, Pin, Trigger, Blob  # noqa: E402
+from remix.schema import PROOF_TEXT, Category, Formatter, Option, Binary, Number, Pin, Trigger, Blob  # noqa: E402
 
 USAGE = OUT.parent / pathlib.Path("usage")
 
-# The chapters after the effects chapters, in the order a reader meets them.
-# Each is (category, chapter title); a category the remix has no module in
-# gets no chapter, so a small remix has a short manual.
+# (category, page, title), in the order a reader meets them.
 CHAPTERS = (
-    (Category.BUS, "Bus and effect setup"),
-    (Category.TRACK, "Effects"),
-    (Category.STOCK, "Stock effects"),
-    (Category.MACHINES, "Machines and the sequencer"),
-    (Category.PARTS, "Parts, Kits and scenes"),
-    (Category.MIDI_USB, "MIDI and USB"),
-    (Category.SETTINGS, "Settings and memory"),
-    (Category.UTILITIES, "Utilities"),
-    (Category.FIXES, "Fixes to stock behaviour"),
-    (Category.REFERENCE, "Diagnostics"),
+    (Category.BUS, "bus-setup", "Bus and effect setup"),
+    (Category.TRACK, "effects", "Effects"),
+    (Category.MACHINES, "machines", "Machines and the sequencer"),
+    (Category.PARTS, "parts", "Parts, Kits and scenes"),
+    (Category.MIDI_USB, "midi-usb", "MIDI and USB"),
+    (Category.SETTINGS, "settings", "Settings and memory"),
+    (Category.UTILITIES, "utilities", "Utilities"),
+    (Category.FIXES, "fixes", "Fixes to stock behaviour"),
+    (Category.REFERENCE, "diagnostics", "Diagnostics"),
 )
+APPENDICES = (("appendix-controls", "Appendix A: Effect controls at a glance"),
+              ("appendix-status", "Appendix B: Test status"),
+              ("credits", "Appendix C: Credits"))
 
 TITLES = {"octabam": "Octabam", "octabam-bus": "Octabam Bus", "cxosc-core": "Octabam CX Osc Core"}
 OVERVIEW = {"octabam": "remix-octabam.md", "octabam-bus": "remix-bus.md"}
 KNOB = "ABCDEF"
-
-
-def slug(text: str) -> str:
-    """The anchor MkDocs gives a heading (python-markdown's toc slugify)."""
-    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
-    return re.sub(r"[-\s]+", "-", re.sub(r"[^\w\s-]", "", text).strip().lower())
+UP = "../../../"            # from reference/manual/<remix>/ to the site root
 
 
 def title(name: str) -> str:
@@ -85,15 +86,17 @@ def _demote(text: str, by: int) -> str:
 
 
 def _relink(text: str) -> str:
-    """A fragment is written for the module pages (reference/modules/), whose
-    sibling links are bare file names; the manual sits one directory over."""
-    return re.sub(r"\]\((?!https?:|#|\.\./|/)([\w-]+\.md)", r"](../modules/\1", text)
+    """A fragment is written for the module pages (reference/modules/): its
+    sibling links are bare file names and its site links climb two levels.
+    The manual sits one level deeper."""
+    text = text.replace("](../../", "](" + UP)
+    return re.sub(r"\]\((?!https?:|#|\.\./|/)([\w-]+\.md)", r"](../../modules/\1", text)
 
 
 def _without_parameters(text: str) -> str:
     """Drop a fragment's own Parameters table: the manual prints the knobs
-    from the manifest, which is the one place a knob's name, range and default
-    are declared. (The module's own page keeps the hand-written table.)"""
+    from the manifest, the one place a knob's name, range and default are
+    declared. (The module's own page keeps the hand-written table.)"""
     return re.sub(r"(?ms)^## Parameters\n.*?(?=^## |\Z)", "", text).strip()
 
 
@@ -107,9 +110,14 @@ def _fragment(m) -> str | None:
     return _relink(text)
 
 
+def _figure(record: dict) -> list[str]:
+    caption = record["caption"]
+    return [f"![{caption}]({UP}img/{record['image']})", "", f"*{caption}*", ""]
+
+
 # ---- the facts ----------------------------------------------------------
 
-def _values(p, label_of=None) -> str:
+def _values(p) -> str:
     """What a knob's range reads as on the panel."""
     if p.labels:
         return " / ".join(p.labels)
@@ -136,7 +144,7 @@ def _drawn(m) -> bool:
 
 def controls(m) -> list[str]:
     """The two effect pages as the panel lays them out, then each knob."""
-    lines = ["#### Controls", ""]
+    lines = ["### Controls", ""]
     for page in (0, 1):
         slots = range(page * 6, page * 6 + 6)
         if not any(m.params[i].active for i in slots):
@@ -193,7 +201,7 @@ def settings(m, r) -> list[str]:
     setting has no menu row and cannot be changed on the unit."""
     if not m.settings or m.store is None:
         return []
-    lines = ["#### Settings in this image", "",
+    lines = ["### Settings in this image", "",
              "| Setting | Values | In this image | Takes effect | What it does |", "|---|---|---|---|---|"]
     applies = {"live": "at once", "callback": "after a load or an edit", "next_boot": "at the next boot",
                "build": "set when the image is built"}
@@ -221,7 +229,7 @@ def relations(m, mods) -> list[str]:
 
 
 def _ref(mods, key) -> str:
-    return f"[{_label(mods[key])}](../modules/{mods[key].name}.md)" if key in mods else key
+    return f"[{_label(mods[key])}](../../modules/{mods[key].name}.md)" if key in mods else key
 
 
 def _on_fx2(m, r) -> bool:
@@ -252,10 +260,8 @@ def where(m, r) -> str | None:
 # ---- sections ------------------------------------------------------------
 
 def module_section(num: str, m, r, mods) -> list[str]:
-    head = f"{num} {_label(m)}"
-    lines = [f"### {head}", ""]
-    if not m.is_stock:
-        lines += [f"*By {_author(m)}.* **Test status:** {index.proof_text(m)}.", ""]
+    lines = [f"## {num} {_label(m)}", ""]
+    lines += [f"*By {_author(m)}.* **Test status:** {index.proof_text(m)}.", ""]
     place = where(m, r)
     if place:
         lines += [f"**Chooser:** {place}.", ""]
@@ -264,137 +270,123 @@ def module_section(num: str, m, r, mods) -> list[str]:
     if key:
         lines += _figure(recs[key])
     frag = _fragment(m)
-    lines += [_demote(frag, 2) if frag else m.doc, ""]
+    lines += [_demote(frag, 1) if frag else m.doc, ""]
     if _drawn(m):
         lines += controls(m)
     lines += settings(m, r)
     lines += relations(m, mods)
     rest = [rec for k, rec in recs.items() if k != key]
     if rest:
-        lines += ["#### Screens", ""]
+        lines += ["### Screens", ""]
         for rec in rest:
             lines += _figure(rec)
     return lines
 
 
-def stock_table(r, mods) -> list[str]:
-    stock = [mods[k] for k in r.modules if mods[k].is_stock]
-    names = [m.key for m in stock]
-    fx1_only = [k for k in r.fx1 if k not in mods or k not in r.modules]
-    lines = ["| Effect | FX1 | FX2 |", "|---|---|---|"]
-    seen = set()
-    for k in list(r.fx1) + names:
-        if k in seen or (k in mods and not mods[k].is_stock):
-            continue
-        seen.add(k)
-        lines.append(f"| {k} | {'✓' if k in r.fx1 else '—'} | {'✓' if k in names else '—'} |")
-    return lines + [""]
-
-
-def chapters_of(r, mods) -> list[tuple[str, list]]:
-    """(chapter title, modules) for each chapter this remix has."""
+def chapters(r, mods) -> list[tuple[str, str, list]]:
+    """(page, title, modules) for each module chapter this remix has. Stock
+    effects are not documented."""
     out = []
-    for cat, name in CHAPTERS:
+    for cat, page, name in CHAPTERS:
         ms = [mods[k] for k in r.modules if (mods[k].category or Category.REFERENCE) is cat]
         if ms:
-            out.append((name, sorted(ms, key=lambda m: _label(m).lower())))
+            out.append((page, name, sorted(ms, key=lambda m: _label(m).lower())))
     return out
 
 
-def manual(name: str, r, mods) -> str:
+def _effects(chaps) -> list:
+    return sorted((m for _, _, ms in chaps for m in ms if _drawn(m)), key=lambda m: _label(m).lower())
+
+
+def pages_of(r, mods) -> list[str]:
+    """The page names (no extension) of one remix's manual, in order."""
+    chaps = chapters(r, mods)
+    apps = [p for p, _ in APPENDICES if p != "appendix-controls" or _effects(chaps)]
+    return ["index"] + [p for p, _, _ in chaps] + apps
+
+
+def _page(heading: str, body: list[str]) -> str:
+    return "\n".join([f"# {heading}", ""] + body) + "\n"
+
+
+def manual(name: str, r, mods) -> dict[str, str]:
+    """The pages of one remix's manual, keyed by file name."""
     heading = title(name)
-    chaps = chapters_of(r, mods)
-    first = 3                         # chapters 1 and 2 are fixed
-    numbered = [(f"{first + i}", t, ms) for i, (t, ms) in enumerate(chaps)]
-    appendices = (("A", "Effect controls at a glance"), ("B", "Test status"), ("C", "Credits"))
-    toc = [("1", "Introduction"), ("2", "Installing")] + [(n, t) for n, t, _ in numbered] + list(appendices)
+    chaps = chapters(r, mods)
+    numbered = [(i + 3, page, t, ms) for i, (page, t, ms) in enumerate(chaps)]
+    out = {}
 
-    def h(num, text):
-        return f"Appendix {num}: {text}" if num.isalpha() else f"{num} {text}"
-
-    L = [f"# {heading} Manual", "",
-         f"The manual for the **{heading}** image: an Octatrack OS 1.40C patched by "
-         f"the modules listed here, each credited to its author. This manual is "
-         f"generated from the module manifests, so it lists what this image contains "
-         f"and nothing else.", ""]
+    intro = [f"The manual for the **{heading}** image: an Octatrack OS 1.40C patched by "
+             f"the modules listed here, each credited to its author. It is generated from the "
+             f"module manifests, so it lists what this image contains and nothing else.", ""]
     if name in OVERVIEW:
-        L += [f"For the short version, see the [{heading} overview](../../{OVERVIEW[name]}).", ""]
-    L += ["## Contents", ""]
-    for num, text in toc:
-        label = h(num, text)
-        L.append(f"- [{label}](#{slug(label)})")
-    L.append("")
+        intro += [f"For the short version, see the [{heading} overview]({UP}{OVERVIEW[name]}).", ""]
+    intro += ["## Contents", "",
+              "- [1 Introduction](#1-introduction)", "- [2 Installing](#2-installing)"]
+    intro += [f"- [{n} {t}]({page}.md)" for n, page, t, _ in numbered]
+    intro += [f"- [{t}]({page}.md)" for page, t in APPENDICES] + [""]
+    intro += ["## 1 Introduction", "", f"### 1.1 About {heading}", "", r.doc, "",
+              f"**Where it has run:** {index.proof_text(r)}.", "",
+              "### 1.2 Conventions", "",
+              "Names in capitals are what the unit's screen prints. Effects sit on the FX1 and "
+              "FX2 keys; each has two pages of six knobs, A to F, reached with the PAGE keys "
+              "as on any Octatrack effect. A module's **Test status** says how far it has been proven:", "",
+              gen_pages.PROOF_LEGEND, "",
+              "### 1.3 What is in this image", "",
+              "| Chapter | Features |", "|---|---|"]
+    for n, page, t, ms in numbered:
+        intro.append(f"| [{n} {t}]({page}.md) | " + ", ".join(_label(m) for m in ms) + " |")
+    intro += ["", "## 2 Installing", "",
+              f"Build the image from your own copy of OS 1.40C and install it as described in "
+              f"[Build and Install]({UP}web-builder.md). Nothing from Elektron is in the repository "
+              f"or on this site; the builder patches your copy in your browser. "
+              f"After the flash, SYSTEM STATUS → OS VERSION shows `{r.name.upper()}` and the build tag.", "",
+              f"Back up the card first. To go back to stock, follow [Safety and Recovery]({UP}safety.md).", ""]
+    out["index.md"] = _page(f"{heading} Manual", intro)
 
-    # 1 Introduction
-    L += ["## 1 Introduction", "", f"### 1.1 About {heading}", "", r.doc, "",
-          f"**Where it has run:** {index.proof_text(r)}.", "",
-          "### 1.2 Conventions", "",
-          "Names in capitals are what the unit's screen prints. Effects sit on the FX1 and "
-          "FX2 keys; each has two pages of six knobs, A to F, reached with the PAGE keys "
-          "as on any Octatrack effect. A module's **Test status** says how far it has been proven:", "",
-          gen_pages.PROOF_LEGEND, ""]
-    L += ["### 1.3 What is in this image", "",
-          "| Chapter | Features |", "|---|---|"]
-    for num, t, ms in numbered:
-        L.append(f"| [{num} {t}](#{slug(f'{num} {t}')}) | " + ", ".join(_label(m) for m in ms) + " |")
-    L.append("")
-
-    # 2 Installing
-    L += ["## 2 Installing", "",
-          f"Build the image from your own copy of OS 1.40C and install it as described in "
-          f"[Build and Install](../../web-builder.md). Nothing from Elektron is in the repository "
-          f"or on this site; the builder patches your copy in your browser. "
-          f"After the flash, SYSTEM STATUS → OS VERSION shows `{r.name.upper()}` and the build tag.", "",
-          "Back up the card first. To go back to stock, follow [Safety and Recovery](../../safety.md).", ""]
-
-    # 3.. the chapters
-    for num, t, ms in numbered:
-        L += [f"## {num} {t}", ""]
-        if t == "Stock effects":
-            L += ["These stock effects stay in the chooser as Elektron made them.", ""]
-            L += stock_table(r, mods)
-            continue
+    for n, page, t, ms in numbered:
+        body = []
         for i, m in enumerate(ms, 1):
-            L += module_section(f"{num}.{i}", m, r, mods)
+            body += module_section(f"{n}.{i}", m, r, mods)
+        out[f"{page}.md"] = _page(f"{n} {t}", body)
 
-    # Appendices
-    effects = [m for _, _, ms in numbered for m in ms if _drawn(m) and not m.is_stock]
-    L += [f"## {h(*appendices[0])}", "",
-          "Knob names as the panel prints them (a MODE can rename some; see each effect).", ""]
+    effects = _effects(chaps)
+    body = ["Knob names as the panel prints them (a MODE can rename some; see each effect).", ""]
     for page in (0, 1):
-        L += [f"**Page {page + 1}**", "",
-              "| Effect | " + " | ".join(KNOB) + " |", "|---|" + "---|" * 6]
-        for m in sorted(effects, key=lambda m: _label(m).lower()):
+        body += [f"**Page {page + 1}**", "",
+                 "| Effect | " + " | ".join(KNOB) + " |", "|---|" + "---|" * 6]
+        for m in effects:
             row = [(m.params[i].name or b"").decode() or "—" if m.params[i].active else "—"
                    for i in range(page * 6, page * 6 + 6)]
-            if all(c == "—" for c in row):
-                continue
-            L.append(f"| {_label(m)} | " + " | ".join(row) + " |")
-        L.append("")
-    L += [f"## {h(*appendices[1])}", "",
-          "| Feature | Status |", "|---|---|"]
-    for _, _, ms in numbered:
-        for m in ms:
-            if not m.is_stock:
-                L.append(f"| {_label(m)} | {PROOF_TEXT[m.proof]} |")
-    L += ["", f"## {h(*appendices[2])}", ""]
+            if any(c != "—" for c in row):
+                body.append(f"| {_label(m)} | " + " | ".join(row) + " |")
+        body.append("")
+    if effects:
+        out["appendix-controls.md"] = _page(APPENDICES[0][1], body)
+
+    allmods = [m for _, _, _, ms in numbered for m in ms]
+    body = ["| Feature | Status |", "|---|---|"]
+    body += [f"| {_label(m)} | {PROOF_TEXT[m.proof]} |" for m in allmods] + [""]
+    out["appendix-status.md"] = _page(APPENDICES[1][1], body)
+
     by_author = {}
-    for _, _, ms in numbered:
-        for m in ms:
-            if not m.is_stock:
-                by_author.setdefault((m.author, m.author_url), []).append(m)
+    for m in allmods:
+        by_author.setdefault((m.author, m.author_url), []).append(m)
+    body = []
     for (author, url), ms in sorted(by_author.items(), key=lambda kv: kv[0][0].lower()):
         who = f"[{author}]({url})" if url else author
-        L.append(f"- {who}: " + ", ".join(_label(m) for m in sorted(ms, key=lambda m: m.key)))
-    L += ["", "[Feature directory](../modules.md)"]
-    return "\n".join(L) + "\n"
+        body.append(f"- {who}: " + ", ".join(_label(m) for m in sorted(ms, key=lambda m: m.key)))
+    body += ["", "[Feature directory](../../modules.md)"]
+    out["credits.md"] = _page(APPENDICES[2][1], body)
+    return out
 
 
-def main(mods, official, quiet: bool = False) -> dict[str, str]:
+def main(mods, official) -> dict[str, str]:
     """The manual pages, keyed by their path under reference/."""
     jobs = {}
     for name, r in official:
-        jobs[f"manual/{name}.md"] = manual(name, r, mods)
+        for page, text in manual(name, r, mods).items():
+            jobs[f"manual/{name}/{page}"] = text
     return jobs
 
 

@@ -352,9 +352,9 @@ def main(quiet: bool = False) -> int:
             continue
         jobs[f"_remix-{name}.md"] = remix_fragment(registry.remix(name), mods)
     import gen_manual
-    (OUT / "manual").mkdir(parents=True, exist_ok=True)
     jobs.update(gen_manual.main(mods, official))
     for name, text in sorted(jobs.items()):
+        (OUT / name).parent.mkdir(parents=True, exist_ok=True)
         (OUT / name).write_text(text)
         if not quiet:
             print(f"wrote docs/site/reference/{name}")
