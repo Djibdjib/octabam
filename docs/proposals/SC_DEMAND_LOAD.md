@@ -65,21 +65,31 @@ be solved. Two options:
   (`modules/scope/manifest.py:27-32`). The DSP form is a new schema type, e.g.
   `DspOverride(site={"A": 0x50e, "B": 0x303}, module="LOAD METER")` (`Override.site` is a single ColdFire int and DSP sites
   differ per payload): the ledger accepts the shared site and the build skips LOAD METER's `otop_e2` hook there. It is declared
-  in octabam's wrapper, `modules/sidechain-compressor/manifest.py`, which already extends Zac's MODULE with
-  `dataclasses.replace`, so nothing in `upstream/` changes; `requires=("LOAD METER",)` goes with it, or the override only
-  applies when LOAD METER is selected.
+  in **a bridge module of its own** (e.g. `SC LOAD METER BRIDGE`) with `requires=("SIDECHAIN_COMPRESSOR", "LOAD METER")`, the
+  bridge pattern `schema.py:1518-1521` describes (scenes-p2-kits), which octabam selects. Not on SC's manifest: an `Override` is
+  refused when the overridden module is not in the remix, and `requires` would refuse SC without LOAD METER, which breaks
+  `remixes/test/sidechain-compressor` and `test/kyoti-mute-sidechain` (neither carries LOAD METER). Remixes without the bridge
+  get SC exactly as now; nothing in `upstream/` changes.
 - **Move `otop_e2`** to another dispatcher site. This changes LOAD METER's figures, which `COSTS.md` is built on. Not recommended.
 
 ### The block: one copy of the code and one key window
 
-**Make the code core-independent** (Zac's source, the one change on his side). 🟡 Every per-core token can be computed from
-`x:$420` (the track, 0..7; core A is tracks 4-7):
+**Make the code core-independent, as an opt-in form** (Zac's source, the one change on his side). 🟡 Every per-core token can
+be computed from `x:$420` (the track, 0..7; core A is tracks 4-7):
 - `@COREBASE@` is `track & 4`; `sctap`'s "local track 0" test becomes `track & 3 == 0`.
-- `@SBASE@`/`@FSBASE@`: index the window by **absolute** track, `slot(t, gen) = WBASE + t*$80 + gen*$20` (8 x 4 x 32 = `$400`
-  words, the same as two `$200`), so "own" and "foreign" are one formula.
+- `@SBASE@`/`@FSBASE@`: keep the two `$200` regions and pick one by the **track's** bit 2, not by the core:
+  `slot(t, gen) = WBASE[t & 4] + (t & 3)*$80 + gen*$20`. A track's own publish and a foreign read are then one formula, and the
+  two regions can stay where each layout has them today (or sit side by side as one `$400` run in octabam's block).
 - `@FOREIGN_BR@`: `(my track xor KEY track) & 4` is non-zero for a foreign key: one `bne` on both cores.
-- `@GCNT@`/`@GSEED@` are read only by their own core (Zac, #934), so they move to core-private Y next to the MON words.
+- `@GCNT@`/`@GSEED@` are read only by their own core (Zac, #934), so they move to core-private Y, as a layout token like
+  `@KEYB@`/`@MONB@` (each layout names two free words).
 Then one copy is 677 words + `$400` = 1,701.
+
+**The form is a build choice; the default stays the per-core source.** Zac's standalone, KYOTI and Modwerk images assemble the
+same `patch_sc_dsp3.asm`, and his promoted builders are pinned to their image's sha256 (`seal()`, upstream `CLAUDE.md`): a
+source change that moved their bytes would make them refuse until re-proven on a unit. So the shared form is selected by a
+token (e.g. `@SHARED@`, set only by octabam's demand layout), and with it unset the source must assemble byte-identical to
+today, which `seal()` checks for him.
 
 **Where.** The blocks' free space above offset `0x3820` (only DARK REV reaches it) is 1,411 words in blocks 0 and 1 (the loader
 and LOAD METER above) and 2,016 in blocks 2 and 3. 🟡 SC's 1,701 fits blocks 2 and 3 only (`0x3b820` or `0x3f820`), the same
@@ -92,7 +102,7 @@ span, so the pump must treat them as one block holder (it already allows one dem
 |---|---|---|
 | the entry table | ✅ `x:$33da3 + 8 k` holds exactly 4 (DLCOPY starts at `0x33dc3`; the build exits above 4, `build_bus.py:151`). A fifth entry moves DLCOPY and everything after it up 8 words | `remixes/octabam/remix.py` `window`, `build_bus.py:151`, DLPROBE readers |
 | the build: a hooked demand module | the window path already plants hooks into window code (`build_bus.py:3346`; the comment on `Remix.window` saying "no hooks" is stale). For a `window_demand` module it must instead emit the resident stubs and point the hooks at them, and record the bodies for the pump | `build_bus.py` around 3346; `schema.py` comment |
-| the schema: `DspOverride` | a DSP form of `Override` (per-payload site, the overridden module's key); the ledger takes the site as the bridge's, the build skips the overridden hook | `schema.py`, `tools/remix/ledger.py`, `build_bus.py`; SC's wrapper manifest |
+| the schema: `DspOverride` | a DSP form of `Override` (per-payload site, the overridden module's key); the ledger takes the site as the bridge's, the build skips the overridden hook | `schema.py`, `tools/remix/ledger.py`, `build_bus.py`; a new bridge module (`modules/sc-loadmeter-bridge/`) |
 | the build: `ptable2` | ✅ the window path refuses a second table (`build_bus.py:3287`); place it behind `ptable` as the harvested path does (`build_bus.py:3583`) | `build_bus.py` |
 | the trigger | ✅ `dl_tab` uses `modules[key].menu.fx2_id` (`dlpump/manifest.py`); for a `stock_dsp` module use the replaced effect's stock id (COMPRESSOR's), which is what the Part saves | `modules/dlpump/manifest.py` `table_inc` |
 | the choosers | a `stock_dsp` demand module must never be refused: COMPRESSOR still works as stock when SC is not loaded. Toast only (`EVICT ... 1ST` text to settle) | `modules/dlpump/pump.s` `dl_sel_fx1/2` |
@@ -100,6 +110,16 @@ span, so the pump must treat them as one block holder (it already allows one dem
 
 Total resident cost: 8 (entry) + 36-40 (stubs) + 2 (the bridge) = 46-50 words against 55 free (46 + 9, in two gaps). 🟡 It
 fits only if the build report confirms the 55 and the stubs come in at the low end. It is the deciding number.
+
+## Compatibility outside octabam
+
+| who | what changes | why it stays compatible |
+|---|---|---|
+| Zac's standalone, KYOTI, Modwerk images | nothing unless they opt in | the shared form is a token; unset, the bytes are today's (`seal()`) |
+| saved projects and Parts | nothing | COMPRESSOR's slots, ids and defaults are untouched; while SC is not loaded it runs as stock COMPRESSOR |
+| `test/sidechain-compressor`, `test/kyoti-mute-sidechain`, any remix without the loader | nothing | stubs are generated only for a `window_demand` module; SC elsewhere is placed and hooked as now; the bridge is a separate module they do not select |
+| every other remix | nothing | the build changes are proved by `scripts/refhash.sh check` (24 configurations bit-identical, in CI) |
+| `octabam`, `test/dlspike` | DLCOPY and what follows move up 8 words for the fifth entry | expected; their images change |
 
 ## Open, in the order they decide the work
 
