@@ -176,8 +176,12 @@ make recon
 ```
 
 `make os` downloads `OCTATRACK_OS1.40C_dist.zip` from Elektron's site into
-`downloads/` and prints its SHA256 (expected
-`370c55a3dad3996b8e4b46400a205066fdaf185ad4d0255a3a3f835060573ff0`).
+`downloads/`, unpacks it, and checks the firmware's SHA256: `OCTATRACK_OS1.40C.bin`
+`34695b606eb00e1b4dded5fd0c4b66f3a460522a632e47d7416dbd220599e1ad`,
+`OCTATRACK_OS1.40C.syx`
+`0a8d2d2b35c2cc78fa338576adc1af0cbc094cef973255103165c73edd87f2b6`. The zip's own
+hash is printed but not checked: since 28 Oct 2026 the zip carries an `Elektron
+EULA.txt` stamped at download time (the zip of record was `370c55a3…`).
 `make recon` unpacks it to `out/raw/section_3_MAIN_OS.bin`, the file every
 build reads. Both directories are gitignored.
 
