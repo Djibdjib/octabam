@@ -2532,38 +2532,56 @@ mkgo:""",
 
         _body_src = pathlib.Path("modules/dlcopy/dlwrap.asm").read_text()
 
-        def _tramps(tag, body_init, body_proc):
-            out = []
+        # Each reverb's record, per payload: its stock init, its stock proc, its extent (one more than the highest word it
+        # writes above its base). The trampolines only name a record; two loaders, shared by both payloads, copy it into
+        # the cells the body reads (x:$3fd1 the stock entry, x:$3fd2 the extent, x:$3fd3 the stock init) and enter the
+        # body. The records follow the code as data, read with `move p:(r5)+` (the window is one memory on the chip, and
+        # dsp_host keeps P, where the upload puts them). r5 is free at both entries: the body writes it before any stock code runs.
+        _recs = []
+        for _tag in ("A", "B"):
             for _n, _gk in enumerate(GUARD):
                 _gid = stock_mod.BY_KEY[_gk].menu.fx2_id
-                _gi, _gq = _rdx(tag, _gid * 3), _rdx(tag, (PROC_OFF + _gid) * 3)
+                _gi, _gq = _rdx(_tag, _gid * 3), _rdx(_tag, (PROC_OFF + _gid) * 3)
                 _gx = stock_mod.SLOT_EXTENT[_gk] + 1
-                guard_records[f"{_gk}:{tag}"] = {"stock_init": _gi, "stock_proc": _gq, "extent": _gx}
-                out.append(f"dwi_{_n}:\n        move    #>${_gi:x},x0\n        move    x0,x:>$3fd1\n"
-                           f"        move    #>${_gx:x},x0\n        move    x0,x:>$3fd2\n"
-                           f"        move    #>${body_init:x},r2\n        jmp     (r2)\n"
-                           f"dwp_{_n}:\n        move    #>${_gq:x},x0\n        move    x0,x:>$3fd1\n"
-                           f"        move    #>${_gx:x},x0\n        move    x0,x:>$3fd2\n"
-                           f"        move    #>${_gi:x},x0\n        move    x0,x:>$3fd3\n"
-                           f"        move    #>${body_proc:x},r2\n        jmp     (r2)\n")
+                guard_records[f"{_gk}:{_tag}"] = {"stock_init": _gi, "stock_proc": _gq, "extent": _gx}
+                _recs += [_gi, _gq, _gx]
+
+        def _tramps(rec_at, body_init, body_proc):
+            out = []
+            for _p, _tag in enumerate(("a", "b")):
+                for _n in range(len(GUARD)):
+                    _r = rec_at + 3 * (_p * len(GUARD) + _n)
+                    out.append(f"dwi{_tag}{_n}:\n        move    #>${_r:x},r5\n        bra     dwlqi\n"
+                               f"dwp{_tag}{_n}:\n        move    #>${_r:x},r5\n        bra     dwlqp\n")
+            out.append("dwlqi:\n        move    p:(r5)+,x0\n        move    x0,x:>$3fd1\n"
+                       "        move    p:(r5)+,x0\n        move    p:(r5)+,x0\n        move    x0,x:>$3fd2\n"
+                       f"        move    #>${body_init:x},r2\n        jmp     (r2)\n"
+                       "dwlqp:\n        move    p:(r5)+,x0\n        move    x0,x:>$3fd3\n"
+                       "        move    p:(r5)+,x0\n        move    x0,x:>$3fd1\n"
+                       "        move    p:(r5)+,x0\n        move    x0,x:>$3fd2\n"
+                       f"        move    #>${body_proc:x},r2\n        jmp     (r2)\n")
             return "".join(out)
 
-        # the trampolines' length does not depend on the body's address (all immediates are 24-bit)
-        _la = len(assemble_syms(_tramps("A", 0x30000, 0x30000), loader_next, label="guard trampolines A")[0])
-        _lb = len(assemble_syms(_tramps("B", 0x30000, 0x30000), loader_next, label="guard trampolines B")[0])
-        _bat = loader_next + _la + _lb
+        # the code's length does not depend on the records' or the body's address (all immediates are 24-bit)
+        _lt = len(assemble_syms(_tramps(0x30000, 0x30000, 0x30000), loader_next, label="guard trampolines")[0])
+        _rat = loader_next + _lt
+        _bat = _rat + len(_recs)
         _bw, _bs = assemble_syms(_body_src, _bat, label="reverb guard body")
-        _at = loader_next
-        for _tag, _ln in (("A", _la), ("B", _lb)):
-            _tw, guard_syms[_tag] = assemble_syms(_tramps(_tag, _bs["init"], _bs["proc"]), _at, label=f"guard trampolines {_tag}")
-            _loader_check(f"reverb guard trampolines {_tag}", _at, len(_tw))
-            window_records[f"guard {_tag}"] = (_at, list(_tw))
+        _tw, _ts = assemble_syms(_tramps(_rat, _bs["init"], _bs["proc"]), loader_next, label="guard trampolines")
+        if len(_tw) != _lt:
+            sys.exit("guard trampolines: the code changed length with its addresses")
+        _loader_check("reverb guard trampolines", loader_next, len(_tw) + len(_recs))
+        window_records["guard trampolines"] = (loader_next, list(_tw) + _recs)
+        for _tag in ("A", "B"):
+            guard_syms[_tag] = {}
             for _n, _gk in enumerate(GUARD):
+                guard_syms[_tag][f"dwi_{_n}"] = _ts[f"dwi{_tag.lower()}{_n}"]
+                guard_syms[_tag][f"dwp_{_n}"] = _ts[f"dwp{_tag.lower()}{_n}"]
                 guard_records[f"{_gk}:{_tag}"].update(init=guard_syms[_tag][f"dwi_{_n}"], proc=guard_syms[_tag][f"dwp_{_n}"])
-            _at += _ln
         _loader_check("reverb guard body", _bat, len(_bw))
         window_records["guard body"] = (_bat, list(_bw))
-        print(f"  reverb guard  trampolines P:0x{loader_next:05x}..0x{_bat:05x} (A {_la}, B {_lb} words), body P:0x{_bat:05x}..0x{_bat + len(_bw):05x} ({len(_bw)} words)")
+        print(f"  reverb guard  trampolines P:0x{loader_next:05x}..0x{_rat:05x} ({_lt} words), records P:0x{_rat:05x}..0x{_bat:05x} "
+              f"({len(_recs)} words), body P:0x{_bat:05x}..0x{_bat + len(_bw):05x} ({len(_bw)} words)")
         loader_next = _bat + len(_bw)
     pathlib.Path("out/dsp/demand_records.json").unlink(missing_ok=True)   # DLPUMP's table reads it after this stage
     for tag, va, ln in PAYLOADS:

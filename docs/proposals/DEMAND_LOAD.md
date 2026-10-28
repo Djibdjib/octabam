@@ -88,12 +88,12 @@ Layout (words are `X:` or `P:` as in the window, which aliases):
 | `x:$33da3 + 8 k` (k = 0..3, in the clear gap) | effect k's entry: +0 BOUND (`$b0a5ed`), +1 real init, +2 real proc, +3 first window word, +4 the word after |
 | `x:$2900` | staging: doorbell, k, destination offset, N, init offset, proc offset, then 2 N halfwords (code word as high 16 bits, then low 8), then the sum of the code words modulo 2^24 in the same form. Addresses are offsets into the window |
 | `x:$3f00..$3f4c` | the stub's per-instance flags and saved registers; `x:$3dc0..$3e3f` the guard's state words and base cells, `x:$3fd0..$3fea` the trampolines' words, the guard's scratch and the copier's saved `b` |
-| `P:0x33dc3..0x33e34` | DLCOPY; the stub follows at `window_loader` (`0x33e40`), then the guard's trampolines for payload A and B, then its body (to `0x33fd2` in octabam) |
+| `P:0x33dc3..0x33e55` | DLCOPY; the stub follows at `window_loader` (`0x33e56`), then the guard's trampolines for payload A and B with their two shared loaders, the reverbs' records (stock init, stock proc, extent; three words a reverb and payload), then its body (to `0x33fb6` in octabam, 28 Oct 2026) |
 | `P:0x37da3..0x37eff` | LOAD METER's DSP half (A and B) |
 | top of each slot | the effects, not uploaded: SPECTRUM `0x33820` (slot of T7), CHARACTER `0x37820` (T8), MODULATION `0x3b820` (T3), TRANSIENT `0x3fe00` (T4). The loader and LOAD METER sit above `0x33da3` and `0x37da3` in the first two slots, so those hold at most 1,411 words from `0x3820` (SPECTRUM, the larger of the two placed there, is 1,399); the third and fourth hold 2,016 |
 
 The clear gaps are `0x33da3..0x33fff` (605 words) and `0x37da3..0x37eff` (349 words); resident code above `0x37f00` is wiped at
-boot. octabam uses 559 and 340.
+boot. octabam uses 531 and 340 (build report, 28 Oct 2026: the guard's trampolines were 156 words of immediates until then, 88 with their records now).
 
 Builder: `Remix.window_demand` (keys), `Remix.window_guard` (stock keys), `Remix.window_loader` (address). The demand effects'
 records are left out of payload A's upload and written to `out/dsp/demand_records.json`; the guards' addresses to
