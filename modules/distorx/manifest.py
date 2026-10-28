@@ -315,7 +315,8 @@ PTABLE = WF + LN + EXP + TAPER + TP + OM + MK
 
 CONSTQ = {k: _q(v) for k, v in {**CONST, **RCONST}.items()}
 CONSTQ.update(WF_AT=WF_AT, LN_AT=LN_AT, EXP_AT=EXP_AT, TAP_AT=TAP_AT, TP_AT=TP_AT, OM_AT=OM_AT,
-              MK_AT=MK_AT, MK_AT6=MK_AT + 6, OMB=OM_AT + 7 * 16)
+              MK_AT=MK_AT, MK_AT6=MK_AT + 6, OMB=OM_AT + 7 * 16,
+              OMB16=OM_AT + 7 * 16 - 16)   # OMB16: the RAT loop's lookup runs 16 high (the 2m form)
 
 _P = Formatter.PLAIN
 _B = Formatter.BIPOLAR
@@ -330,7 +331,7 @@ MODULE = Module(
     proof_note="the owner's MKI, image DTXPR3 (BUILD 96, remix distorx, on 0x05), 22 Oct 2026: DISTORX on T1 for more "
                "than four minutes with four DISTORX at once on both cores (T1 and T2 kicks with DISTORX, T3 hats and T4 claps dry, T5 COMB FILTER + DISTORX, T6 COMB FILTER + DARK REV, T7 COMB FILTER + DISTORX, T8 MASTER), MODE changed while playing, OFF on "
                "re-selection, no clicks, by ear. Before, on 0x0a, image DTXPR1 (21 Oct): every knob in every MODE, "
-               "FX1 and FX2, an LFO, a scene, save and reload",
+               "FX1 and FX2, an LFO, a scene, save and reload. v10's loops (28 Oct) are not flashed",
     doc="SD-1 + RAT + Turbo RAT in one insert: MODE picks the pedal (OFF first), a 3 ms fade between them.",
     menu=MenuEntry(
         fx2_id=0x05,                  # SPATIALIZER's (README "FX id"): every non-stock id is a module's
@@ -369,5 +370,6 @@ MODULE = Module(
     harness=Harness(layout_char=None, is_server=False),
     gates=(Gate("tools/verify/verify_distorx.py", remix_arg=False),),
     conflicts=(("SHATTER", "both are per-track dirt inserts (drive, clip): one in a remix"),),
-    dear={"LEVL": 127, "TONE": 127, "DRIV": 127, "IN": 127, "MIX": 127, "MODE": 2},
+    # MIX 126, not 127: v10's settled loop (MIX 127) is cheaper than the calm blend below it
+    dear={"LEVL": 127, "TONE": 127, "DRIV": 127, "IN": 127, "MIX": 126, "MODE": 2},
 )

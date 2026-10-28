@@ -561,10 +561,16 @@ dl_dest:  .long 0
 dl_src:   .long 0
 dl_left:  .long 0
 dl_loaded: .long 0                      | bit k: effect k is loaded
-dl_seen:  .long 0, 0, 0, 0              | per effect: idle calls it has been used, not loaded, on a free block
-dl_hm:    .long 0, 0, 0, 0                  | per effect: the index of the home it is loaded in
+dl_seen:  .rept DL_N                    | per effect: idle calls it has been used, not loaded, on a free block
+          .long 0
+          .endr
+dl_hm:    .rept DL_N                    | per effect: the index of the home it is loaded in
+          .long 0
+          .endr
 dl_busy:  .long 0                           | bit b: the demand code in block b (0..3)
-dl_gone:  .long 0, 0, 0, 0              | per effect: idle calls it has been loaded and unused
+dl_gone:  .rept DL_N                    | per effect: idle calls it has been loaded and unused
+          .long 0
+          .endr
 dl_rwait: .long 0                       | idle calls until the load of effect dl_rk is sent again (0: none)
 dl_rk:    .long 0
 dl_rn:    .long 0                       | repeats still to send for it
