@@ -571,6 +571,8 @@ class PlanJsonTests(unittest.TestCase):
         return [("verify_docs", "python3 tools/verify/verify_docs.py", ["a"]),
                 ("test-acceptance", "make test-acceptance", ["b"]),
                 ("ci", "make ci", ["g"]),
+                ("ci-dsp", "make ci-dsp", ["h"]),
+                ("ci-emu", "make ci-emu", ["i"]),
                 ("selftest", "python3 tools/remix/selftest.py", ["f"]),
                 ("refhash", "scripts/refhash.sh check", ["c"]),
                 ("check-shared", 'make check-shared REMIXES="x y"', ["d"]),
@@ -582,7 +584,7 @@ class PlanJsonTests(unittest.TestCase):
                                      "check-remix x", "check-remix y", "selftest"])
         self.assertEqual(got["selftest"], ["python3 tools/remix/selftest.py"])
         commands = [c for cs in got.values() for c in cs]
-        for dedicated in ("verify_docs.py", "make test-acceptance", "make ci"):
+        for dedicated in ("verify_docs.py", "make test-acceptance", "make ci", "make ci-dsp", "make ci-emu"):
             self.assertFalse([c for c in commands if dedicated in c], dedicated)
         self.assertEqual(got["check-shared"], ['make check-shared REMIXES="x y" SHARED_PART=rest'])
         self.assertEqual(got["check-shared (module gates)"], ['make check-shared REMIXES="x y" SHARED_PART=modules'])
@@ -617,7 +619,7 @@ class PlanJsonTests(unittest.TestCase):
     def test_the_json_matrix_lists_each_units_commands(self):
         d = reach.plan_json("origin/main", None, True, 3, ["x", "y"], self.items())
         self.assertEqual([e["name"] for e in d["matrix"]][-1], "selftest")
-        self.assertEqual(len(d["gates"]), 7)
+        self.assertEqual(len(d["gates"]), 9)
 
     def test_only_keeps_one_unit_and_refuses_an_unknown_one(self):
         import contextlib

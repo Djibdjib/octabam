@@ -1080,12 +1080,14 @@ LIGHT = ("selftest",)
 
 # Commands a CI job of its own runs for every diff that plans them, so the
 # matrix has no unit for them (a local `make reach RUN=1` still runs them):
-# verify_docs by Docs, Site and Web Patches (always); test-acceptance by Acceptance Runner
-# Tests and ci (ci-dsp, ci-emu, test-acceptance, verify-docs) by it, DSP
-# Toolchain and ColdFire Port Unit Tests, whose path prefixes
-# (tools/verify/ci_paths.py) cover every path that plans `ci`: the Makefile
-# and .github/.
-DEDICATED = ("verify_docs", "test-acceptance", "ci")
+# verify_docs and test-acceptance by Docs, Site and Web Patches (always; the
+# acceptance step when `acceptance` is affected), ci-dsp by DSP Toolchain, ci-emu
+# by ColdFire Port Unit Tests, and ci (ci-dsp, ci-emu, test-acceptance,
+# verify-docs) by those. The path prefixes (tools/verify/ci_paths.py) of
+# those jobs cover every path that plans these commands: the Makefile and
+# .github/ plan `ci`; tools/harness/dsp_host, tools/patches and
+# scripts/{setup,vendor}.sh plan ci-dsp; tools/emu/ot_emu plans ci-emu.
+DEDICATED = ("verify_docs", "test-acceptance", "ci", "ci-dsp", "ci-emu")
 
 
 def entry_name(kind, command):

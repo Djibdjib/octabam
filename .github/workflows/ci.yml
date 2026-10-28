@@ -387,40 +387,9 @@ jobs:
           [ "$PLAN" = success ] || exit 1
           [ "$GATES" = success ] || { [ "$COUNT" = 0 ] && [ "$GATES" = skipped ]; }
 
-  acceptance-runner:
-    name: ✅ Acceptance Runner Tests (${{ matrix.os }})
-    needs: classify
-    if: needs.classify.outputs.acceptance == 'true'
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    steps:
-      - name: 📥 Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      # actions/checkout updates submodules one at a time; these are 16 clones
-      - name: 📥 Submodules
-        run: git submodule update --init --force --depth 1 --jobs 16
-
-      - name: 🐍 Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.12'
-
-      - name: 📦 Card Inspection Tool (Linux)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y lsof
-
-      - name: ✅ Acceptance Runner Tests
-        run: make test-acceptance
-
   docs:
-    # Docs, the manual site and the web builder's patches: all load the
+    # Docs, the manual site, the web builder's patches and the acceptance
+    # runner's tests: all load the
     # registry, whose manifests read the author submodules, so one checkout
     # serves them. The site builds with MkDocs shadcn: the generator runs the
     # registry, and mkdocs --strict fails on a bad manifest, a broken link or
@@ -466,6 +435,12 @@ jobs:
           else
             echo "no published patches yet"
           fi
+
+      # firmware-free tests of the acceptance runner and the reach classifier
+      # (make test-acceptance); lsof is the card inspection tool's
+      - name: ✅ Acceptance Runner Tests
+        if: ${{ !cancelled() && needs.classify.outputs.acceptance == 'true' }}
+        run: sudo apt-get update && sudo apt-get install -y lsof && make test-acceptance
 
       - name: 📦 Install Site Dependencies
         if: github.event_name == 'pull_request' && needs.classify.outputs.site == 'true'
