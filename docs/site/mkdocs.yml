@@ -6,10 +6,11 @@ docs_dir: .
 site_dir: ../../out/site
 use_directory_urls: false
 # the _remix-*.md fragments are snippet includes, not pages; usage/*.md
-# are included into generated module pages; img/ holds image assets.
+# are included into generated module pages, manual/*.md into the manuals; img/ holds image assets.
 exclude_docs: |
   reference/_remix-*.md
   usage/*.md
+  manual/*.md
 extra_css:
   - css/fonts.css
   - css/sidebar-spacing.css

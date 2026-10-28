@@ -55,6 +55,14 @@ dropped from the manual, because the knob tables come from the manifest;
 the module's own page keeps it. A module with no fragment shows its manifest
 line, so the manual has no hole.
 
+The introduction (chapter 1) of each manual is hand-written, one file per
+remix in the site's manual directory (`octabam.md`, `octabam-bus.md`,
+`cxosc-core.md`). Write it as sections `### 1.1`, `### 1.2`, ... for the page
+it lands in, so its links are relative to `reference/manual/<remix>/`
+(`../../../brain.md` reaches the site root, `../octabam/index.md` another
+manual); the generator numbers its own sections after yours. A remix without
+one gets its `Remix.doc` line.
+
 To improve a knob's row in the manual, edit the `Param` `doc` in the
 manifest. To improve a module's prose, edit its usage fragment. The remix's
 own paragraph is `Remix.doc`. A new official remix, or a module in a category the remix had none of,

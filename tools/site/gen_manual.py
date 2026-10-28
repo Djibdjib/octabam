@@ -42,6 +42,7 @@ from remix import index  # noqa: E402
 from remix.schema import PROOF_TEXT, Category, Formatter, Option, Binary, Number, Pin, Trigger, Blob  # noqa: E402
 
 USAGE = OUT.parent / pathlib.Path("usage")
+INTROS = OUT.parent / pathlib.Path("manual")
 
 # (category, page, title), in the order a reader meets them.
 CHAPTERS = (
@@ -326,14 +327,25 @@ def manual(name: str, r, mods) -> dict[str, str]:
               "- [1 Introduction](#1-introduction)", "- [2 Installing](#2-installing)"]
     intro += [f"- [{n} {t}]({page}.md)" for n, page, t, _ in numbered]
     intro += [f"- [{t}]({page}.md)" for page, t in APPENDICES] + [""]
-    intro += ["## 1 Introduction", "", f"### 1.1 About {heading}", "", r.doc, "",
-              f"**Where it has run:** {index.proof_text(r)}.", "",
-              "### 1.2 Conventions", "",
+    # The introduction: a hand-written fragment per remix (the site's manual
+    # directory), written for the manual page it lands in, so its links are
+    # relative to reference/manual/<remix>/. Without one, the remix's own line.
+    written = INTROS / f"{name}.md"
+    if written.is_file():
+        text = written.read_text().strip()
+        k = len(re.findall(r"(?m)^### 1\.\d ", text))
+        about = [text, ""]
+    else:
+        k = 1
+        about = [f"### 1.1 About {heading}", "", r.doc, ""]
+    intro += ["## 1 Introduction", ""] + about
+    intro += [f"**Where it has run:** {index.proof_text(r)}.", "",
+              f"### 1.{k + 1} Conventions", "",
               "Names in capitals are what the unit's screen prints. Effects sit on the FX1 and "
               "FX2 keys; each has two pages of six knobs, A to F, reached with the PAGE keys "
               "as on any Octatrack effect. A module's **Test status** says how far it has been proven:", "",
               gen_pages.PROOF_LEGEND, "",
-              "### 1.3 What is in this image", "",
+              f"### 1.{k + 2} What is in this image", "",
               "| Chapter | Features |", "|---|---|"]
     for n, page, t, ms in numbered:
         intro.append(f"| [{n} {t}]({page}.md) | " + ", ".join(_label(m) for m in ms) + " |")
