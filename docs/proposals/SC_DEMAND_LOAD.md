@@ -10,7 +10,7 @@ Zac-Kyoti/octatrack-kyoti-fw#4 (opt-in `FORM = SHARED`; open, 28 Oct 2026); the 
 
 octabam carries SIDECHAIN_COMPRESSOR in COMPRESSOR's row as the fifth demand effect, `FORM = SHARED` (Zac-Kyoti/octatrack-kyoti-fw#4,
 open), one home at `P:0x3f820` (1,711 words: 620 code, 65 table, 1,026 key window and counters as zeros), PLACE = DRAM.
-- The build: hooked demand modules get resident stubs (five, 47 words, after the guard body); `schema.DspOverride` and the
+- The build: hooked demand modules get resident stubs (five, 47 words at `0x33fbe..0x33fed`, after the guard body, 18 resident words left); `schema.DspOverride` and the
   SC LOAD METER BRIDGE module let `moncommit` and LOAD METER's `otop_e2` share `P:0x50e`/`0x303`; the entry table grows to five
   (DLCOPY at `0x33dcb`, the loader at `0x33e5e`); the window path takes a `ptable2`; demand blocks may overlap.
 - DLPUMP: the trigger is COMPRESSOR's id (`0x18`, SC's own); a soft effect is never refused, never refuses a reverb, gives its
