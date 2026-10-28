@@ -2050,7 +2050,7 @@ class Remix:
     # payload A's upload: its words, address, entry points and id go to out/dsp/demand_records.json for
     # the ColdFire loader (modules/dlpump). Its id's dispatch entries point at a trampoline of the stub
     # (modules/dlcopy/dlstub.asm) that passes the audio through until DLCOPY has published the code. The
-    # position in this tuple is the effect's index k, 0..3 (the entry at x:$33da3 + 8 k).
+    # position in this tuple is the effect's index k (the entry at x:$33da3 + 8 k; a fifth or later moves DLCOPY up 8 words each).
     window_demand: tuple[str, ...] = ()
     # OTHER HOMES OF A DEMAND EFFECT: (key, P address) pairs, any number per key. The effect's address in `window` is its
     # first home; each pair here is another, in a different FX2 block of the window. The build assembles the effect once per

@@ -147,8 +147,11 @@ DEMAND = {_dk: _i for _i, _dk in enumerate(REMIX.window_demand)}      # key -> i
 HOMES = {}                                                              # key -> the addresses of its other homes (Remix.window_homes)
 for _hk, _ha in REMIX.window_homes:
     HOMES.setdefault(_hk, []).append(_ha)
-if len(DEMAND) > 4:
-    sys.exit(f"Remix.window_demand: {len(DEMAND)} effects; the entry table at x:$33da3 holds 4")
+DL_ENTRY, DL_STRIDE = 0x33DA3, 8         # effect k's entry is x:$33da3 + 8 k (modules/dlcopy/dlcopy.asm)
+DL_SLOTS = max(4, len(DEMAND))          # entries the reverb guard checks: 4 as before, more when the remix has more
+if DEMAND and DL_ENTRY + DL_STRIDE * len(DEMAND) > WINDOW.get("DLCOPY", 0x33DC3):
+    sys.exit(f"Remix.window_demand: {len(DEMAND)} effects; their entries end at x:${DL_ENTRY + DL_STRIDE * len(DEMAND):x}, "
+             f"past DLCOPY at P:0x{WINDOW.get('DLCOPY', 0x33DC3):05x}: move DLCOPY (Remix.window) up {DL_STRIDE} words an effect")
 for _dk in DEMAND:
     if _dk not in WINDOW:
         sys.exit(f"Remix.window_demand names {_dk!r}, which Remix.window does not place")
@@ -2531,6 +2534,9 @@ mkgo:""",
             return buf[i] | (buf[i + 1] << 8) | (buf[i + 2] << 16)
 
         _body_src = pathlib.Path("modules/dlcopy/dlwrap.asm").read_text()
+        if _body_src.count("        do      #4,>dw_next\n") != 1:
+            sys.exit("modules/dlcopy/dlwrap.asm: dw_over's entry loop (`do #4,>dw_next`) is not where the build expects it")
+        _body_src = _body_src.replace("        do      #4,>dw_next\n", f"        do      #{DL_SLOTS},>dw_next\n")
 
         # Each reverb's record, per payload: its stock init, its stock proc, its extent (one more than the highest word it
         # writes above its base). The trampolines only name a record; two loaders, shared by both payloads, copy it into
