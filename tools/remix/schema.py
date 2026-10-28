@@ -2043,7 +2043,8 @@ class Remix:
     # Core 1 running code that sits in payload A's half is measured on the unit
     # (modules/pextprobe). The build refuses an address inside another owner's range
     # (tools/remix/dsp_ranges.py) or a module whose two payload sources assemble differently.
-    # A module placed this way has no hooks, no LFO or second table, and no tail.
+    # A module with DspHooks and no init/proc is reached by its hooks alone; its LFO table, ptable and ptable2 follow
+    # the code in that order. It has no tail and no pins.
     window: tuple[tuple[str, int], ...] = ()
     # DEMAND-LOADED WINDOW EFFECTS (docs/proposals/DEMAND_LOAD.md): module keys, each also in `window`
     # (at the address its code runs from). The module is assembled and placed as above but left out of

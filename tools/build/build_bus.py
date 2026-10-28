@@ -3308,28 +3308,35 @@ hostquit:
                 # addresses it replays into differ; a server: per-core code) has "KEY:B" for payload B's copy
                 _wk = name + ":B" if (tag == "B" and name + ":B" in WINDOW) else name
                 _wa = WINDOW[_wk]
-                if _wd.tail or _wd.ptable2 or _wd.pins:
-                    sys.exit(f"{name}: placed in the shared window, so it has no tail, "
-                             f"second table or pins")
+                if _wd.tail or _wd.pins:
+                    sys.exit(f"{name}: placed in the shared window, so it has no tail or pins")
                 _wt = list(_wd.ptable)
                 if _wt and (PTABLE_MARK not in src or src.count(PTABLE_MARK) != 1):
                     sys.exit(f"payload {tag}: {name}: a DspSection.ptable and exactly one "
                              f"{PTABLE_MARK} literal in the source go together")
+                # the second table follows the first (SIDECHAIN_COMPRESSOR's key filters), as on the harvested path
+                _wt2 = list(_wd.ptable2)
+                if bool(_wt2) != (PTABLE2_MARK in src) or src.count(PTABLE2_MARK) > 1 or (_wt2 and not _wt):
+                    sys.exit(f"payload {tag}: {name}: a DspSection.ptable2, a ptable, and exactly one "
+                             f"{PTABLE2_MARK} literal in the source go together")
                 # the LFO roll table (the source's $facade literal) goes behind the code, before the ptable
                 _wl = ((LFO01 + LFOTAB) if LFO01_MARK in src else LFOTAB) if "$facade" in src else []
                 if _wl and src.count("$facade") != 1:
                     sys.exit(f"payload {tag}: {name} has multiple $facade LFOTAB literals -- expected exactly one")
-                def _asm_at(_addr, src=src, _wt=_wt, _wl=_wl, name=name):
-                    """The module assembled at a window address: its code, then the LFO table, then the ptable."""
+                def _asm_at(_addr, src=src, _wt=_wt, _wt2=_wt2, _wl=_wl, name=name):
+                    """The module assembled at a window address: its code, then the LFO table, the ptable, the ptable2."""
                     _ws = src
                     if _wt or _wl:
-                        _w0, _ = assemble_syms(src.replace(PTABLE_MARK, "$0").replace("$facade", "$0"), _addr, label=name)
+                        _w0, _ = assemble_syms(src.replace(PTABLE_MARK, "$0").replace(PTABLE2_MARK, "$0")
+                                               .replace("$facade", "$0"), _addr, label=name)
                         _tb = _addr + len(_w0)
                         _ws = src.replace("$facade", f"${_tb:x}").replace(PTABLE_MARK, f"${_tb + len(_wl):x}")
+                        if _wt2:
+                            _ws = _ws.replace(PTABLE2_MARK, f"${_tb + len(_wl) + len(_wt):x}")
                     _aw, _asyms = assemble_syms(_ws, _addr, label=name)
                     if (_wt or _wl) and len(_aw) != len(_w0):
                         sys.exit(f"{name}: the code changed length with its table's address")
-                    return list(_aw) + _wl + _wt, _asyms
+                    return list(_aw) + _wl + _wt + _wt2, _asyms
                 _ww, _wsyms = _asm_at(_wa)
                 if _wk in window_records and window_records[_wk][1] != _ww:
                     sys.exit(f"{name}: placed in the shared window as one copy, but its payload "
