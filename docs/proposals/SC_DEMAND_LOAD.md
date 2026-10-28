@@ -40,6 +40,13 @@ Each stub: load the entry's BOUND word, compare with `$b0a5ed`, `jmp >` the hook
 `rts`. 🟡 About 9-10 words each with long addressing, 36-40 for four. Using only `a` keeps every stub inside its site's audited
 clobber set (`sctap`'s is a, b, r0, r1, n1, x0, r6, per the source).
 
+**The build generates them; no new module, no store.** A `DspHook` is a build-time patch (two stock words become `jsr >target`),
+so nothing is managed at run time. The stubs follow from SC's own `DspHook` declarations (each site's displaced instruction and
+the entry's BOUND word), the way the build already generates `dlstub.asm`'s per-effect trampolines: for a `window_demand` module
+with hooks, the build emits one stub per hook into the resident gap, records them as a claim the ledger checks, and points the
+`jsr`s at the stubs instead of the bodies. SC's hooks stay declared where they are. (`Store("octabam.sidechain-compressor")` is
+only the id SC's settings and page defaults are filed under; it has nothing to do with the hooks.)
+
 **One home for SC** (first version). With one home the bodies' addresses are fixed at build time, so a stub jumps to an absolute
 address. More homes would need the stub to read the home's base from the entry and add an offset: more words, which the gap does
 not have.
@@ -53,7 +60,14 @@ be solved. Two options:
 
 - **A DSP hook bridge** (the `Override` idea for `DspHook`s): the SC stub at that site does `jsr` moncommit's body when bound, then
   `jmp >otop_e2`, which replays the displaced instruction. Costs two words in the stub and a schema field. MON's fade then lands
-  before LOAD METER's end stamp, so the meter counts SC.
+  before LOAD METER's end stamp, so the meter counts SC. **Recommended**, on SCOPE's precedent: SCOPE shares three ColdFire
+  sites with TUNER through `requires=("TUNER",)` and `overrides=(Override(site, "TUNER"), ...)`, its own stub doing both jobs
+  (`modules/scope/manifest.py:27-32`). The DSP form is a new schema type, e.g.
+  `DspOverride(site={"A": 0x50e, "B": 0x303}, module="LOAD METER")` (`Override.site` is a single ColdFire int and DSP sites
+  differ per payload): the ledger accepts the shared site and the build skips LOAD METER's `otop_e2` hook there. It is declared
+  in octabam's wrapper, `modules/sidechain-compressor/manifest.py`, which already extends Zac's MODULE with
+  `dataclasses.replace`, so nothing in `upstream/` changes; `requires=("LOAD METER",)` goes with it, or the override only
+  applies when LOAD METER is selected.
 - **Move `otop_e2`** to another dispatcher site. This changes LOAD METER's figures, which `COSTS.md` is built on. Not recommended.
 
 ### The block: one copy of the code and one key window
@@ -78,6 +92,7 @@ span, so the pump must treat them as one block holder (it already allows one dem
 |---|---|---|
 | the entry table | ✅ `x:$33da3 + 8 k` holds exactly 4 (DLCOPY starts at `0x33dc3`; the build exits above 4, `build_bus.py:151`). A fifth entry moves DLCOPY and everything after it up 8 words | `remixes/octabam/remix.py` `window`, `build_bus.py:151`, DLPROBE readers |
 | the build: a hooked demand module | the window path already plants hooks into window code (`build_bus.py:3346`; the comment on `Remix.window` saying "no hooks" is stale). For a `window_demand` module it must instead emit the resident stubs and point the hooks at them, and record the bodies for the pump | `build_bus.py` around 3346; `schema.py` comment |
+| the schema: `DspOverride` | a DSP form of `Override` (per-payload site, the overridden module's key); the ledger takes the site as the bridge's, the build skips the overridden hook | `schema.py`, `tools/remix/ledger.py`, `build_bus.py`; SC's wrapper manifest |
 | the build: `ptable2` | ✅ the window path refuses a second table (`build_bus.py:3287`); place it behind `ptable` as the harvested path does (`build_bus.py:3583`) | `build_bus.py` |
 | the trigger | ✅ `dl_tab` uses `modules[key].menu.fx2_id` (`dlpump/manifest.py`); for a `stock_dsp` module use the replaced effect's stock id (COMPRESSOR's), which is what the Part saves | `modules/dlpump/manifest.py` `table_inc` |
 | the choosers | a `stock_dsp` demand module must never be refused: COMPRESSOR still works as stock when SC is not loaded. Toast only (`EVICT ... 1ST` text to settle) | `modules/dlpump/pump.s` `dl_sel_fx1/2` |
