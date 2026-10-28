@@ -2,6 +2,21 @@
 
 ## Flash K — `octabam` + STEM REC: a folder for each take, T1 at 24 bits (staged 27 Oct 2026)
 
+**Flashed** on Yves's MKII, reported 28 Oct 2026: "tests are ok! No 100%
+encountered, even after pushing hard with a lot of triggers as before."
+All three tests below passed, by his report. From the first three takes'
+logs and files (his folder, not the repository):
+- The first take was T1 alone at 24 bits, the boot default.
+- Each take wrote its own folder, `!STEMS/261028-2000/` and so on, and the
+  second take in one minute was named `261028-2008-2`.
+- Eleven files at 24 bits peaked at 2,694 of 7,922 frames (34%), against
+  36% and 37% for flash J's first two such takes on an emptied folder.
+  The round he pushed hard never showed 100% and never ended in `RING
+  FULL`; its logs aren't in the record.
+- Every WAV's length is its log's frame count × 16. Every `.ot` holds the
+  take's tempo (63 and 139 BPM, as the project had them) and a gain of
+  +12 dB.
+
 `STEMS11`, the same remix as flashes I and J, on branch `stems-next`
 rebased onto main `3b62cdef`:
 

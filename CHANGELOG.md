@@ -158,6 +158,33 @@ Docs
 - Removed: `PLAN.md`, `docs/TIMESTRETCH_PIPELINE.md` (27 Sep).
 - Demand loader (`modules/dlpump`, `modules/dlcopy`, `modules/dlprobe`; `docs/proposals/DEMAND_LOAD.md`): `octabam` copies SPECTRUM, CHARACTER, MODULATION and TRANSIENT into the DSP's shared window while a track uses them and withdraws them 10 s after the last use. All 14 stock effects stay; the stock reverbs run behind a guard that keeps them off loaded code. A block is held by whoever has it first: the FX1 and FX2 choosers refuse an effect whose block is under PLATE, DARK or SPRING REV, and a reverb on the block of a loaded effect a track uses, each with a toast (`NEEDS Tn FX2 FREE`, `Tn HOLDS <effect>`); other routes toast at the next page key. `octabam` lists the stations on FX1 (it offered SPECTRUM and CHARACTER on FX2 only, where they render dry). GATE VERB is not in `octabam`. New builder fields `Remix.window_demand`, `window_guard`, `window_loader`; the build refuses an uploaded window record above `0x37f00`. DLPROBE and `tools/hw/dl_state.py` (USB `0xc0/0x57` block 3) read the counters on a unit. Gates `verify_dlstub`, `verify_dlwrap`, `verify_dlload`, `verify_dlprobe`.
 
+## STEMS11 — 28 Oct 2026 (local remix `lm-stems`, branch `stems-next`, PR #965)
+
+On the unit (Yves's MKII, flash K): every test passed. Each take wrote its
+own folder; eleven files at 24 bits peaked at 34% of the ring, and a round
+pushed hard with many triggers never reached 100% (his report). The `.ot`
+files hold the take's tempo and +12 dB. `lm-stems` is `octabam` plus STEM
+REC and MEMORY, with LOAD METER's refusal of STEM REC lifted in that build
+only; it isn't committed (`modules/stems/FLASH.md` flash K).
+- STEM REC: a folder for each take, `<set>/AUDIO/!STEMS/<take>/<take>-<source>.wav`; T1 alone at 24 bits at boot.
+
+## STEMS10 — 27 Oct 2026 (local remix `lm-stems`, branch `stems-next`)
+
+On the unit (flash J): twelve takes, "everything looking good". The double
+tap armed (`yes gap` 160 to 171 ms), and split pairs wrote `A.wav` to
+`D.wav`. With every take's files in one `!STEMS` folder, each take's start
+slowed as it filled: eleven files at 24 bits peaked at 36%, 37%, 60% and
+89%, then `RING FULL` after 2.9 s with 88 files there.
+- STEM REC: STEMS drawn as SYSTEM > PERSONAL SETTINGS (15 rows, a row for each input pair, LEFT and RIGHT pick a checkbox), the folder `!STEMS` (it sorts first), no flicker, the double tap within 0.5 s and the `yes gap` log line (flash I's fixes; STEMS9 never went on the unit).
+
+## STEMS8 — 27 Oct 2026 (`stems`, branch `stems-next`)
+
+On the unit (flash H): the `.ot` files' tempo and gain, and the naming,
+were right. Four faults, fixed in STEMS10: `_STEMS` sorted after the
+letter folders, a column of pixels flickered each second, BRAIN was
+missing (`stems` doesn't carry it), and the double tap of YES didn't arm.
+- STEM REC, Yves's six notes of 26 Oct: a `.ot` beside each WAV (the take's tempo, +12 dB), the log in `/BRAIN/STEMS/<take>.TXT`, a flatter folder, a window that redraws itself and no reset on open, a double tap of YES on the main page to arm.
+
 ## Images DLPROBEJ1..K1 (26 Oct 2026, `remixes/test/dl-probe` and `dl-probe-any`)
 
 Sam's MKII, one image after another with the project `MXDLPR01` / `MXDLPR02` (DLPROBE on T1's FX1; MODULATION, SPECTRUM, CHARACTER on FX1 or FX2 of other tracks, TRANSIENT on T6's FX2), read over USB (`modules/dlprobe/decode.py`, `tools/hw/dl_state.py`, `tools/hw/load_meter.py`):
