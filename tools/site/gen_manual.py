@@ -120,7 +120,8 @@ def _figure(record: dict) -> list[str]:
 def _values(p) -> str:
     """What a knob's range reads as on the panel."""
     if p.labels:
-        return " / ".join(p.labels)
+        # a long list (STEPS 1 to 64, a note, a frequency) reads as its ends
+        return " / ".join(p.labels) if len(p.labels) <= 8 else f"{p.labels[0]} to {p.labels[-1]}"
     if p.formatter is Formatter.BIPOLAR:
         return "−64 to +63"
     if p.count and p.count != 128:
