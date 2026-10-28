@@ -212,8 +212,12 @@ def main():
                 check(f"{r['key']}: the copier counted three blocks received, none refused, three published (DLPROBE's counters)",
                       entry[5:8] == [3, 0, 3], f"{entry[5:8]}")
             code = peek("used", c, "P", r["addr"])
-            check(f"core {c}: {r['key']}'s code is in the window, every word", code == r["words"],
-                  f"{len(code)} of {n} words read")
+            # a block may end in zero words that are the code's own data, not code (SIDECHAIN_COMPRESSOR's key window and
+            # counters, written once it runs): compared up to the last non-zero word of the record
+            m = max((i for i, w in enumerate(r["words"]) if w), default=-1) + 1
+            note = f" (its last {n - m} words are data the running code writes)" if m < n else ""
+            check(f"core {c}: {r['key']}'s code is in the window, every word{note}",
+                  code[:m] == r["words"][:m] and len(code) == n, f"{len(code)} of {n} words read")
     check("the doorbell was consumed", peek("used", 1, "X", STAGE) == [0])
     print("withdrawn:")
     entry = peek("withdrawn", 1, "X", 0x33DA3)
