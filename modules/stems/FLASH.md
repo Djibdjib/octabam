@@ -20,7 +20,9 @@ VERSION=STEMS11`. The unit's OS version reads `STEMS11`.
 | MIDI image | `out/OCTATRACK_OS1.40C_STEMS11.syx` | 855,062 | `8e57de3e44f1fdd931d2085e3513256ada70c26c537242bd4745881a5051fe37` |
 | remix switch | `out/LM-STEMS 11.RMX` | 1,280,087 | `e22225a1b1c109a1e47ba4f5e7e11693ad5f98946da29624a26ff71eb711c4df` |
 
-Copies are in `/home/yvez/xcheck/stems11`. Under the port:
+Copies are in `/home/yvez/xcheck/stems11`. Rebuilt 28 Oct 2026 with
+the branch rebased onto main `b36afa2c`: the same three files, byte for
+byte (the same sizes and sha256). Under the port:
 `verify_stems_units` 115 pass; the pixel boot on `lm-stems` itself 9
 pass; the `crowded` run measures a take's start against a full `!STEMS`.
 
