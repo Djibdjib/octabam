@@ -3,7 +3,8 @@
 28 Oct 2026. DRAFT, for review before any code. ✅ read from the tree (file and line given), 🟡 inferred, ⬜ not looked at.
 Nothing here has been built or run: the session that wrote it had no m68k toolchain, no `vendor/` and no 1.40C image, so
 every word count below is an estimate until a build report prints it.
-Follows octabam#934 (Zac Kyoti agreed to test a port).
+Follows octabam#934 (Zac Kyoti agreed to test a port). The one-copy SC source is
+Zac-Kyoti/octatrack-kyoti-fw#4 (opt-in `FORM = SHARED`; open, 28 Oct 2026); the guard compaction is octabam#947 (merged).
 
 ## Measured, 28 Oct 2026: the resident words left in octabam
 
