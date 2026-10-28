@@ -49,6 +49,11 @@ def main():
         if m is not None and gen_pages._label(m) != label:
             fails.append(f"docs/site/mkdocs.yml: nav label '{label}' for {name} differs from its page title "
                          f"'{gen_pages._label(m)}'")
+    for name in registry.remix_names():
+        if not registry.is_test(name) and registry.remix_dir(name) is not None \
+                and f"reference/manual/{name}.md" not in nav:
+            fails.append(f"docs/site/mkdocs.yml: no nav entry for the manual of remix {name} "
+                         f"(reference/manual/{name}.md)")
     fails += doclinks.check()
     for f in fails:
         print("  [FAIL]", f)

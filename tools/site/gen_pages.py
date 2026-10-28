@@ -351,6 +351,9 @@ def main(quiet: bool = False) -> int:
         if registry.is_test(name) or registry.remix_dir(name) is None:
             continue
         jobs[f"_remix-{name}.md"] = remix_fragment(registry.remix(name), mods)
+    import gen_manual
+    (OUT / "manual").mkdir(parents=True, exist_ok=True)
+    jobs.update(gen_manual.main(mods, official))
     for name, text in sorted(jobs.items()):
         (OUT / name).write_text(text)
         if not quiet:

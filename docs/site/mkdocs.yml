@@ -30,6 +30,10 @@ nav:
       - Build and Install: web-builder.md
       - Feature Directory: reference/modules.md
       - About: about.md
+  - Manuals:
+      - Octabam Manual: reference/manual/octabam.md
+      - Octabam Bus Manual: reference/manual/octabam-bus.md
+      - CX Osc Core Manual: reference/manual/cxosc-core.md
   - Effects:
       - BBD Delay: reference/modules/bbd.md
       - Character: reference/modules/character.md
