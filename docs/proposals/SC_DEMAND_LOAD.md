@@ -26,8 +26,16 @@ METER have grown since. The issue's "about 77" is older still.
 `scdet` and `scinit`, 7 for the `moncommit` bridge (`bra` to `otop_e2` instead of the replay), 31 in all; with the fifth entry,
 39. `dsp_asm` has no `jset`/`jcc` with these operands, and it writes a long `Bcc`'s absolute target as the displacement
 (`blt >$3b900` disassembles to a branch to `0x6f8fe`: the brclr trap in `AGENTS.md`), so the build must write each stub's
-displacement as a number. 🟡 `tst` changes the condition codes the stock code sees after `rts` (JSR/RTS do not restore SR):
-each site needs the CCR audit `AGENTS.md`'s Tcc trap describes.
+displacement as a number. `tst` changes the condition codes the stock code sees after `rts` (JSR/RTS do not restore SR).
+✅ The audit, from a disassembly of both payloads around each site (octabam image, 28 Oct 2026): a stub may clobber `a` and
+the CCR at all four.
+- `sctap` (`A 0x4a7`, `B 0x29c`): the stock code reloads `a` at `+3` (`move x:>$20a,a`) and sets the CCR (`asr`) before any
+  conditional.
+- `scdet` (`A 0x1ab1`, `B 0x1871`): after the two replayed words, `mpy x0,x0,a` writes `a` and the CCR.
+- `moncommit` (`A 0x50e`, `B 0x303`): LOAD METER's `otop_e2`, on the unit at this site, already clobbers `a`, `b` and the CCR.
+- `scinit` (`A 0x1aa4`, `B 0x1864`): the stock init only moves, so it hands its caller's `a` and CCR back; the caller, the
+  dispatcher's init call (`A 0x4cd`/`0x503`, `B 0x2c2`/`0x2f8`), reloads `a` (`move #$1,a`) and sets the CCR (`add`) after the
+  proc call that follows, before testing it. Zac's own `scinit` touches only `x0`, so it is no precedent here; the caller is.
 
 **It does not fit as the loader stands: 39 needed, 21 free, and no stub fits a 6-word run.**
 
