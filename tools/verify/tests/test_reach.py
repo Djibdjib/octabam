@@ -610,13 +610,11 @@ class PlanJsonTests(unittest.TestCase):
             items = [("check-remix", f"python3 tools/verify/check_shards.py --jobs 3 {flag}octabam", ["e"])]
             return {e["name"]: e["items"][0][1] for e in reach.entries(items, 3)}
         got = names("BRAIN,KITS")
-        self.assertEqual(got["check-remix octabam (brain)"],
-                         'python3 tools/verify/check_shards.py --jobs 3 --modules "BRAIN" --only-jobs image octabam')
+        self.assertEqual(got["check-remix octabam (brain)"], ".venv/bin/python3 tools/verify/verify_brain.py octabam")
         self.assertIn("check-remix octabam (brain)", names(""))              # an unscoped run reaches BRAIN too
         self.assertNotIn("check-remix octabam (brain)", names("KITS"))
         # additive: the plain unit still skips only the SPLIT_REMIX_JOBS parts, image stays in it
         self.assertNotIn("image", got["check-remix octabam"].split("--skip-jobs ")[1].split()[0].split(","))
-        self.assertEqual(reach.shards_line(got["check-remix octabam (brain)"]), (["octabam"], ["BRAIN"]))
 
     def test_recipe_scripts_follow_an_implementation_cut_into_halves(self):
         mk = ("verify-shared: ## x\n\t$(MAKE) -j1 verify-shared-impl\n\n"

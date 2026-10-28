@@ -1111,12 +1111,13 @@ def entry_name(kind, command):
 # half's 645 s, run serially.
 SPLIT_REMIX_JOBS = {"octabam": {"long": ("remix-switch",), "project": ("set", "mode-defaults", "plocks-p2")}}
 
-# A unit that runs one module's gates of a job again, with a generated project, beside the units above: `check-remix
-# <remix> (<name>)` is check_shards --modules MODULE --only-jobs JOBS. It is additive (the remix's other units still run
-# those jobs, without a project), so it exists only when MODULE is reached. `brain`: BRAIN's image-stage gate,
-# verify_brain, needs a project; the `image` job itself cannot take one (other modules' gates in it have not been run on a
-# generated project), so this unit scopes it to BRAIN. The remix the project is generated on is the one the gate builds.
-SPLIT_EXTRA_UNITS = {"octabam": {"brain": ("BRAIN", ("image",))}}
+# A unit that runs one gate on its own, with a generated project, beside the units above: `check-remix <remix> (<name>)`
+# is COMMAND. It is additive (the remix's other units still run that gate, without a project), so it exists only when
+# MODULE is reached. `brain`: BRAIN's image-stage gate, verify_brain, needs a project; the `image` job cannot take one, and
+# scoping it with --modules does not narrow it (that is "reached from BRAIN": 9 gates of ten modules, 4581 s, with
+# verify_usb_post, verify_load_meter and verify_usb_load_meter failing on a generated project, run 40640514673), so the
+# unit runs verify_brain alone. It builds its own image and reads OT_PROJECT, which ci.yml sets for a `(brain)` unit.
+SPLIT_EXTRA_UNITS = {"octabam": {"brain": ("BRAIN", ".venv/bin/python3 tools/verify/verify_brain.py octabam")}}
 
 
 def entries(items, jobs):
@@ -1147,11 +1148,9 @@ def entries(items, jobs):
                     for part, names in parts.items():
                         out.append({"name": f"check-remix {r} ({part})",
                                     "items": [(kind, line(f"--only-jobs {','.join(names)} "), paths)]})
-                    for name, (module, names) in SPLIT_EXTRA_UNITS.get(r, {}).items():
+                    for name, (module, command) in SPLIT_EXTRA_UNITS.get(r, {}).items():
                         if modules is None or module in modules:
-                            cmd = (f"python3 tools/verify/check_shards.py --jobs {jobs} --modules \"{module}\" "
-                                   f"--only-jobs {','.join(names)} {r}")
-                            out.append({"name": f"check-remix {r} ({name})", "items": [(kind, cmd, paths)]})
+                            out.append({"name": f"check-remix {r} ({name})", "items": [(kind, command, paths)]})
                 else:
                     out.append({"name": f"check-remix {r}", "items": [(kind, line(), paths)]})
         elif kind == "check-shared":
