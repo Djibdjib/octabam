@@ -1111,6 +1111,13 @@ def entry_name(kind, command):
 # half's 645 s, run serially.
 SPLIT_REMIX_JOBS = {"octabam": {"long": ("remix-switch",), "project": ("set", "mode-defaults", "plocks-p2")}}
 
+# A unit that runs one module's gates of a job again, with a generated project, beside the units above: `check-remix
+# <remix> (<name>)` is check_shards --modules MODULE --only-jobs JOBS. It is additive (the remix's other units still run
+# those jobs, without a project), so it exists only when MODULE is reached. `brain`: BRAIN's image-stage gate,
+# verify_brain, needs a project; the `image` job itself cannot take one (other modules' gates in it have not been run on a
+# generated project), so this unit scopes it to BRAIN. The remix the project is generated on is the one the gate builds.
+SPLIT_EXTRA_UNITS = {"octabam": {"brain": ("BRAIN", ("image",))}}
+
 
 def entries(items, jobs):
     """The plan as units that run independently, for a caller that gives
@@ -1140,6 +1147,11 @@ def entries(items, jobs):
                     for part, names in parts.items():
                         out.append({"name": f"check-remix {r} ({part})",
                                     "items": [(kind, line(f"--only-jobs {','.join(names)} "), paths)]})
+                    for name, (module, names) in SPLIT_EXTRA_UNITS.get(r, {}).items():
+                        if modules is None or module in modules:
+                            cmd = (f"python3 tools/verify/check_shards.py --jobs {jobs} --modules \"{module}\" "
+                                   f"--only-jobs {','.join(names)} {r}")
+                            out.append({"name": f"check-remix {r} ({name})", "items": [(kind, cmd, paths)]})
                 else:
                     out.append({"name": f"check-remix {r}", "items": [(kind, line(), paths)]})
         elif kind == "check-shared":

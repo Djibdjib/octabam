@@ -102,6 +102,15 @@ class PickJobs(unittest.TestCase):
         with self.assertRaises(SystemExit):      # a name no job has is still refused
             check_shards.pick_jobs(jobs, [], ["nope"], known)
 
+    def test_extra_units_name_real_jobs_of_a_module_the_remix_carries(self):
+        import reach
+        for remix, units in reach.SPLIT_EXTRA_UNITS.items():
+            names = {j[0] for j in check_shards.remix_jobs(remix, ROOT / "out/shards/0")}
+            from remix import registry
+            for unit, (module, jobs) in units.items():
+                self.assertLessEqual(set(jobs), names, unit)
+                self.assertIn(module, registry.remix(remix).modules, unit)
+
     def test_octabams_long_share_names_real_jobs(self):
         import reach
         names = {j[0] for j in check_shards.remix_jobs("octabam", ROOT)}
