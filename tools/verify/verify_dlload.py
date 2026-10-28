@@ -8,7 +8,7 @@ staged project, each on its own boot, setting track effect ids by poking the liv
 (0x80000ec4 FX1, 0x80000ecc FX2) and the Part bytes behind them. Effects are numbered as in
 Remix.window_demand (k):
 
-  used       T1.. use effects 0.. on FX1 from the start -> each bound, its entry and code in the window
+  used       T1.. use effects 0..3 on FX1 from the start (one a block) -> each bound, its entry and code in the window
                                                           word for word, seen from both cores
   withdrawn  the same, T1's FX1 back to FILTER at 2 s  -> effect 0 unbound after the 2 s grace, its span empty, the rest bound
   grace      effect 0 unused at 2 s and used again at 3 s -> still bound, loaded once
@@ -98,7 +98,10 @@ def main():
         if f.is_file() and f.suffix.lower() == ".work":
             shutil.copy2(f, copy / f.name)
 
-    every = ";".join(poke(FX1_LIVE, FX1_PART, t, r["id"]) for t, r in enumerate(recs))
+    # one effect a block: the window has four, so with more demand effects than that the ones past the fourth are
+    # left out of `used` (each still loads and runs on its own: runs-b<k>, runs-a<k>)
+    used = recs[:4]
+    every = ";".join(poke(FX1_LIVE, FX1_PART, t, r["id"]) for t, r in enumerate(used))
     block_track = {0: 6, 1: 7, 2: 2, 3: 3}[(rec["addr"] - 0x30000) >> 14 & 3]       # modules/dlpump/manifest.py
     # the chooser that lists effect 0 (FX1 when it has a row there) and its row, from the image's id -> row tables
     img = image.read_bytes()
@@ -199,7 +202,7 @@ def main():
         return [int(t, 16) for t in m.group(1).split()] if m else []
 
     print("used:")
-    for k, r in enumerate(recs):
+    for k, r in enumerate(used):
         n = len(r["words"])
         for c in (1, 0):
             entry = peek("used", c, "X", 0x33DA3 + 8 * k)
@@ -215,7 +218,7 @@ def main():
     print("withdrawn:")
     entry = peek("withdrawn", 1, "X", 0x33DA3)
     check(f"{recs[0]['key']} is unbound and its span empty", entry[:1] == [0] and entry[3:5] == [0, 0], f"{[hex(w) for w in entry]}")
-    for k, r in enumerate(recs[1:], 1):
+    for k, r in enumerate(used[1:], 1):
         check(f"{r['key']} stays bound", peek("withdrawn", 1, "X", 0x33DA3 + 8 * k)[:1] == [0xB0A5ED])
     print("grace:")
     entry = peek("grace", 1, "X", 0x33DA3)

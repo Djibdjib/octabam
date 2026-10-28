@@ -18,7 +18,9 @@ open), one home at `P:0x3f820` (1,711 words: 620 code, 65 table, 1,026 key windo
 - Gates (local): `verify_dlhook` 40 PASS (a broken stub, `beq` -> `bne`, fails 12), `verify_dlstub` 48 PASS, `verify_dlwrap` 224
   PASS, octabam builds; `verify_dlload` under the port: see the PR.
 - Not done: a unit; the copy-frame cost of a 1,711-word block (DEMAND_LOAD.md's open items); TRANSIENT and SC both prefer
-  T4's block, so with both in use one waits.
+  T4's block. SC is ahead of TRANSIENT in `window_demand`, so when both become wanted together (a project load) SC takes
+  the block and TRANSIENT goes to another; if TRANSIENT already holds it when a COMPRESSOR is picked, SC waits
+  (`SC KEY OFF: T4 FX2`) until the block is free.
 
 ## Measured, 28 Oct 2026: the resident words left in octabam
 

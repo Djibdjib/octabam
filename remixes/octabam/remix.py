@@ -44,7 +44,9 @@ REMIX = Remix(
     window=(("DLCOPY", 0x33DCB), ("LOAD METER", 0x37DA3), ("LOAD METER:B", 0x37E50),
             ("SPECTRUM", 0x33820), ("CHARACTER", 0x37820), ("MODULATION", 0x3B820), ("TRANSIENT", 0x3FE00),
             ("SIDECHAIN_COMPRESSOR", 0x3F820)),
-    window_demand=("MODULATION", "SPECTRUM", "CHARACTER", "TRANSIENT", "SIDECHAIN_COMPRESSOR"),
+    # DLPUMP loads in this order, and the first free home wins: SIDECHAIN_COMPRESSOR has one home, the fourth block,
+    # TRANSIENT four, so SC comes first and TRANSIENT moves to another block when both are in use.
+    window_demand=("MODULATION", "SPECTRUM", "CHARACTER", "SIDECHAIN_COMPRESSOR", "TRANSIENT"),
     # The other homes: each effect can be loaded into any block it fits (the code is assembled once per home). The loader
     # sends the first home whose block holds no other demand effect and whose FX2 slot is not a stock reverb that reaches
     # the code, and moves a loaded effect when such a reverb arrives. MODULATION (1,561 words) needs a block with 2,016
