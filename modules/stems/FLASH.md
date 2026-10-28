@@ -9,10 +9,13 @@ logs and files (his folder, not the repository):
 - The first take was T1 alone at 24 bits, the boot default.
 - Each take wrote its own folder, `!STEMS/261028-2000/` and so on, and the
   second take in one minute was named `261028-2008-2`.
-- Eleven files at 24 bits peaked at 2,694 of 7,922 frames (34%), against
-  36% and 37% for flash J's first two such takes on an emptied folder.
-  The round he pushed hard never showed 100% and never ended in `RING
-  FULL`; its logs aren't in the record.
+- The hard take, `261028-2008-2`: T1 to T7, MAIN, CUE, AB and CD, eleven
+  files at 24 bits, every track a Static machine with every trig filled,
+  49 s and `status OK`. The ring peaked at 2,694 of 7,922 frames (34%),
+  against 36% and 37% for flash J's first two eleven-file takes on an
+  emptied folder. The card wrote 140,156 KB in 35.8 s of the 49 (255 µs
+  a KB), its longest write 447 ms; the hook took 32 µs a frame on
+  average, 69 µs at most. No take reached 100%, by his report.
 - Every WAV's length is its log's frame count × 16. Every `.ot` holds the
   take's tempo (63 and 139 BPM, as the project had them) and a gain of
   +12 dB.
