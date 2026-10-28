@@ -315,7 +315,8 @@ PTABLE = WF + LN + EXP + TAPER + TP + OM + MK
 
 CONSTQ = {k: _q(v) for k, v in {**CONST, **RCONST}.items()}
 CONSTQ.update(WF_AT=WF_AT, LN_AT=LN_AT, EXP_AT=EXP_AT, TAP_AT=TAP_AT, TP_AT=TP_AT, OM_AT=OM_AT,
-              MK_AT=MK_AT, MK_AT6=MK_AT + 6, OMB=OM_AT + 7 * 16)
+              MK_AT=MK_AT, MK_AT6=MK_AT + 6, OMB=OM_AT + 7 * 16,
+              OMB16=OM_AT + 7 * 16 - 16)   # OMB16: the RAT loop's lookup runs 16 high (the 2m form)
 
 _P = Formatter.PLAIN
 _B = Formatter.BIPOLAR
