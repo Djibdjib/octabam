@@ -729,16 +729,15 @@ PR; a first-time contributor's run waits for maintainer approval:
 | 🗺️ Plan Gates | `reach.py --json --jobs 3` | the units the diff's gates split into; no firmware |
 | 🧪 Gates — `<unit>` | `make reach RUN=1 KEEP=1 JOBS=3 REACHARGS='--only "<unit>"'` | one unit of the plan, on the stock 1.40C fetched into its own runner (Ubuntu) |
 | 🧪 Gates — make reach | `needs` the two above | green when the plan ran and every unit passed (or the plan had none); the one check that stands for all of them |
-| ✅ Acceptance Runner Tests | `make test-acceptance` | the runner refuses skipped, failed, incomplete and over-budget evidence; `reach` routes as documented; the shard runner covers the recipe |
 | 🎛️ DSP Toolchain — dsp56300 | `make ci-dsp` | the vendored DSP emulator at its pin takes our patch, builds, passes upstream's runner; `dsp_asm` emits the one-word displaced move |
 | 🔌 ColdFire Port Unit Tests | `make ci-emu` | `ot_emu` builds on both hosts (the fork unshare has a macOS and a Linux path) and passes `emac` and `periph` |
-| 📚 Docs, Site and Web Patches | `make verify-docs`; `tools/web/stale.py`; on a PR that reaches the site, `mkdocs build --strict` | the rendered tables are current, every remix has a README, every link between tracked files resolves; the web builder's patch manifest matches its patch files; the manual site builds |
+| 📚 Docs, Site and Web Patches | `make verify-docs`; `make test-acceptance` when `acceptance` is affected (the runner refuses skipped, failed, incomplete and over-budget evidence; `reach` routes as documented; the shard runner covers the recipe); `tools/web/stale.py`; on a PR that reaches the site, `mkdocs build --strict` | the rendered tables are current, every remix has a README, every link between tracked files resolves; the web builder's patch manifest matches its patch files; the manual site builds |
 
 **Units.** `reach.py --json` prints `matrix`, the plan as units (`entries()`):
 `selftest` (last), one `check-remix <remix>` per remix (`check_shards.py --jobs 3`
 on that runner), and every other command as its own unit (`check-shared`,
-`refhash`, `verify-bus`, `identity`, ...). `verify_docs`, `test-acceptance`
-and `ci` are no unit: Docs, Acceptance Runner Tests, DSP Toolchain and ColdFire
+`refhash`, `verify-bus`, `identity`, ...). `verify_docs`, `test-acceptance`,
+`ci-dsp`, `ci-emu` and `ci` are no unit: Docs, DSP Toolchain and ColdFire
 Port Unit Tests run them for every diff that plans them (`reach.DEDICATED`;
 a local `make reach RUN=1` still runs them). `--only <unit>` plans again from the same diff and
 keeps that unit, so the plan job and the unit jobs must pass the same
