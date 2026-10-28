@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """verify_brain -- the BRAIN module applies the card's knob defaults.
 
-    python3 tools/verify/verify_brain.py [REMIX] [--project DIR]
+    python3 tools/verify/verify_brain.py [REMIX] [--project DIR] [--only-cases]
 
 Builds REMIX (default `octabam`; `octabam-bus` too), stages
 the project with BRAIN/card.work and card.strd written by
