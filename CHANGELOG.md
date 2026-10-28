@@ -18,6 +18,7 @@ The full text before this rewrite: `git show 666b6154:CHANGELOG.md`.
 
 ## Unreleased
 
+- DISTORX v10 (`modules/distorx`): the RAT and SD-1 sample loops split into settled (MIX 127, the wet alone), calm (d = 0, the MIX blend) and fading, with a leaner stage; bit for bit v9 in the emulator, static cost 291 → 223 (RAT, settled) and 227 → 181 (SD-1). Not flashed: v9's 9.45 % of core 0 at its dearest is the only unit figure, and `dear` is now MIX 126.
 - **USB** (`modules/usb`): less ColdFire time per frame. USB IN writes the
   DSP's block to on-chip SRAM (`0x80007880`) instead of SDRAM through the
   uncached alias, one long load a sample; USB OUT's dTDs are in on-chip
