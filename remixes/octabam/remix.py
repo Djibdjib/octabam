@@ -35,7 +35,7 @@ REMIX = Remix(
     # fills the next gap. The four effects sit at the top of the four slots (core A tracks 7
     # and 8, core B tracks 3 and 4), from offset 0x3820 (TRANSIENT 0x3e00), and are not uploaded: PLATE REV writes
     # up to offset 0x37ff and SPRING REV up to 0xfff, so only DARK REV (0x3da2) reaches the code, and not TRANSIENT's.
-    fx1=("SPECTRUM", "CHARACTER", "MODULATION") + STOCK_FX1,   # the stations run on FX1 only (an FX2 instance renders dry)
+    fx1=("SPECTRUM", "CHARACTER", "MODULATION") + STOCK_FX1,   # the chooser order on FX1; the stations also run live on FX2 (SLOTS pin below)
     window=(("DLCOPY", 0x33DC3), ("LOAD METER", 0x37DA3), ("LOAD METER:B", 0x37E50),
             ("SPECTRUM", 0x33820), ("CHARACTER", 0x37820), ("MODULATION", 0x3B820), ("TRANSIENT", 0x3FE00)),
     window_demand=("MODULATION", "SPECTRUM", "CHARACTER", "TRANSIENT"),
@@ -54,5 +54,8 @@ REMIX = Remix(
     settings={("octabam.usb", "TRACKS"): "PRE", ("octabam.usb", "MAIN"): 1,
               ("octabam.usb", "CUE"): 1, ("octabam.usb", "MASTER"): 0,
               ("octabam.usb", "IN"): "OFF",
-              ("kyoti.mute-modes", "PLACE"): Pin("DRAM")},
+              ("kyoti.mute-modes", "PLACE"): Pin("DRAM"),
+              # no bus here, so the cycle envelope is not priced with the stations on FX1 only
+              **{(f"octabam.{k.lower()}", "SLOTS"): Pin("FX1+FX2")
+                 for k in ("SPECTRUM", "CHARACTER", "MODULATION")}},
 )
