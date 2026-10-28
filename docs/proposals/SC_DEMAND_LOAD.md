@@ -5,6 +5,39 @@ Nothing here has been built or run: the session that wrote it had no m68k toolch
 every word count below is an estimate until a build report prints it.
 Follows octabam#934 (Zac Kyoti agreed to test a port).
 
+## Measured, 28 Oct 2026: the resident words left in octabam
+
+✅ `make bus REMIX=octabam` on `origin/main` `b36afa2` (this branch's base), from the build report:
+
+| piece | P | words | free after it |
+|---|---|---|---|
+| demand entries (4 x 8) | `0x33da3..0x33dc2` | 32 | |
+| DLCOPY | `0x33dc3..0x33e55` | 147 | |
+| demand stub | `0x33e56..0x33ec5` | 112 | |
+| reverb guard trampolines, A and B | `0x33ec6..0x33f61` | 78 + 78 | |
+| reverb guard body | `0x33f62..0x33ff9` | 152 | **6** (`0x33ffa..0x33fff`) |
+| LOAD METER, payload A | `0x37da3..0x37e49` | 167 | **6** (`0x37e4a..0x37e4f`) |
+| LOAD METER, payload B | `0x37e50..0x37ef6` | 167 | **9** (`0x37ef7..0x37eff`) |
+
+**21 words free, in three runs of 6, 6 and 9.** `DEMAND_LOAD.md`'s "559 and 340 used" (55 free) is stale: the guard and LOAD
+METER have grown since. The issue's "about 77" is older still.
+
+✅ The smallest stub `dsp_asm` assembles (`move x:>E,a` / `tst a` / `blt` body, then the replay and `rts`): 8 words for `sctap`,
+`scdet` and `scinit`, 7 for the `moncommit` bridge (`bra` to `otop_e2` instead of the replay), 31 in all; with the fifth entry,
+39. `dsp_asm` has no `jset`/`jcc` with these operands, and it writes a long `Bcc`'s absolute target as the displacement
+(`blt >$3b900` disassembles to a branch to `0x6f8fe`: the brclr trap in `AGENTS.md`), so the build must write each stub's
+displacement as a number. 🟡 `tst` changes the condition codes the stock code sees after `rts` (JSR/RTS do not restore SR):
+each site needs the CCR audit `AGENTS.md`'s Tcc trap describes.
+
+**It does not fit as the loader stands: 39 needed, 21 free, and no stub fits a 6-word run.**
+
+**Where the words can come from: the guard trampolines.** Each reverb's pair is 11 + 15 = 26 words a payload (three `move`s of
+constants to `x:$3fd1..$3fd3` and a `jmp (r2)`, `build_bus.py` `_tramps`), 156 in all. Table-driven, each trampoline only
+names its reverb's record (🟡 about 3-4 words), the records (stock init, stock proc, extent) live in core-private X (`place_x`
+exists, `build_bus.py:3208`) and the body reads them: 🟡 about 100-120 words freed, against a few more in the body. The guard is
+`verify_dlwrap`'s, which runs under `dsp_host` and can be run locally on the change, and only `octabam` and `test/dlspike` carry
+it. It is the first change to make; the rest of this proposal waits on it.
+
 ## Why the resident placement does not fit
 
 | need | words | status |
