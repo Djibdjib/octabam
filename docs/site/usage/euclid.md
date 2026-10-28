@@ -7,8 +7,7 @@ resets its phase.
 ## Access
 
 An effect on a track: select the track, press FX1 or FX2, and pick EUCLID
-from the chooser. Select a remix carrying EUCLID, such as the `euclid` or
-`events-clients` test remix; standard Octabam Inserts no longer includes it.
+from the chooser. It is not in an official remix; build the test remix `euclid`.
 
 ## Operation
 

@@ -262,7 +262,7 @@ def where(m, r) -> str | None:
 
 def module_section(num: str, m, r, mods) -> list[str]:
     lines = [f"## {num} {_label(m)}", ""]
-    lines += [f"*By {_author(m)}.* **Test status:** {index.proof_text(m)}.", ""]
+    lines += [f"*By {_author(m)}.* **Test status:** {index.proof_text(m).rstrip('.')}.", ""]
     place = where(m, r)
     if place:
         lines += [f"**Chooser:** {place}.", ""]
