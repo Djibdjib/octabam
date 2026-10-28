@@ -29,7 +29,15 @@ def main():
     resident = symbols(ROOT/'out/linked/midi-part-state/midipartentry/u.elf')
     start = resident['mp_resident_activate']
     original = runtime['mp_activate']
-    assert image[0x40000512-BASE:0x40000518-BASE] == bytes.fromhex('4eb9')+start.to_bytes(4,'big')
+    site = image[0x40000512-BASE:0x40000518-BASE]
+    hk = runtime.get('hk_boot')
+    if hk is not None and site == bytes.fromhex('4eb9')+hk.to_bytes(4,'big'):
+        # HOOKS's boot bridge (modules/hooks, boot): BOOT TRACE's note, then a jmp to this
+        # activation, which returns to the boot (verify_hooks checks the chain).
+        body = raw[hk-layout['base']:hk-layout['base']+64]
+        assert bytes.fromhex('4ef9')+start.to_bytes(4,'big') in body, 'hk_boot does not end in this activation'
+    else:
+        assert site == bytes.fromhex('4eb9')+start.to_bytes(4,'big')
     assert BASE <= start < BASE+len(image) and not layout['base'] <= start < layout['top']
     length = runtime['mp_native_copy']-original
     assert length == 34
