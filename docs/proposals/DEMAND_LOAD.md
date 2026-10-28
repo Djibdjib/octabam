@@ -6,7 +6,9 @@ Addresses are `P:` / `X:` / `Y:` DSP words, or ColdFire virtual addresses where 
 ## What it does
 
 Every stock effect stays and works as stock. SPECTRUM, CHARACTER, MODULATION and TRANSIENT are in the effect list and are
-copied into the DSP's shared window while a track uses them, and withdrawn when no track does. Nothing of stock is removed,
+copied into the DSP's shared window while a track uses them, and withdrawn when no track does. SIDECHAIN_COMPRESSOR, which is
+stock COMPRESSOR with a side-chain on page 2, is loaded the same way while a track uses COMPRESSOR
+([`SC_DEMAND_LOAD.md`](SC_DEMAND_LOAD.md): it is reached by hooks, not by its own id, and is "soft"). Nothing of stock is removed,
 replaced or shrunk. The window is stock's buffer memory, so the code goes only where no running stock effect writes.
 
 `remixes/octabam` is built this way. `remixes/test/dlspike` is the same with one effect, for the gates.
@@ -85,7 +87,7 @@ Layout (words are `X:` or `P:` as in the window, which aliases):
 
 | where | what |
 |---|---|
-| `x:$33da3 + 8 k` (k = 0..3, in the clear gap) | effect k's entry: +0 BOUND (`$b0a5ed`), +1 real init, +2 real proc, +3 first window word, +4 the word after |
+| `x:$33da3 + 8 k` (k = 0..4 in octabam, in the clear gap; DLCOPY follows the last) | effect k's entry: +0 BOUND (`$b0a5ed`), +1 real init, +2 real proc, +3 first window word, +4 the word after |
 | `x:$2900` | staging: doorbell, k, destination offset, N, init offset, proc offset, then 2 N halfwords (code word as high 16 bits, then low 8), then the sum of the code words modulo 2^24 in the same form. Addresses are offsets into the window |
 | `x:$3f00..$3f4c` | the stub's per-instance flags and saved registers; `x:$3dc0..$3e3f` the guard's state words and base cells, `x:$3fd0..$3fea` the trampolines' words, the guard's scratch and the copier's saved `b` |
 | `P:0x33dc3..0x33e55` | DLCOPY; the stub follows at `window_loader` (`0x33e56`), then the guard's trampolines for payload A and B with their two shared loaders, the reverbs' records (stock init, stock proc, extent; three words a reverb and payload), then its body (to `0x33fb6` in octabam, 28 Oct 2026) |
@@ -99,12 +101,27 @@ Builder: `Remix.window_demand` (keys), `Remix.window_guard` (stock keys), `Remix
 records are left out of payload A's upload and written to `out/dsp/demand_records.json`; the guards' addresses to
 `out/dsp/guard_records.json`. The boot zero loop count ignores demand addresses.
 
+## Hooked and soft demand effects (28 Oct 2026; port and `dsp_host` only)
+
+A demand effect with `DspHook`s and no init/proc (SIDECHAIN_COMPRESSOR, `FORM = SHARED`) has no id stub. Each hook's `jsr` goes
+to a resident **hook stub** the build generates after the guard body: `move x:>BOUND,a`, `cmp #>$b0a5ed,a`, `beq` the body, else
+the displaced stock instruction (disassembled from the site's words, refused unless it reassembles to them) and `rts`. At a site
+a bridge overrides (`schema.DspOverride`; SC LOAD METER BRIDGE at LOAD METER's `otop_e2`, `P:0x50e`/`0x303`) the stub `bsr`s the
+body when loaded, then `bra`s to the overridden hook's entry. A hooked effect has one home, so its stubs jump to fixed addresses;
+its block may overlap another demand effect's (they never hold it at once), and a memory dump for `dsp_host` leaves the later of
+two overlapping records out. A stub serves both payloads where their sites hold the same stock words; a bridged one is per
+payload. In octabam: five stubs, 47 words, after the guard body.
+
+A **soft** effect (`MenuEntry.stock_dsp`: the track runs the stock effect while the code is absent) is never refused by the
+choosers, never refuses a reverb, and gives its block up at once to a reverb that reaches it (`modules/dlpump/README.md`).
+
 ## Checked
 
 | gate | what | where |
 |---|---|---|
 | `verify_dlstub` | for each effect: the stub unbound equals the null stub, bound equals the effect's own render (0 of 6,400 samples differ), a wrong magic, a missing doorbell or a wrong block sum stays dry; DLCOPY binds a staged block and the stub runs it; a withdraw message makes it dry again | `dsp_host`, test/dlspike and octabam |
 | `verify_dlwrap` | for each reverb, payload and published span: the guard equals the stock render and Y writes where the buffer is clear, passes the audio through and writes nothing where it covers the code; a dry instance whose init never ran runs the stock init when the range is clear and then equals the stock render | `dsp_host`, same |
+| `verify_dlhook` | for each hook stub, on each payload it serves: BOUND clear or a wrong magic equals the displaced instruction alone (at a bridged site, the overridden entry alone), BOUND set equals the body called directly (then the entry), and differs from clear; all of X and Y and six registers, LOAD METER's timer-stamped cost cells masked at a bridged site | `dsp_host`, octabam |
 | `verify_dlload` | with live ids poked: the four effects load (entry and every code word, read from both cores), one is withdrawn while the others stay, none loads unused, a reverb that arrives on a loaded effect's block leaves it loaded, none loads over a reverb's block, the choosers pick an effect that can load and refuse one that cannot, and refuse a reverb on the block of a loaded effect that a track uses (not on an unused one, which is withdrawn), each with a toast (counted at the popup call), the deferred toasts appear at the next page key and not when nothing collides, the loaded proc is reached on core B and on core A (`--dsp-pcwatch`) | port, test/dlspike and octabam |
 
 `dsp_host` keeps P and Y apart, so the guard is shown to decide correctly, not to prevent an overwrite on the chip.

@@ -6,7 +6,8 @@
 
 Octabam adds the core features to Octatrack OS 1.40C and five effects. All 14
 stock effects and both effect menus stay as stock has them, with stock LO-FI's
-AMF knob fixed (the LOFI AMF FIX module). [Octabam Bus](remix-bus.md) adds the
+AMF knob fixed (the LOFI AMF FIX module) and a side-chain on COMPRESSOR's page 2
+([SIDECHAIN_COMPRESSOR](usage/sidechain-compressor.md)). [Octabam Bus](remix-bus.md) adds the
 delay and reverb bus to the same set.
 
 ## The effects
@@ -22,6 +23,12 @@ free effect ids.
 | [MODULATION](reference/modules/modulation.md) | ✓ | ✓ | Juno, Dimension, flanger, phaser, comb |
 | [TRANSIENT](reference/modules/transient.md) | ✓ | ✓ | transient shaper (Ignorato) |
 | [GATE VERB](reference/modules/gateverb.md) | — | ✓ | Gated plate reverb with AMNT, GAIN, TIME, DIFF, TONE, and GATE controls. |
+
+COMPRESSOR is stock COMPRESSOR with a side-chain: on page 2, KEY picks the track
+that drives it (see [SIDECHAIN_COMPRESSOR](usage/sidechain-compressor.md)). Its
+side-chain code is loaded while a track uses COMPRESSOR, like the four effects above;
+until it is, and while DARK REV or another loaded effect holds the top of T4's FX2
+block, COMPRESSOR works as stock and the screen says `SC KEY OFF`.
 
 The stations have their SLOTS build setting at FX1+FX2. CHARACTER's KEY = T1
 needs a BusDelay host, so in this remix it keys on the track's own input. A MODE

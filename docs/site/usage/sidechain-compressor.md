@@ -9,10 +9,22 @@ compression smooth at short attack and release settings.
 
 ## Access
 
-An effect on a track: select the track, press FX2, and pick COMPRESSOR from
-the chooser; the setup page shows the new knobs. Not in an official remix;
-build the test remix `sidechain-compressor` (or `kyoti-mute-sidechain`).
-It uses SPRING REV's words, so SPRING REV is off the chooser in those images.
+An effect on a track: select the track, press FX2 (or FX1), and pick COMPRESSOR
+from the chooser; the setup page shows the new knobs. There is no separate
+effect to load: COMPRESSOR is the side-chain compressor.
+
+In [Octabam](../../remix-octabam.md) the side-chain's DSP code is loaded while a track
+uses COMPRESSOR and withdrawn about 10 s after none does, so every stock effect,
+SPRING REV included, stays. Until it is loaded (about 25 ms after you pick it),
+COMPRESSOR works as stock, keyed on its own track. Its code goes in the top of
+T4's FX2 block, and while that block is taken COMPRESSOR stays stock: by DARK REV
+on T4's FX2 (the screen says `SC KEY OFF: T4 REV`), or by another loaded effect
+there, TRANSIENT first, whose first choice is the same block (`SC KEY OFF: T4 FX2`).
+The key comes back when the block is free. Nothing is refused: you can always pick
+COMPRESSOR and DARK REV. Not yet run on a unit in this form.
+
+The test remixes `sidechain-compressor` and `kyoti-mute-sidechain` carry it the
+earlier way, in SPRING REV's words, so SPRING REV is off the chooser in those images.
 It does not coexist with BusDelay or BusVerb: their core-private and
 cross-core memory overlaps, and the build refuses the pair.
 

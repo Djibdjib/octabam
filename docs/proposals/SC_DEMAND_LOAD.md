@@ -6,6 +6,20 @@ every word count below is an estimate until a build report prints it.
 Follows octabam#934 (Zac Kyoti agreed to test a port). The one-copy SC source is
 Zac-Kyoti/octatrack-kyoti-fw#4 (opt-in `FORM = SHARED`; open, 28 Oct 2026); the guard compaction is octabam#947 (merged).
 
+## Status, 28 Oct 2026: built, gated under `dsp_host`, not on a unit
+
+octabam carries SIDECHAIN_COMPRESSOR in COMPRESSOR's row as the fifth demand effect, `FORM = SHARED` (Zac-Kyoti/octatrack-kyoti-fw#4,
+open), one home at `P:0x3f820` (1,711 words: 620 code, 65 table, 1,026 key window and counters as zeros), PLACE = DRAM.
+- The build: hooked demand modules get resident stubs (five, 47 words, after the guard body); `schema.DspOverride` and the
+  SC LOAD METER BRIDGE module let `moncommit` and LOAD METER's `otop_e2` share `P:0x50e`/`0x303`; the entry table grows to five
+  (DLCOPY at `0x33dcb`, the loader at `0x33e5e`); the window path takes a `ptable2`; demand blocks may overlap.
+- DLPUMP: the trigger is COMPRESSOR's id (`0x18`, SC's own); a soft effect is never refused, never refuses a reverb, gives its
+  block to a reverb at once, and toasts `SC KEY OFF: T4 FX2` / `SC KEY OFF: T4 REV`.
+- Gates (local): `verify_dlhook` 40 PASS (a broken stub, `beq` -> `bne`, fails 12), `verify_dlstub` 48 PASS, `verify_dlwrap` 224
+  PASS, octabam builds; `verify_dlload` under the port: see the PR.
+- Not done: a unit; the copy-frame cost of a 1,711-word block (DEMAND_LOAD.md's open items); TRANSIENT and SC both prefer
+  T4's block, so with both in use one waits.
+
 ## Measured, 28 Oct 2026: the resident words left in octabam
 
 ✅ `make bus REMIX=octabam` on `origin/main` `b36afa2` (this branch's base), from the build report:

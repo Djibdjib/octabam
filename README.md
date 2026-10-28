@@ -180,6 +180,7 @@ from the card (section 5).
 | [**DLCOPY**](modules/dlcopy/README.md) | [sambanks](https://github.com/sambanks) | Frame hook on payload B: copies a staged block into the shared window (demand loader). | `make check` |
 | [**DLPUMP**](modules/dlpump/README.md) | [sambanks](https://github.com/sambanks) | Host-writes a staged block to a DSP core, a chunk per frame interrupt (demand loader). | `make check` |
 | [**LOAD METER**](modules/load-meter/README.md) | [sambanks](https://github.com/sambanks) | The frame interrupt's share of the ColdFire, each DSP core's busy time per frame and each effect call's cost, for BRAIN's OTOP screen. | on hardware: cursory testing on Sam's MKII (owner report, 16 Oct 2026); the window and both DSP cores' figures under the port (verify_load_meter, verify_brain) |
+| [**SC LOAD METER BRIDGE**](modules/sc-loadmeter-bridge/README.md) | [sambanks](https://github.com/sambanks) | Shares the FX2 commit site between SIDECHAIN_COMPRESSOR's moncommit and LOAD METER's otop_e2. | `make check` |
 | [**WAVE LOAD**](modules/waveload/README.md) | [sambanks](https://github.com/sambanks) | Probe: K 4-voice wave engines per frame interrupt (CF METER's BURN), for CF METER's duration readout. | on hardware: image 92, Sam's MKII, 3 Oct 2026: one 4-voice engine 69.2 us of the 362.8 us frame, clean beside four sample tracks |
 
 <!-- modules:end -->

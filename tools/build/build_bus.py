@@ -2517,7 +2517,7 @@ mkgo:""",
     if DEMAND:
         # one stub body for every demand effect; INIT[id] is `init`, PROCESS[id] a trampoline that names the entry
         _tr = "".join(f"dls_p{k}:\n        move    #>${0x33DA3 + 8 * k:x},x0\n        move    x0,x:>$3f4c\n        bra     proc\n"
-                      for k in DEMAND.values())
+                      for _dk2, k in DEMAND.items() if not remix_modules()[_dk2].dsp.hooks)   # a hooked one has no id
         _sw, stub_syms = assemble_syms(pathlib.Path("modules/dlcopy/dlstub.asm").read_text().replace("; TRAMPOLINES\n", _tr),
                                        loader_next, label="demand stub")
         _loader_check("demand stub", loader_next, len(_sw))
