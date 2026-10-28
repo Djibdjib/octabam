@@ -261,13 +261,15 @@ jobs:
       # firmware itself under the port from the runner's own OS (tools/hw/ot_fresh.py), on the unit's remix, and kept
       # in .git/octabam-fresh-cache by image, port and script. Only the `(project)` unit of a remix (reach.SPLIT_REMIX_JOBS)
       # runs the jobs that read it; the image job is not one: with a project it ran 2869 s and failed in verify_brain.
+      # The `(brain)` unit (reach.SPLIT_EXTRA_UNITS) runs BRAIN's image-stage gate, verify_brain, with one.
       - name: 📁 Fresh Project
-        if: contains(matrix.name, ' (project)')
+        if: contains(matrix.name, ' (project)') || contains(matrix.name, ' (brain)')
         env:
           UNIT: ${{ matrix.name }}
         run: |
           remix="${UNIT#check-remix }"
           remix="${remix% (project)}"
+          remix="${remix% (brain)}"
           make emu-get
           .venv/bin/python3 tools/hw/ot_fresh.py --remix "$remix" --out out/fresh
           echo "OT_PROJECT=$PWD/out/fresh/$remix/NOPROJ" >> "$GITHUB_ENV"
