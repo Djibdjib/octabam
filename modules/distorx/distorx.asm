@@ -33,13 +33,13 @@
 ; ---- the RAT, at the sample rate (twice it until 15 Oct 2026) ---------------
 ;   vp   = HP 7.2 Hz (in), 48-bit state         C1/R2, 1x
 ;   z    = 2x interpolation of vp               the SD-1's 11-tap halfband
-;   the LM308 stage (dtx_core), volts/4; C4 left out (README):
+;   the LM308 stage (dtx_rstage), volts/4; C4 left out (README):
 ;     c0 = c5 vh5 + c6 vh6                      so that v- = q vo + c0
 ;     vo = r vo1 + (1-th) r d1 + th W r (z - c0)  the integrator, implicit
 ;     vo within vo1 +- SRT (slew), then +-VSAT (the rails)
 ;     vm = q vo + c0;  d1 = W (z - vm) (a word: +-4 V, README)
 ;     vh5,6 += K5,6 (vm - vh5,6)                C5, C6 (48 bits)
-;   the clipper node (dtx_core), volts/8:
+;   the clipper node (dtx_rstage), volts/8:
 ;     vs = vo/2 - vh7                           C7's voltage out
 ;     u  = rho vs + s8 vh8 + s9 vh9             the node's drive (x Rp)
 ;     X/2 = |u| KX + C/2 = (U + 12)/256         U = u/N + k + ln k, -11..116
@@ -62,6 +62,8 @@
 ; per block parking: $14 $15 $1b $1c (the decode's own)
 ; registers through the RAT loop: r1 SRT/8  r2 -SRT/8  r3 VSAT  n3 -VSAT
 ;   (r1 and r2 the dispatcher reloads after proc; r3 and n3 the SD-1's too)
+;   v10: n1 RK5  n2 RK6  n4 RK9 (a word a use), r4 on to OM + 6 x 16 (the loop's lookup);
+;   the three loops (fading, calm d = 0, settled) share dtx_rstage: README "v10"
 ; ---------------------------------------------------------------------------
 
 init:
@@ -327,7 +329,62 @@ dtx_tpe:
 ; THE SD-1 SAMPLE LOOP
 ; ===========================================================================
 sod_go:
+        move    x:(r7+$30),a
+        tst     a
+        bne     sod_wet
+        move    x:(r7+$2f),a
+        tst     a
+        bne     sod_calm
         do      n7,>sod_end
+        bsr     sod_stage
+        bsr     dtx_out                 ; the MODE fade, MIX, both channels
+        nop                             ; LA: never a bsr (the chip decides the loop-back at LA;
+                                        ; a call there ran one junk block now and then on the unit)
+sod_end:
+        move    #>$ffffff,m3
+        rts
+sod_calm:
+        do      n7,>sod_cend
+        bsr     sod_stage
+        move    x:(r7+$11),y1           ; MIX x (1 + d) with d = 0 is MIX
+        move    x:(r0),b                ; dry L
+        move    y0,a
+        sub     b,a
+        asr     #$1,a,a                 ; (wet - dry)/2
+        move    a,x0
+        mpy     x0,y1,a
+        asl     #$1,a,a
+        add     b,a
+        move    a,x:(r0)+
+        move    x:(r0),b                ; dry R
+        move    y0,a
+        sub     b,a
+        asr     #$1,a,a
+        move    a,x0
+        mpy     x0,y1,a
+        asl     #$1,a,a
+        add     b,a
+        move    a,x:(r0)+
+        nop
+sod_cend:
+        move    #>$ffffff,m3
+        rts
+sod_wet:
+        do      n7,>sod_wend
+        bsr     sod_stage
+        move    y0,x:(r0)+
+        move    y0,x:(r0)+
+        nop
+sod_wend:
+        move    #>$ffffff,m3
+        rts
+
+; ---------------------------------------------------------------------------
+; sod_stage -- one sample of the SD-1 up to the wet in y0: the input, its three
+; HPs, the clipper (F, inline), TONE, the 1.59 kHz pole, the output HP, LEVEL.
+; Straight-line. Uses a b x0 x1 y0 y1 r3 n3 r5 n5; reads r4 and r7.
+; ---------------------------------------------------------------------------
+sod_stage:
 ; ---- mono in, IN ----------------------------------------------------------
         move    x:(r0),a
         move    x:(r0+n0),x0
@@ -371,7 +428,59 @@ sod_go:
         move    x1,x:(r7+$1b)           ; vp[n] (the HP 88 Hz's vp[n-1] next sample)
         move    a,x0                    ; h (the word kept)
         move    x0,x:(r7+$16)           ; h[n-1] next sample
-        bsr     sod_nl                  ; vf = F(h)
+; ---- sod_nl, inline: vf = F(h) ----
+        move    x0,a
+        move    x0,x:(r7+$12)           ; z, for the sign at the end
+        tst     a
+        move    #>$000001,b
+        move    #>$000006,x0
+        tmi     x0,b                    ; the side: r7+1 (D5+D6) or r7+6 (D4)
+        abs     a
+        move    b1,n3
+        move    r7,r3
+        move    a,x0                    ; |z|
+        move    (r3)+n3                 ; r3 -> the side's five words
+        move    x:(r3)+,y1              ; G
+        move    x:(r3)+,a               ; C, high word (a0 cleared)
+        move    x:(r3)+,a0              ; C, low word
+        mac     x0,y1,a                 ; X = |z| G + C, 48 bits
+        clb     a,b
+        normf   b1,a                    ; m in [0.5, 1)
+        move    b1,y0
+        sub     #>$400000,a
+        asl     #$1,a,a                 ; u = 2 (m - 1/2)
+        move    a1,x1
+        asr     #$13,a,a                ; seg = bits 22..19
+        move    a1,x0
+        move    y0,b                    ; the octave, a clean load
+        asl     #$4,b,b
+        add     #>$0000e0,b             ; + 14 x 16
+        add     x0,b                    ; the point
+        move    b1,n5
+        move    x1,a
+        and     #>$7ffff,a
+        asl     #$4,a,a                 ; frac
+        move    r4,r5
+        move    a,x0
+        move    (r5)+n5
+        move    p:(r5)+,y0              ; WF[i]
+        move    p:(r5),b                ; WF[i+1]
+        move    y0,a
+        sub     a,b
+        move    b,y1
+        mpy     x0,y1,a
+        add     y0,a                    ; Wf/16
+        move    a,x0
+        move    x:(r3)+,y1              ; A
+        move    x:(r3)+,a               ; B
+        mac     x0,y1,a                 ; v
+        move    a,x0
+        neg     a
+        move    a,y0                    ; -v
+        move    x:(r7+$12),b
+        tst     b
+        move    x0,a
+        tmi     y0,a                    ; z < 0: -v
 ; ---- o1 = clamp(vp + vf, rail): IC1a's output -----------------------------------
         move    x:(r7+$1b),x0           ; vp
         add     x0,a
@@ -440,70 +549,6 @@ sod_go:
         mpy     x0,y1,a
         asl     #$4,a,a
         move    a,y0                    ; wet, limited to full scale
-        bsr     dtx_out                 ; the MODE fade, MIX, both channels
-        nop                             ; LA: never a bsr (the chip decides the loop-back at LA;
-                                        ; a call there ran one junk block now and then on the unit)
-sod_end:
-        move    #>$ffffff,m3
-        rts
-
-; ---------------------------------------------------------------------------
-; sod_nl -- v = F(z): z in x0 (volts/4), v in a. Uses a b x0 x1 y0 y1 r3 n3
-; r5 n5; reads r4 (the table base) and r7. Straight-line.
-; ---------------------------------------------------------------------------
-sod_nl:
-        move    x0,a
-        move    x0,x:(r7+$12)           ; z, for the sign at the end
-        tst     a
-        move    #>$000001,b
-        move    #>$000006,x0
-        tmi     x0,b                    ; the side: r7+1 (D5+D6) or r7+6 (D4)
-        abs     a
-        move    b1,n3
-        move    r7,r3
-        move    a,x0                    ; |z|
-        move    (r3)+n3                 ; r3 -> the side's five words
-        move    x:(r3)+,y1              ; G
-        move    x:(r3)+,a               ; C, high word (a0 cleared)
-        move    x:(r3)+,a0              ; C, low word
-        mac     x0,y1,a                 ; X = |z| G + C, 48 bits
-        clb     a,b
-        normf   b1,a                    ; m in [0.5, 1)
-        move    b1,y0
-        sub     #>$400000,a
-        asl     #$1,a,a                 ; u = 2 (m - 1/2)
-        move    a1,x1
-        asr     #$13,a,a                ; seg = bits 22..19
-        move    a1,x0
-        move    y0,b                    ; the octave, a clean load
-        asl     #$4,b,b
-        add     #>$0000e0,b             ; + 14 x 16
-        add     x0,b                    ; the point
-        move    b1,n5
-        move    x1,a
-        and     #>$7ffff,a
-        asl     #$4,a,a                 ; frac
-        move    r4,r5
-        move    a,x0
-        move    (r5)+n5
-        move    p:(r5)+,y0              ; WF[i]
-        move    p:(r5),b                ; WF[i+1]
-        move    y0,a
-        sub     a,b
-        move    b,y1
-        mpy     x0,y1,a
-        add     y0,a                    ; Wf/16
-        move    a,x0
-        move    x:(r3)+,y1              ; A
-        move    x:(r3)+,a               ; B
-        mac     x0,y1,a                 ; v
-        move    a,x0
-        neg     a
-        move    a,y0                    ; -v
-        move    x:(r7+$12),b
-        tst     b
-        move    x0,a
-        tmi     y0,a                    ; z < 0: -v
         rts
 
 ; ===========================================================================
@@ -762,7 +807,7 @@ dtx_rwend:
 ; ---------------------------------------------------------------------------
 ; dtx_rstage -- one sample of the RAT up to the wet in y0: the input, its HP,
 ; the LM308 stage and the clipper node, the output HP, LEVEL. Straight-line.
-; Uses a b x0 x1 y0 y1 r5 n5; reads r0 r1 r2 r3 n3 (the limits), r4, n0 and r7.
+; Uses a b x0 x1 y0 y1 r5 n5; reads r0 n0 r1 r2 r3 n3 (the limits), n1 n2 n4 (RK5 RK6 RK9), r4 and r7.
 ; ---------------------------------------------------------------------------
 dtx_rstage:
 ; ---- mono in, IN ----------------------------------------------------------
@@ -805,9 +850,9 @@ dtx_rstage:
         move    x:(r7+$06),y1           ; th W r/128
         mpy     x0,y1,a
         asl     #$8,a,a
-        move    x:(r7+$1e),x0           ; vo1
+        move    x:(r7+$1e),x1           ; vo1, kept in x1 to the add below (y1,x1: the signed form)
         move    x:(r7+$04),y1           ; r - 1
-        mac     x0,y1,a
+        mac     y1,x1,a
         move    x:(r7+$1f),x0           ; d1
         move    x:(r7+$05),y1           ; (1 - th) r
         mac     x0,y1,a                 ; the step
@@ -820,8 +865,7 @@ dtx_rstage:
         cmp     x0,a
         tlt     x0,a
         asl     #$1,a,a                 ; back to volts/4
-        move    x:(r7+$1e),x0
-        add     x0,a                    ; vo1 + the step
+        add     x1,a                    ; vo1 + the step
         move    r3,x0                   ; VSAT
         cmp     x0,a
         tgt     x0,a
@@ -831,14 +875,12 @@ dtx_rstage:
         move    a,x1                    ; vo
         move    x1,x:(r7+$1e)
 ; ---- v- = q vo + c0;  d1 = W (z - v-) (a word: within +-4 V) ----------------------
-        move    x1,x0
         move    x:(r7+$01),y1           ; q
-        mpy     x0,y1,a
+        mpy     y1,x1,a
         add     b,a
-        move    a,x0                    ; v-
-        move    x0,b                    ; kept in b (c0 is dead)
+        move    a,b                     ; v-, kept in b (c0 is dead)
         move    y0,a
-        sub     x0,a
+        sub     b,a
         asr     #$1,a,a
         move    a,x0
         move    #>$71fb0e,y1
@@ -856,12 +898,11 @@ dtx_rstage:
         mac     x0,y1,a
         move    a1,x:(r7+$28)
         move    a0,x:(r7+$29)
-        move    b,a
-        move    x:(r7+$2a),x0
-        sub     x0,a
-        move    a,x0
         move    x:(r7+$2a),a
         move    x:(r7+$2b),a0
+        move    a1,x0
+        sub     x0,b
+        move    b,x0                    ; v- is dead after this: the difference is taken in b
         move    n2,y1                   ; RK6
         mac     x0,y1,a
         move    a1,x:(r7+$2a)
@@ -934,15 +975,14 @@ dtx_rstage:
 ; ---- vX = aD v + a8 vh8 + a9 vh9; C8: vh8 = 2 vX - vh8 -----------------------------
         move    x:(r7+$0f),y1           ; aD
         mpy     x0,y1,a
-        move    x:(r7+$2e),x0
-        move    x:(r7+$12),y1           ; a8
-        mac     x0,y1,a
         move    x:(r7+$32),x0
         move    x:(r7+$13),y1           ; a9
         mac     x0,y1,a
+        move    x:(r7+$2e),x0
+        move    x:(r7+$12),y1           ; a8 (last, so x0 is vh8 for the update below)
+        mac     x0,y1,a
         move    a,x1                    ; vX
         asl     #$1,a,a
-        move    x:(r7+$2e),x0
         sub     x0,a
         move    a,x:(r7+$2e)            ; vh8
 ; ---- C7: vh7 += K7 (vs - v), 48 bits ------------------------------------------------
