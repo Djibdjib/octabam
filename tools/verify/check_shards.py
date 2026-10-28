@@ -47,7 +47,8 @@ rest idle.
 A PART OF ONE REMIX (27 Oct 2026). `--only-jobs a,b` / `--skip-jobs a,b`
 run a remix as gate jobs, cut to the named ones or without them (CI runs
 the two as separate units, reach.SPLIT_REMIX_JOBS). A name that is no gate
-job is refused.
+job is refused; under `--modules` a name is checked against the remix's
+whole job list, and one outside the reached modules is left out of the cut.
 
 CACHED (11 Oct 2026). Each job (a remix's whole half, or one gate job)
 builds the remix's image first and looks itself up in
@@ -410,15 +411,28 @@ def remix_jobs(remix_name, shard):
     return jobs
 
 
-def pick_jobs(jobs, only, skip):
+def pick_jobs(jobs, only, skip, known=None):
     """`jobs` (remix_jobs) cut to the named ones, or without the skipped
     ones. A name that is no job is refused: a renamed gate would otherwise
-    fall out of the part that ran it, and into neither."""
+    fall out of the part that ran it, and into neither. `known` is every
+    job name the remix has: with --modules, `jobs` holds only the reached
+    modules' jobs, and a name of another module's job (plocks-p2 under
+    --modules BRAIN) is a job that is not in this cut, not a missing one."""
     have = {j[0] for j in jobs}
-    unknown = sorted((set(only) | set(skip)) - have)
+    unknown = sorted((set(only) | set(skip)) - (known or have))
     if unknown:
-        raise SystemExit(f"check_shards: no gate job {', '.join(unknown)} (have: {', '.join(sorted(have))})")
+        raise SystemExit(f"check_shards: no gate job {', '.join(unknown)} (have: {', '.join(sorted(known or have))})")
     return [j for j in jobs if (not only or j[0] in only) and j[0] not in skip]
+
+
+def all_job_names(remix_name, shard):
+    """Every gate job name of the remix, whatever --modules cut the run to."""
+    global SCOPE
+    scope, SCOPE = SCOPE, None
+    try:
+        return {j[0] for j in remix_jobs(remix_name, shard)}
+    finally:
+        SCOPE = scope
 
 
 def choose_split(remixes, spec, times, jobs):
@@ -601,7 +615,7 @@ def _main(argv, owners):
             if r in split:
                 gj = remix_jobs(r, a.shards / "0")
                 check_recipe(gj)
-                gj = pick_jobs(gj, only_jobs, skip_jobs)
+                gj = pick_jobs(gj, only_jobs, skip_jobs, all_job_names(r, a.shards / "0"))
                 work += [("gate", r, j) for j in gj]
             else:
                 work.append(("remix", r, None))
