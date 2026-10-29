@@ -1423,5 +1423,5 @@ symbols in its global `nm` output. Publishing those as its own exports overwrote
 the runtime provider's final `CLONE_*` addresses.
 
 Keep imported symbols available to the resident link, but exclude them when
-publishing its exports. `make check REMIX=midi-follow-events` exercises the
-combination, including the build's formatter-byte and installed-image checks.
+publishing its exports. `make check REMIX=midi-follow-events` (the remix arrives with MIDI Follow,
+sambanks/octabam#824) exercises the combination, including the build's formatter-byte and installed-image checks.
