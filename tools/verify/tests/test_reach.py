@@ -432,10 +432,10 @@ class PlanTests(unittest.TestCase):
         script = "tools/verify/verify_store_part_selection.py"
         self.assertEqual(context.gate_owners[script], ["STORE"])
         self.assertEqual(context.gate_remixes[script],
-                         {"midi-loopback"})
+                         {"hooks-boot", "midi-loopback"})
         rows = reach.classify([script], context)
         self.assertEqual(reach.remixes_reached(rows),
-                         ["midi-loopback"])
+                         ["hooks-boot", "midi-loopback"])
 
     def test_remixes_reached(self):
         rows = reach.classify(["modules/character/a.asm", "remixes/miniverb/remix.py"], ctx())
