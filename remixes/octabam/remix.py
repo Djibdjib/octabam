@@ -1,7 +1,7 @@
 """octabam -- the core ColdFire modules, all 14 stock effects and our effects.
 
 CORE (BRAIN, STORE, KITS, MIDI SCENES, SCENES P2, PLOCKS P2, CC MAP, CC FEEDBACK,
-USB at MAIN CUE, the recorder and bug fixes, MUTE_MODES from DRAM, SCALE QUANTIZER,
+USB at MAIN CUE, the recorder and bug fixes, MUTE_MODES from DRAM, PATTERN MUTE, SCALE QUANTIZER,
 TUNER, DIRECT_JUMP_KYOTI, RELOAD_FROM_PROJECT, RLEN PLEN, LOAD METER) with all 14
 stock effects and LOFI AMF FIX. SPECTRUM, CHARACTER, MODULATION and TRANSIENT are loaded
 into the shared P window while a track uses them (docs/proposals/DEMAND_LOAD.md); the
@@ -15,7 +15,7 @@ from remix.schema import Pin, Proof, Remix
 CORE = ("BRAIN", "STORE", "KITS", "MIDI SCENES", "SCENES P2", "PLOCKS P2",
         "CC MAP", "CC FEEDBACK", "USB",
         "RECORDER LOOP FIX", "BATCH_BUGFIXES", "ERASE_EMPTY_TRIGLESS_LOCKS",
-        "QUANTIZE_LIVE_REC_TOGGLE", "REC_TRIG_MUTE", "MUTE_MODES",
+        "QUANTIZE_LIVE_REC_TOGGLE", "REC_TRIG_MUTE", "MUTE_MODES", "PATTERN MUTE",
         "SCALE QUANTIZER", "TUNER", "DIRECT_JUMP_KYOTI", "RELOAD_FROM_PROJECT", "RLEN PLEN",
         "ATA WRITE GUARD", "EVENTS",
         "LOAD METER")
