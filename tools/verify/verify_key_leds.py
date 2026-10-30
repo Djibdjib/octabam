@@ -7,8 +7,13 @@ before. The trig LEDs are decoded from the panel stream (both colours'
 levels, ids 0..31) and compared with a model built here from the modes
 as rotations of the major scale -- not from the module's tables: the
 tonic yellow, the scale's other notes red, the rest dark, key 1 = C.
-KEY 0 (OFF) and an audio track must be stock's C major. With MIDI SCALES
-in the remix every KEY 0..84 is run; without it, stock's 0..24.
+KEY 0 (OFF) must be stock's C major. With MIDI SCALES in the remix every
+KEY 0..84 is run; without it, stock's 0..24. The audio side: without SCALE
+QUANTIZER an audio track is stock's C major; with it, its SCALE and ROOT
+(the battery-RAM bytes 0x100b14ec / 0x100b14ee) are set before, every
+SCALE on ROOT C and A and every ROOT in MINOR, and key k is expected to
+sound ROOT + k (its README, "key 1 sounds the root"); SCALE OFF is stock.
+The 24 scales are the semitone lists of its README, not its mask words.
 """
 import os
 import pathlib
@@ -24,6 +29,15 @@ from panel_link import PanelLink  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 KEY_LANE = 0x46c76df1                     # MIDI track 1's KEY byte
+NV_SCALE, NV_ROOT = 0x100b14ec, 0x100b14ee  # SCALE QUANTIZER's SCALE (0 OFF, 1..24) and ROOT (0..11)
+QZ_SCALES = ((0, 2, 4, 5, 7, 9, 11), (0, 2, 3, 5, 7, 9, 10), (0, 1, 3, 5, 7, 8, 10),
+             (0, 2, 4, 6, 7, 9, 11), (0, 2, 4, 5, 7, 9, 10), (0, 2, 3, 5, 7, 8, 10),
+             (0, 1, 3, 5, 6, 8, 10), (0, 3, 5, 7, 10), (0, 2, 4, 7, 9), (0, 2, 3, 5, 7, 9, 11),
+             (0, 2, 3, 5, 7, 8, 11), (0, 2, 4, 6, 8, 10), (0, 3, 5, 6, 7, 10),
+             (0, 1, 4, 5, 7, 8, 10), (0, 2, 3, 5, 6, 8, 9, 11), (0, 1, 3, 4, 6, 7, 9, 10),
+             (0, 2, 3, 6, 7, 8, 11), (0, 2, 3, 7, 8), (0, 1, 5, 7, 10), (0, 1, 5, 6, 10),
+             (0, 1, 3, 7, 8), (0, 1, 4, 5, 7, 8, 11), (0, 1, 3, 4, 6, 8, 10),
+             (0, 2, 4, 6, 7, 9, 10))       # SCALE 1..24, upstream/quantizer/README.md's table
 MAJOR = (0, 2, 4, 5, 7, 9, 11)
 MODES = {"MAJ": 0, "DOR": 1, "PHR": 2, "LYD": 3, "MIX": 4, "MIN": 5, "LOC": 6}   # degree the mode starts on
 ADDED = ("DOR", "PHR", "LYD", "MIX", "LOC")
@@ -44,14 +58,24 @@ def decode(key):
     return (key - 25) // 5, ADDED[(key - 25) % 5]
 
 
-def expected(key):
-    tonic, mode = decode(key) or (0, "MAJ")     # OFF and audio: stock's C major
-    notes = scale(mode)
+def keyboard(tonic, notes, key1):
+    """Key k sounds pitch class key1 + k: the tonic yellow, the scale red, the rest dark."""
     out = ""
     for k in range(16):
-        degree = (k % 12 - tonic) % 12
+        degree = (key1 + k - tonic) % 12
         out += "Y" if degree == 0 else "R" if degree in notes else "."
     return out
+
+
+def expected(key):
+    tonic, mode = decode(key) or (0, "MAJ")     # OFF: stock's C major
+    return keyboard(tonic, scale(mode), 0)      # key 1 = C on a MIDI track
+
+
+def expected_audio(qz_scale, root):
+    if not qz_scale:
+        return expected(0)                      # SCALE OFF: stock
+    return keyboard(root, set(QZ_SCALES[qz_scale - 1]), root)
 
 
 def shown(stream):
@@ -91,6 +115,7 @@ def main():
     if "KEY LEDS" not in mods:
         return 0
     keys = range(85) if "MIDI SCALES" in mods else range(25)
+    quantizer = "SCALE QUANTIZER" in mods
     out = ROOT / "out/key-leds"
     shutil.rmtree(out, ignore_errors=True)
     out.mkdir(parents=True)
@@ -108,7 +133,13 @@ def main():
     script(out / "midi.script", True)
     script(out / "audio.script", False)
     modes = "0x80000012=00;0x80000013=00;0x80000014=00;0x80000015=00"
-    runs = [(f"midi-{k}", "midi", k) for k in keys] + [("audio-6", "audio", 6)]
+    runs = [(f"midi-{k}", "midi", k, f"{KEY_LANE:#x}={k}") for k in keys]
+    if quantizer:
+        audio = sorted({(sc, r) for sc in range(25) for r in (0, 9)} | {(6, r) for r in range(12)})
+        runs += [(f"audio-{sc}-{r}", "audio", (sc, r), f"{NV_SCALE:#x}={sc};{NV_ROOT:#x}={r}")
+                 for sc, r in audio]
+    else:
+        runs.append(("audio", "audio", (0, 0), f"{KEY_LANE:#x}=6"))
     fails = 0
     for model in ("mki", "mkii"):
         cmd = [str(ROOT / "out/emu/ot_emu"), "--image", str(image), "--card", str(card),
@@ -116,22 +147,23 @@ def main():
                "--scenario-jobs", str(os.cpu_count() or 4)]
         if model == "mkii":
             cmd.append("--mkii")
-        for tag, kind, key in runs:
+        for tag, kind, key, poke in runs:
             base = out / f"{model}-{tag}"
             cmd += ["--scenario", f"{base}.log --live-script {out / kind}.script --serial-out {base} "
-                    f"--poke {modes};{KEY_LANE:#x}={key}"]
+                    f"--poke {modes};{poke}"]
         with (out / f"{model}.log").open("w") as f:
             subprocess.run(cmd, cwd=ROOT, stdout=f, stderr=subprocess.STDOUT, check=True)
         bad = []
-        for tag, kind, key in runs:
+        for tag, kind, key, _poke in runs:
             base = out / f"{model}-{tag}"
-            want = expected(key) if kind == "midi" else expected(0)
+            want = expected(key) if kind == "midi" else expected_audio(*key)
             got = shown(base.with_suffix(".a")) if base.with_suffix(".a").exists() else "(no stream)"
             ended = "ended on quit" in base.with_suffix(".log").read_text()
             if got != want or not ended:
                 bad.append(f"{tag}: want {want} got {got}{'' if ended else ' (the script did not end)'}")
+        side = (f"{len(runs) - len(keys)} audio SCALE / ROOT" if quantizer else "an audio track, stock")
         print(f"  [{'FAIL' if bad else 'PASS'}] verify_key_leds: {model}, {len(runs)} runs "
-              f"(MIDI KEY {keys.start}..{keys.stop - 1}, an audio track)")
+              f"(MIDI KEY {keys.start}..{keys.stop - 1}; {side})")
         for line in bad[:8]:
             print(f"      {line}")
         fails += bool(bad)
