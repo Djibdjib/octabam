@@ -448,7 +448,7 @@ index 8759c66..c7fb9b1 100644
  		// Build mnemonic table
  		void buildMnemonicTable();
 diff --git a/source/dsp56kEmu/dma.cpp b/source/dsp56kEmu/dma.cpp
-index de5b522..f128a51 100644
+index de5b522..3700bfc 100644
 --- a/source/dsp56kEmu/dma.cpp
 +++ b/source/dsp56kEmu/dma.cpp
 @@ -10,6 +10,7 @@
@@ -459,7 +459,7 @@ index de5b522..f128a51 100644
  
  #if 0
  #include "dsp56kBase/logging.h"
-@@ -248,7 +249,18 @@ namespace dsp56k
+@@ -248,7 +249,11 @@ namespace dsp56k
  			};
  
  			// a raised request is only served by a channel that was set to that request source before, see checkTrigger
@@ -468,18 +468,11 @@ index de5b522..f128a51 100644
 +			// write that selects the source serves a raised request too. ot_emu sets it: with 3cee91c9's rule
 +			// verify_remix_switch's park command was not taken by either core (`ok d0=0`, CI 27 Oct 2026); with
 +			// this one it is. The mechanism is not found.
-+			// octabam: a channel armed on a host interface request serves it when it is raised (the rule
-+			// before 3cee91c9); the ESAI keeps 3cee91c9's rule. Measured 28 Oct 2026: with 3cee91c9 for every
-+			// source, the Octatrack's channels 0 and 1 (HostReceiveData, HostTransmitData) armed with the request
-+			// raised and were not served again, and verify_remix_switch's park command was taken by neither core;
-+			// serving only these two sources restores it. Inferred, not measured: HRDF and HTDE do not raise a
-+			// new request until a word has moved, as the ESAI does in every slot.
-+			const bool hostRequest = reqSrc == RequestSource::HostReceiveData || reqSrc == RequestSource::HostTransmitData;
-+			if((reqSrc == m_prevRequestSource || hostRequest) && raised())
++			if((reqSrc == m_prevRequestSource || m_peripherals.getDSP().dmaTriggerOnArm()) && raised())
  				triggerByRequest();
  		}
  		else
-@@ -955,6 +967,77 @@ namespace dsp56k
+@@ -955,6 +960,77 @@ namespace dsp56k
  		return !channels.empty();
  	}
  
@@ -557,7 +550,7 @@ index de5b522..f128a51 100644
  	bool Dma::trigger(DmaChannel::RequestSource _source) const
  	{
  		const auto& channels = m_requestTargets[static_cast<uint32_t>(_source)];
-@@ -971,7 +1054,6 @@ namespace dsp56k
+@@ -971,7 +1047,6 @@ namespace dsp56k
  	void Dma::addTriggerTarget(DmaChannel* _channel)
  	{
  		auto src = _channel->getRequestSource();
@@ -565,7 +558,7 @@ index de5b522..f128a51 100644
  		auto& channels = m_requestTargets[static_cast<uint32_t>(src)];
  
  		channels.push_back(_channel);
-@@ -980,7 +1062,6 @@ namespace dsp56k
+@@ -980,7 +1055,6 @@ namespace dsp56k
  	void Dma::removeTriggerTarget(const DmaChannel* _channel)
  	{
  		auto src = _channel->getRequestSource();
@@ -697,7 +690,7 @@ index 48d1cbc..2e1c754 100644
  	// exec_do_end
  	//
 diff --git a/source/dsp56kEmu/dsp.h b/source/dsp56kEmu/dsp.h
-index 0e2665d..812f0de 100644
+index 0e2665d..01dc22e 100644
 --- a/source/dsp56kEmu/dsp.h
 +++ b/source/dsp56kEmu/dsp.h
 @@ -1,6 +1,7 @@
@@ -734,7 +727,7 @@ index 0e2665d..812f0de 100644
  		void			clearOpcodeCache				();
  		void			clearOpcodeCache				(TWord _address);
  
-@@ -436,6 +447,41 @@ namespace dsp56k
+@@ -436,6 +447,47 @@ namespace dsp56k
  		bool	do_start						( const TWord* _loopcount, TWord _addr );
  		bool	do_end							();
  
@@ -763,6 +756,11 @@ index 0e2665d..812f0de 100644
 +		// HI08's HC/HCP -- can be cleared at the right moment. A fast
 +		// interrupt never sets the PC to the vector, so the PC cannot tell.
 +		void	setInterruptTakenHook			( std::function<void(TWord)> _f )	{ m_onInterruptTaken = std::move(_f); }
++		// octabam (jit-spike): a DMA channel armed while its request already
++		// holds fires once (dma.cpp checkTrigger; the Octatrack arms DMA2 long
++		// after its ESAI transmitter set TDE) -- for a threaded JIT core too.
++		void	setDmaTriggerOnArm				( bool _on )						{ m_dmaTriggerOnArm = _on; }
++		bool	dmaTriggerOnArm					() const							{ return m_dmaTriggerOnArm; }
 +		// octabam (jit-spike): the PC of the instruction that made a peripheral write. The JIT passes
 +		// it to callDSPMemWritePeriph, the interpreter's execOp sets it itself; a host-side hook reads
 +		// it to tell which instruction wrote the host port (the bank word at P:0x73).
@@ -771,6 +769,7 @@ index 0e2665d..812f0de 100644
 +		TWord&	pcCurrentInstructionRef			()									{ return pcCurrentInstruction; }
 +	private:
 +		bool	m_hostStepped = false;
++		bool	m_dmaTriggerOnArm = false;
 +		std::function<void(TWord)> m_onInterruptTaken;
 +
  		bool	rep_exec						(TWord _loopCount);

@@ -949,6 +949,24 @@ into a register and `jmp (rN)`. Dispatch entries must keep `init < proc <= init 
 
 ## Traps on the ColdFire / DRAM side (the platform work, 9–10 Sep 2026)
 
+<a name="trap-part-engine-context"></a>
+### Audio and MIDI have independent playing-Part latches
+
+**Symptom:** a MIDI consumer reads the wrong Part while the audio and MIDI
+engines are on different track contexts. Fixtures that put both engines on
+one Part conceal the error.
+
+**Cost:** the native Part service migration exposed an audio-latch lookup in
+the old shared MIDI helper; Loopback had separately implemented the MIDI lookup.
+
+**Fix:** STORE exposes separate `store_part_audio_context` and
+`store_part_midi_context` readers. MIDI clients use the latter. Each falls back
+to the applied bank/Part only while its own track is unlatched.
+
+**Gate:** `verify_store_part.py` seeds different audio and MIDI contexts,
+checks all eight tracks and tests each fallback independently.
+
+
 <a name="trap-watch-alias"></a>
 
 ### A write-watch on cached addresses is blind to a clear through the uncached alias
@@ -1394,3 +1412,39 @@ the list (a byte search for the clamp found all five), and in a port script
 hold a key only as long as you mean it to repeat. Gate: `verify_hooks`
 (installed: the ten pokes) and `verify_analog_bassdrum_ui` on
 `hooks-machines` (row 5 reached from the bottom of seven).
+
+<a id="trap-resident-import-exports"></a>
+### Resident relinking must not publish imported staging symbols
+
+A remix combining MIDI Part State and EUCLID failed the linked label-formatter
+byte check: EUCLID's final descriptor address was replaced by its earlier
+staging address. The resident unit's second link included imported `--defsym`
+symbols in its global `nm` output. Publishing those as its own exports overwrote
+the runtime provider's final `CLONE_*` addresses.
+
+Keep imported symbols available to the resident link, but exclude them when
+publishing its exports. `make check REMIX=midi-follow-events` (the remix arrives with MIDI Follow,
+sambanks/octabam#824) exercises the combination, including the build's formatter-byte and installed-image checks.
+
+<a name="trap-dma-arm"></a>
+
+### Narrowing the port's DMA arm rule broke a gate whose image never moved
+
+**A CHANGE TO THE PORT CAN FAIL A GATE THAT CI THEN REPORTS AS A CACHED PASS.**
+`716e682` (28 Oct 2026) narrowed `dsp56300.patch`'s arm rule: a DMA channel
+armed with its request already raised fired at once only for the two host
+interface sources, where `ot_emu` had set `setDmaTriggerOnArm` for every source
+(the Octatrack arms its ESAI channels long after the ESAI raised the request).
+`verify_remix_switch` passed with both rules; `verify_rec_threshold`'s `late`
+scenario did not: the recorder took the input from a stale page, and the take
+held no numbered sample within the detection frame (first sample `None`;
+10 with the old port, the same image and script). Nothing showed it for a day:
+the gate's image and inputs had not moved, so CI reported the gate cached, and
+it surfaced only when REC THRESHOLD joined `octabam` (#964). Found by building
+the port at `8ccdd843`, at `9490cce` and at main against one image. Fix: the
+revert of `716e682`. Rule: a change to `tools/patches/` or `tools/emu/` is a
+change to every port gate's instrument -- run the port gates of the modules
+whose behaviour leans on the changed rule (here, anything reading the ESAI's
+input pages), not only the one the change was made for. Gate:
+`verify_rec_threshold` and `verify_remix_switch`, both under the reverted port.
+
