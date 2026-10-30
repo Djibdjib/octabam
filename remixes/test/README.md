@@ -43,6 +43,8 @@ Each carries one module, or one combination, for that module's gates: `make chec
 | [`hooks-machines-all`](hooks-machines-all/README.md) | ANALOG BD, OCTA303 and CX OSC in one image: HOOKS gives the track's machine list eight rows, ANALOG BD on row 5, OCTA-303 on row 6 and CX OSC on row 7, and the list scrolls. | port-gated: verify_hooks: the bridged machine sites in this image; the three machines' UI gates under the port |
 | [`hooks-machines-cx`](hooks-machines-cx/README.md) | OCTA303 and CX OSC in one image: HOOKS gives the track's machine list seven rows, OCTA-303 on row 5 and CX OSC on row 6, and the list scrolls. | port-gated: verify_hooks: the bridged machine sites in this image; the two machines' UI gates under the port |
 | [`ids64`](ids64/README.md) | BBD on FX2 id 0x25 in a 64-id image (DSP dispatch and ColdFire tables grown). | `make check`: port only; not flashed |
+| [`key-leds`](key-leds/README.md) | KEY LEDS alone, on the 14 stock effects: stock's Major / Minor KEY on the CHROMATIC keys. | port-gated: verify_key_leds |
+| [`key-leds-scales`](key-leds-scales/README.md) | KEY LEDS beside MIDI SCALES: every KEY 1..84, the five added modes included, on the CHROMATIC keys. | port-gated: verify_key_leds |
 | [`kits`](kits/README.md) | KITS (255 Kits per project) on the stock effects. | port-gated: verify_kits under the port |
 | [`kyoti-fixes`](kyoti-fixes/README.md) | stock effects with QUANTIZE_LIVE_REC_TOGGLE, ERASE_EMPTY_TRIGLESS_LOCKS and BATCH_BUGFIXES together. | `make check` |
 | [`kyoti-mute-jump`](kyoti-mute-jump/README.md) | stock effects with MUTE_MODES and DIRECT_JUMP_KYOTI together. | `make check` |
