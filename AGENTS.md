@@ -211,6 +211,7 @@ moment it costs real work, and add its line here.
 - [A floating cave rounded past the clone window landed on the chooser list](docs/contributing/TRAPS.md#trap-cave-round) — `… not free` names the victim; the overflow fallback takes any floating cave ending past the limit, starting past DELAY's kept bytes.
 - [A DRAM clone's `CLONE_<key>` export is its staging address](docs/contributing/TRAPS.md#trap-dram-clone-stage) — repointed only at the end; compare runtime addresses from `_psyms`.
 - [The machine list's key handlers clamp the cursor to 5](docs/contributing/TRAPS.md#trap-machine-clamp) — a sixth row fits by accident, a seventh needs the ten `moveq`s; a port key held 0.25 s repeats.
+- [Narrowing the port's DMA arm rule broke a gate whose image never moved](docs/contributing/TRAPS.md#trap-dma-arm) — a port change is every port gate's instrument; CI's cached passes hide it.
 
 - [Resident relinks can republish imported staging addresses](docs/contributing/TRAPS.md#trap-resident-import-exports) — publish only owned exports; `midi-follow-events` exercises descriptor relocation with MIDI Part State.
 
