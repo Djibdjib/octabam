@@ -212,6 +212,8 @@ moment it costs real work, and add its line here.
 - [A DRAM clone's `CLONE_<key>` export is its staging address](docs/contributing/TRAPS.md#trap-dram-clone-stage) — repointed only at the end; compare runtime addresses from `_psyms`.
 - [The machine list's key handlers clamp the cursor to 5](docs/contributing/TRAPS.md#trap-machine-clamp) — a sixth row fits by accident, a seventh needs the ten `moveq`s; a port key held 0.25 s repeats.
 
+- [Resident relinks can republish imported staging addresses](docs/contributing/TRAPS.md#trap-resident-import-exports) — publish only owned exports; `midi-follow-events` exercises descriptor relocation with MIDI Part State.
+
 ## How claims are written here
 
 The project has been burned by stale confident numbers more than once — a
@@ -241,3 +243,6 @@ git show <sha>:dsp/baseprobe.asm
 Leave those citations alone — rewriting one to remove a filename erases
 how the number was obtained. A citation of a removed file uses the form
 `git show <sha>:<path>` (`docs/history/` records: sha `3ceba41`).
+
+
+- [Audio and MIDI playing Parts are independent](docs/contributing/TRAPS.md#trap-part-engine-context) — use the matching STORE context reader; seed different engine Parts in fixtures.

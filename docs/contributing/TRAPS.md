@@ -949,6 +949,24 @@ into a register and `jmp (rN)`. Dispatch entries must keep `init < proc <= init 
 
 ## Traps on the ColdFire / DRAM side (the platform work, 9–10 Sep 2026)
 
+<a name="trap-part-engine-context"></a>
+### Audio and MIDI have independent playing-Part latches
+
+**Symptom:** a MIDI consumer reads the wrong Part while the audio and MIDI
+engines are on different track contexts. Fixtures that put both engines on
+one Part conceal the error.
+
+**Cost:** the native Part service migration exposed an audio-latch lookup in
+the old shared MIDI helper; Loopback had separately implemented the MIDI lookup.
+
+**Fix:** STORE exposes separate `store_part_audio_context` and
+`store_part_midi_context` readers. MIDI clients use the latter. Each falls back
+to the applied bank/Part only while its own track is unlatched.
+
+**Gate:** `verify_store_part.py` seeds different audio and MIDI contexts,
+checks all eight tracks and tests each fallback independently.
+
+
 <a name="trap-watch-alias"></a>
 
 ### A write-watch on cached addresses is blind to a clear through the uncached alias
@@ -1394,3 +1412,16 @@ the list (a byte search for the clamp found all five), and in a port script
 hold a key only as long as you mean it to repeat. Gate: `verify_hooks`
 (installed: the ten pokes) and `verify_analog_bassdrum_ui` on
 `hooks-machines` (row 5 reached from the bottom of seven).
+
+<a id="trap-resident-import-exports"></a>
+### Resident relinking must not publish imported staging symbols
+
+A remix combining MIDI Part State and EUCLID failed the linked label-formatter
+byte check: EUCLID's final descriptor address was replaced by its earlier
+staging address. The resident unit's second link included imported `--defsym`
+symbols in its global `nm` output. Publishing those as its own exports overwrote
+the runtime provider's final `CLONE_*` addresses.
+
+Keep imported symbols available to the resident link, but exclude them when
+publishing its exports. `make check REMIX=midi-follow-events` (the remix arrives with MIDI Follow,
+sambanks/octabam#824) exercises the combination, including the build's formatter-byte and installed-image checks.
