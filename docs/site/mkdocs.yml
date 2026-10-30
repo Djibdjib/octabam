@@ -109,6 +109,7 @@ nav:
       - Mute Modes: reference/modules/mute-modes.md
       - OCTA-303: reference/modules/octa303.md
       - Page 2 Parameter Locks: reference/modules/plocks-p2.md
+      - Pattern Mute: reference/modules/pattern-mute.md
       - Quantize Live Rec Toggle: reference/modules/quantize-live-rec-toggle.md
       - Rec Threshold: reference/modules/rec-threshold.md
       - Recorder Trig Mute: reference/modules/rec-trig-mute.md
