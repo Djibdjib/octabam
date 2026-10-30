@@ -72,8 +72,8 @@ MODULE = Module(
                "overdub, PLAY/STOP and clear, UNDO / REDO, END, PLAY entries, the popup; "
                "tools/verify/verify_free_loop.py",
     doc="Loop pedals per track on its channel: CC 90 REC (a FREE track's first free loop sets the tempo, "
-        "the pattern length and starts the sequencer; then arm / cut the overdub), CC 91 PLAY/STOP "
-        "(play, mute / unmute, held: clear), CC 92 UNDO / REDO, CC 93 END (mute / unmute at the loop's start). "
+        "the pattern length and starts the sequencer; then arm / cut the overdub; held: clear a muted or stopped loop), "
+        "CC 91 PLAY/STOP (play, mute / unmute, held: END), CC 92 UNDO / REDO, CC 93 END (mute / unmute at the loop's start). "
         "TRACK + UP: the track's ROLE, SIGN, BARS, BPM range and the pattern's ENTRY mode. "
         "CC 83-89 on PROG CH: PLAY/STOP, clear, pattern and bank steps.",
     linked=(Linked("fl", "modules/free-loop/free_loop.s", cpu="5475", dram=True),),

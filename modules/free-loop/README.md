@@ -3,10 +3,11 @@
 Two loop pedals per track, REC and PLAY/STOP. On a FREE track, the first
 loop, played with the sequencer stopped, sets the tempo, the pattern's
 length and the loop's end, and starts the sequencer. Then REC arms and
-cuts the overdub on the grid, PLAY/STOP mutes and unmutes the loop, and
-held, clears it; UNDO takes the last overdub back (and REDO), END stops or
-restarts a loop at its end. On the PROG CH channel, five more CCs step the
-pattern and the bank, PLAY / STOP the sequencer and clear the recorders.
+cuts the overdub on the grid, and held, clears the loop once it is muted
+or stopped; PLAY/STOP mutes and unmutes it; UNDO takes the last overdub
+back (and REDO), END stops or restarts a loop at its end. On the PROG CH
+channel, five more CCs step the pattern and the bank, PLAY / STOP the
+sequencer and clear the recorders.
 
 It is meant for a pedalboard: one pedal per instrument (REC), a second one
 for PLAY/STOP, played with the hands on the instrument. `make_template.py`

@@ -35,9 +35,11 @@ DIR CD. T1 and T3 are FREE, T2 and T4 GRID.
   ends). The track's mark at the screen edge: a blinking ring while armed,
   a dot while overdubbing.
 - **PLAY/STOP.** Stopped: PLAY. Playing: mute / unmute the track (or, with
-  MUTE END, at the loop's end). Held 1 s: the track's loop is cleared
-  (when it is muted or the sequencer stopped; held while heard: END).
-- **REC held 1 s.** While the track plays: UNDO. Otherwise: clear.
+  MUTE END, at the loop's end). Held 1 s: END (with MUTE NOW, the press's
+  mute is undone first). PLAY/STOP never clears.
+- **REC held 1 s.** While the track plays: UNDO. With the track muted or
+  the sequencer stopped: the track's loop is cleared. Clearing a heard
+  loop takes two gestures: mute it, then hold REC.
 - **UNDO / REDO.** With an UNDO buffer, each overdub records into the
   other buffer, so the last pass can be taken back from the next loop
   start, and brought back again. UNDO TO goes back further, to the
@@ -57,8 +59,8 @@ DIR CD. T1 and T3 are FREE, T2 and T4 GRID.
 
 | Control | Does |
 |---|---|
-| CC 90 (track's channel) | REC: free take, arm / cut the overdub; held 1 s: UNDO or clear |
-| CC 91 (track's channel) | PLAY/STOP: play, mute / unmute; held 1 s: clear or END |
+| CC 90 (track's channel) | REC: free take, arm / cut the overdub; held 1 s: UNDO (playing) or clear (muted or stopped) |
+| CC 91 (track's channel) | PLAY/STOP: play, mute / unmute; held 1 s: END |
 | CC 92 (track's channel) | UNDO / REDO |
 | CC 93 (track's channel) | END: mute at the loop's end, or back at the next loop start |
 | CC 83 (PROG CH channel) | sequencer PLAY / STOP |
