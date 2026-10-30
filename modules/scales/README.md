@@ -1,17 +1,22 @@
 # SCALES
 
-One catalogue of scales that every module can use, a scale chooser in
-stock's list window, and the CHROMATIC trig keys lit with the scale.
+One catalogue of scales that every module can use, a scale chooser of
+MAIN MENU's size, and the CHROMATIC trig keys lit with the scale.
 
 - **The catalogue**: 52 scales in 9 families, each a 12-bit mask over the
   semitones above its tonic (IONIAN, written from the tonic up, is
   `1010 1101 0101`: C . D . E F . G . A . B). A scale's ID names it for
   good: a saved ID never changes meaning, a new scale takes the next ID.
-- **The chooser**: stock's list window (the one BRAIN and STORE open), in
-  two levels: the families, then the chosen family's scales. YES picks a
-  row, NO closes it. A module opens it with `sc_pick` and gets the ID.
+- **The chooser**: a window of MAIN MENU's size, drawn as SYSTEM >
+  PERSONALIZE is (the band, the title, an icon, five rows, the scroll
+  arrows), in two levels: the families, then one family's scales. RIGHT
+  or YES enters a family, LEFT goes back to the families, YES picks a
+  scale, NO closes it. The scale in use is marked: its short name on its
+  family's row, a ticked box on its own row. A module opens it with
+  `sc_pick` and gets the ID.
 - **ARP SETUP's KEY** (a MIDI track, FUNC + AMP, encoder F): turned, the
-  tonic (OFF, C .. B), the scale kept; pressed and released without a
+  tonic (OFF, C .. B), one a detent, the scale kept (no quick edit: a
+  turn with F pushed is one step too); pressed and released without a
   turn, the chooser. The sequencer's and the arpeggiator's notes snap to
   the scale (nearest note, ties downward). The field shows the tonic and
   the scale's short name (`C#` `PHRD`).
@@ -22,7 +27,7 @@ stock's list window, and the CHROMATIC trig keys lit with the scale.
   ROOT, key 1 = ROOT, as its keyboard plays.
 
 KEY OFF, SCALE OFF and an audio track without SCALE QUANTIZER keep stock's
-C major. `Kind.CF_PATCH`: one DRAM unit (`scales.s`, about 3.1 KB), four
+C major. `Kind.CF_PATCH`: one DRAM unit (`scales.s`, about 4.3 KB), four
 detours, a poke and a pointer.
 
 | family | scales (ID, short name) |
@@ -96,13 +101,17 @@ push). `kl_tick` watches the push switch's key record (code `0x3d`,
 open (`0x400cfebe` nonzero) in MIDI mode; a release with no F turn since
 the push (stock's quick edit turns with the knob pushed) and no list,
 dialog or text editor open (`0x460e5e30`, `0x460e5cd0`, `0x460e7612`)
-opens the chooser. The window opens from the UI task, as STORE's does.
+opens the chooser, from the UI task.
 
-**The chooser** calls `0x4006d94c(count, sel, &sel, labels, handlers)`
-twice: the 9 families on the shown scale's family; a family's handler
-opens its scales, on the shown scale's row when it is in that family. Each
-list is a run of one table of name pointers, so nothing is built at run
-time.
+**The chooser** is STEMS's window recipe (`docs/firmware/MAINMENU.md`
+section 5): `0x4005829c(118, 64, -1, 0, 5, sc_close)`, its own key layer
+pushed (`0x40031494`: UP, DOWN, LEFT, RIGHT, YES, NO), and each key ends
+in `sc_draw`, which draws as MAIN MENU draws PERSONALIZE: MAIN MENU's band
+(`<set>/<project>`), the inside cleared, the title right-aligned (SCALES,
+or the family), the icon, a rule, five rows from the top row with the
+cursor's inverted from x 3 to 107, the scroll arrows. NO and a pick
+destroy the window (`0x40055db4`) and pop the layer. A level's rows are a
+run of one table of name pointers, so nothing is built at run time.
 
 **The turn.** `sc_encoder` maps the KEY to an ordinal (OFF, C .. B), adds
 stock's detent accumulator's step (`0x40032510(5, movement, 1024)`, four
@@ -150,8 +159,8 @@ of its own: one more `HAVE_<NAME>` in `_sources` and its branch in
 - **Stock's scales stay stock's.** KEY 1..24 with `+0x12` = 0 goes to
   stock's output path, as without the module.
 - **The push is only a press.** A push with a turn is stock's quick edit;
-  nothing opens over an open list, dialog or text editor, or outside ARP
-  SETUP on a MIDI track.
+  nothing opens over the chooser, stock's list window, a dialog or a text
+  editor, or outside ARP SETUP on a MIDI track.
 - **`+0x12` survives stock.** Stock 1.40C loads it (values past 127 load
   as 127; the IDs stop at 52) and SAVE PROJECT writes it; CTRL1 SETUP's
   YES (`0x4003fe14`) writes back the value its window read when it opened
@@ -186,10 +195,13 @@ span.
     tonic, a KEY turned while CHROMATIC is shown; the chooser driven from
     ARP SETUP's keys for each of the 52 IDs, the KEY and `+0x12` read back
     from the Part, the CS1 mirror and the live copy; reopened (YES YES
-    keeps the scale), NO, F turned while pushed (no list), the list left
-    open after a plain push; CTRL1 SETUP's YES. Under `--watch-mem` the
+    keeps the scale), NO, F turned while pushed (no window), the window
+    left open after a plain push, RIGHT into a family and LEFT back;
+    CTRL1 SETUP's YES. Under `--watch-mem` the
     commit-all (`pc 0x4003fe74`) writes `+0x12` back with the chosen ID.
-    132 LED and 57 chooser runs per model, all equal.
+    132 LED and 58 chooser runs per model, all equal. The window's six
+    states drawn under the port and looked at (families, a family, back,
+    scrolled, reopened with the marks).
   - On `test/scales-quantizer`, the audio side as well: every SCALE 0..24
     on ROOT C and A and every ROOT in MINOR, key k = ROOT + k.
 - Planted defects: the CS1 store removed fails every chooser run's CS1
@@ -203,8 +215,9 @@ span.
 
 ## Inferred, open
 
-- The chooser, the KEY's turn and the snapped notes are not run on a unit
-  yet.
+- On the user's MKII (OCTABAM23, 30 Oct 2026, stock's list window then):
+  the chooser, the KEY's turn, the snapped notes and the keys work. The
+  window of MAIN MENU's size (OCTABAM24) is not run on a unit yet.
 - The short names in the KEY field: the formatter's two 5-byte strings
   draw 4 characters under the port (`PHRD`); lowercase `b` in names
   (`DOb2`) is drawn by the port's font as the unit's is assumed to.

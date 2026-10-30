@@ -8,10 +8,12 @@ Select a MIDI track and open MIDI ARP SETUP with **FUNC + AMP**. Encoder
 **F** is KEY:
 
 - **Turn F** to choose the tonic: OFF, then C to B. The scale stays.
-- **Press and release F** to open the chooser. The first list shows the
-  families; choose one with UP / DOWN and press **YES**. The second list
-  shows that family's scales; choose one and press **YES**. **NO** closes
-  the list and changes nothing.
+- **Press and release F** to open the SCALES window. It lists the
+  families; move with UP / DOWN and enter one with **RIGHT** (or **YES**).
+  The family's scales follow; **LEFT** goes back to the families. **YES**
+  on a scale chooses it and closes the window; **NO** closes it and
+  changes nothing. The scale in use shows its short name on its family's
+  row and a ticked box on its own row.
 
 The KEY field then shows the tonic and the scale's short name, for
 example **C#** and **PHRD** for C# Phrygian Dominant. The sequencer's and

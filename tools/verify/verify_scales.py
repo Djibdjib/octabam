@@ -19,8 +19,9 @@ tonic).
    - the trig LEDs (panel stream) for every KEY 0..84, every ID 8..52 on a
      tonic, SCALE QUANTIZER's SCALE / ROOT on an audio track when the remix
      has it, a KEY / ROOT turned while CHROMATIC is shown;
-   - the chooser from ARP SETUP's keys: encoder F pushed opens the families,
-     DOWN / YES pick each of the 52 scales; the KEY and +0x12 in the Part,
+   - the chooser from ARP SETUP's keys: encoder F pushed opens its window on
+     the families, DOWN / YES pick each of the 52 scales, RIGHT enters a
+     family and LEFT goes back; the KEY and +0x12 in the Part,
      the CS1 mirror and the live copy; reopened, YES YES keeps the scale;
      NO keeps it; F turned while pushed opens nothing; CTRL1 SETUP's YES
      (its commit-all writes +0x12) keeps +0x12.
@@ -45,7 +46,6 @@ KEY, EXT = 0x11, 0x12
 PART_SETUP = 0x400e21e0 + 0x8f262         # bank 1, Part 1, track 1's setup record
 CS1_SETUP = 0x100a53b0
 NV_SCALE, NV_ROOT = 0x100b14ec, 0x100b14ee  # SCALE QUANTIZER's SCALE (0 OFF, 1..24) and ROOT (0..11)
-LIST_OPEN = 0x460e5e30
 QZ_SCALES = ((0, 2, 4, 5, 7, 9, 11), (0, 2, 3, 5, 7, 9, 10), (0, 1, 3, 5, 7, 8, 10),
              (0, 2, 4, 6, 7, 9, 11), (0, 2, 4, 5, 7, 9, 10), (0, 2, 3, 5, 7, 8, 10),
              (0, 1, 3, 5, 6, 8, 10), (0, 3, 5, 7, 10), (0, 2, 4, 7, 9), (0, 2, 3, 5, 7, 9, 11),
@@ -404,11 +404,27 @@ def chooser_runs(out):
     s.send("key 0x3d up", 800)
     s.write(out / "turned.script")
     runs.append(("turned", (1, 0), False))
-    s = Script()                          # the list stays open after a plain push
+    s = Script()                          # the window stays open after a plain push
     arp(s)
     s.tap(0x3d, 800)
     s.write(out / "open.script")
     runs.append(("open", (0, 0), True))
+    s = Script()                          # RIGHT enters a family, LEFT goes back on it
+    arp(s)
+    s.tap(0x3d, 600)
+    s.tap(0x20)
+    s.tap(0x20)
+    s.tap(0x21, 600)                      # HARMONIC MINOR's scales
+    s.tap(0x20)
+    s.tap(0x34, 600)                      # back on HARMONIC MINOR
+    for _ in range(3):
+        s.tap(0x20)                       # PENTATONIC
+    s.tap(0x21, 600)
+    for _ in range(4):
+        s.tap(0x20)                       # MINOR PENTATONIC
+    s.tap(0x31, 800)
+    s.write(out / "rightleft.script")
+    runs.append(("rightleft", (encode(0, 40), 40), False))
     s = Script()                          # CTRL1 SETUP's YES commits +0x12 with the CC numbers
     arp(s)
     choose(s, 47)
@@ -468,8 +484,10 @@ def main():
     if quantizer:
         leds.append(("refresh-audio", "audio-later", (6, 9), f"{NV_SCALE:#x}={6};{NV_ROOT:#x}=0"))
     chooser = chooser_runs(out)
+    nm = subprocess.check_output(["m68k-elf-nm", str(ROOT / "out/platform/runtime/runtime.elf")], text=True)
+    window = int(re.search(r"^([0-9a-f]+) [Dd] sc_win$", nm, re.M).group(1), 16)
     dumps = (f"{LIVE:#x},{0x24}", f"{PART_SETUP:#x},{0x24}", f"{CS1_SETUP:#x},{0x24}",
-             f"{LIST_OPEN:#x},4", "0x46c82456,4", "0x100b14cf,1")
+             f"{window:#x},4", "0x46c82456,4", "0x100b14cf,1")
     for model in ("mki", "mkii"):
         cmd = [str(ROOT / "out/emu/ot_emu"), "--image", str(image), "--card", str(card),
                "--set", "SCSET", "--project", "SCPRJ", "--load-ms", "90000",
@@ -509,12 +527,12 @@ def main():
                 if (rec[KEY], rec[EXT]) != (key, ext):
                     bad.append(f"{tag}: {where} KEY / +0x12 {rec[KEY]} / {rec[EXT]}, want {key} / {ext}")
             if bool(int.from_bytes(lst, "big")) != is_open:
-                bad.append(f"{tag}: the list is {'closed' if is_open else 'open'}")
+                bad.append(f"{tag}: the window is {'closed' if is_open else 'open'}")
             if "ended on quit" not in log:
                 bad.append(f"{tag}: the script did not end")
         print(f"  [{'FAIL' if bad else 'PASS'}] verify_scales: {model}, {len(leds)} LED runs, "
               f"{len(chooser)} chooser runs (every ID picked from ARP SETUP; reopen, NO, turned, "
-              f"CTRL1 commit)")
+              f"RIGHT / LEFT, CTRL1 commit)")
         for line in bad[:10]:
             print(f"      {line}")
         fails += bool(bad)

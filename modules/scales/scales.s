@@ -21,9 +21,9 @@
 |               chosen (d0): the chooser (C call, UI task only)
 |   sc_track    d0 MIDI track 0..7 -> d0 = ID << 4 | tonic, -1 for KEY OFF
 |
-| The chooser is stock's list window (0x4006d94c, the one BRAIN and STORE
-| open): the families, then the chosen family's scales. YES picks a row,
-| NO closes it.
+| The chooser is a window of MAIN MENU's size, drawn as PERSONALIZE: the
+| families, then the chosen family's scales; RIGHT / YES enters a family,
+| LEFT goes back, YES picks a scale, NO closes it.
 |
 | A MIDI track's scale. Its KEY (ARP SETUP, setup record +0x11) keeps the
 | tonic and, for the seven diatonic modes, the mode -- the values stock
@@ -70,7 +70,7 @@
 
         .text
         .globl  sc_count, sc_mask, sc_name, sc_short, sc_family, sc_snap
-        .globl  sc_pick, sc_track
+        .globl  sc_pick, sc_track, sc_win
         .globl  kl_chromatic, kl_source, kl_tick
         .globl  sc_encoder, sc_output, sc_format
         .balign 2
@@ -118,8 +118,38 @@
         .equ    UI_DELTA,  0x40032510   | (encoder, movement, 1024): stock's detent accumulator
         .equ    OUT_STOCK, 0x4009fb5e   | stock's output quantization
         .equ    OUT_DONE,  0x4009fb80   | ... and after it
-        .equ    LISTPOP,   0x4006d94c   | (count, sel, &sel, labels, handlers): stock's list window
-        .equ    LIST_OPEN, 0x460e5e30   | long: nonzero while a list window is open
+        .equ    LIST_OPEN, 0x460e5e30   | long: nonzero while stock's list window is open
+        .equ    WCREATE,   0x4005829c   | (w, h, x, 0, class, closed) -> the window
+        .equ    WDESTROY,  0x40055db4   | (&window): destroyed, the screen dirty, the handle 0
+        .equ    WTITLE,    0x40057c84   | (window, title, 0): its frame and title band
+        .equ    WINSIDE,   0x400356a8   | (surface): the inside cleared
+        .equ    LPUSH,     0x40031494   | (layer): its keys before the others
+        .equ    LPOP,      0x4003146c   | (layer)
+        .equ    FONT,      0x400ba876   | the small UI font
+        .equ    TEXT,      0x40012bd8   | (font, surface, x, y, limit, string)
+        .equ    TEXTW,     0x40012f30   | (font, limit, string) -> its width
+        .equ    TEXTFIT,   0x40012f88   | (font, width, string) -> the characters that fit
+        .equ    ICON,      0x400128a8   | (icon, surface, x, y)
+        .equ    RULE,      0x40011910   | (surface, x, y, w, h)
+        .equ    BOX,       0x40012254   | (surface, x1, y1, x2, y2, mode): -1 inverts
+        .equ    SPRINTF,   0x40013a08   | (buffer, format, ...)
+        .equ    SCRDIRTY,  0x46c7c72c   | long: the screen to send
+        .equ    TITLE_FMT, 0x400b5dcf   | MAIN MENU's band: "%.10s/%.32s", the set, the project
+        .equ    SET_NAME,  0x100f8481
+        .equ    PROJ_NAME, 0x100f8378
+        .equ    ARROW_UP,  0x400b4315   | PERSONALIZE's scroll arrows
+        .equ    ARROW_DOWN, 0x400b4317
+        .equ    WINW,      118          | MAIN MENU's window: 118 by 64 at x -1 (0x400cbf58)
+        .equ    WINH,      64
+        .equ    WINX,      -1
+        .equ    WINCLASS,  5            | STEMS's class, not MAIN MENU's 1
+        .equ    VISIBLE,   5            | PERSONALIZE's rows
+        .equ    ROW_PITCH, 7
+        .equ    ROW0_Y,    34           | the first row's bar; its text one up
+        .equ    VALUE_X,   77
+        .equ    BAR_X1,    3
+        .equ    BAR_X2,    107
+        .equ    KUP,       0x33
         .equ    DIALOG_OPEN, 0x460e5cd0 | long: nonzero while a stock dialog owns the keys
         .equ    TEXT_OPEN, 0x460e7612   | long: nonzero while a text editor is open
         .equ    PUSH_F,    0x46c7d8de+0x10+0x3d*0x18 | long: nonzero while encoder F is pushed (key 0x3d)
@@ -332,69 +362,320 @@ sc_track:
 9:      rts
 
 | ==== the chooser ==========================================================
+| A window of MAIN MENU's size, drawn as MAIN MENU draws SYSTEM >
+| PERSONALIZE (STEMS's recipe, docs/firmware/MAINMENU.md section 5): the
+| band (<set>/<project>), the title at the right with the icon at the left,
+| a rule, five rows and the scroll arrows. Two levels: the families, then
+| one family's scales. UP / DOWN move; RIGHT or YES enters a family, LEFT
+| goes back to the families on it; YES on a scale closes the window and
+| gives its ID to the client; NO closes it. The scale shown first is marked:
+| its short name on its family's row, a ticked box on its own row.
 
 | sc_pick: d0 the ID shown first, a0 the routine the chosen ID goes to.
 sc_pick:
+        tst.l   sc_win
+        bne.s   9f                      | open already
         move.l  %a0,sc_client
         move.l  %d0,sc_shown
         bsr.w   sc_family
         tst.l   %d0
         bpl.s   1f
         moveq   #0,%d0
-1:      move.l  %d0,sc_famsel
-        pea     sc_fam_cbs
-        pea     sc_fam_labels
-        pea     sc_famsel
-        move.l  %d0,-(%sp)
-        pea     SC_FAMILIES
-        jsr     LISTPOP
-        lea     20(%sp),%sp
-        rts
+1:      clr.l   sc_level
+        move.l  %d0,sc_sel
+        bsr.w   sc_scroll
+        pea     sc_close
+        pea     WINCLASS
+        clr.l   -(%sp)
+        pea     WINX
+        pea     WINH
+        pea     WINW
+        jsr     WCREATE
+        lea     24(%sp),%sp
+        move.l  %d0,sc_win
+        beq.s   9f
+        pea     sc_layer
+        jsr     LPUSH
+        addq.l  #4,%sp
+        bra.w   sc_draw
+9:      rts
 
-| A family row (C call, no argument): its scales, the one shown first
-| selected when it is in this family.
-sc_fam_cb:
-        move.l  %d2,-(%sp)
-        move.l  sc_famsel,%d2
-        cmpi.l  #SC_FAMILIES,%d2
-        bcc.s   9f
+| The window's close (NO, a pick, or the window system's own close).
+sc_close:
+        tst.l   sc_win
+        beq.s   9f
+        pea     sc_win
+        jsr     WDESTROY
+        addq.l  #4,%sp
+        pea     sc_layer
+        jsr     LPOP
+        addq.l  #4,%sp
+9:      rts
+
+| -> d0 = the rows of the level shown, d1 = the first's ID - 1 (scales) or 0.
+sc_rows:
+        moveq   #0,%d1
+        moveq   #SC_FAMILIES,%d0
+        tst.l   sc_level
+        beq.s   9f
+        move.l  sc_fam,%d0
         lea     sc_fam_first,%a0
-        mvz.b   (%a0,%d2.l),%d1         | the family's first ID - 1
-        move.l  %d1,sc_modebase
-        mvz.b   1(%a0,%d2.l),%d0
-        sub.l   %d1,%d0                 | its count
-        move.l  sc_shown,%d2
-        subq.l  #1,%d2
-        sub.l   %d1,%d2                 | the shown ID's row
-        cmp.l   %d0,%d2
-        bcs.s   1f
-        moveq   #0,%d2
-1:      move.l  %d2,sc_modesel
-        pea     sc_mode_cbs
-        lea     sc_names,%a0
-        lsl.l   #2,%d1
-        pea     (%a0,%d1.l)
-        pea     sc_modesel
-        move.l  %d2,-(%sp)
-        move.l  %d0,-(%sp)
-        jsr     LISTPOP
-        lea     20(%sp),%sp
-9:      move.l  (%sp)+,%d2
-        rts
+        mvz.b   (%a0,%d0.l),%d1
+        mvz.b   1(%a0,%d0.l),%d0
+        sub.l   %d1,%d0
+9:      rts
 
-| A scale row: its ID to the client.
-sc_mode_cb:
+| sc_top from sc_sel: the cursor's row inside the five shown.
+sc_scroll:
+        move.l  sc_sel,%d0
+        move.l  sc_top,%d1
+        cmp.l   %d1,%d0
+        bge.s   1f
+        move.l  %d0,sc_top              | above the pane: the new top
+        rts
+1:      addq.l  #VISIBLE-1,%d1
+        cmp.l   %d1,%d0
+        ble.s   2f
+        subq.l  #VISIBLE-1,%d0
+        move.l  %d0,sc_top              | below it: the new bottom
+2:      rts
+
+| UP and DOWN (C calls, the key at 4(sp)): one row, stopping at either end.
+sc_key_ud:
+        bsr.w   sc_rows
+        move.l  sc_sel,%d1
+        movea.l 4(%sp),%a1              | the key
+        cmpa.l  #KUP,%a1
+        bne.s   1f
+        subq.l  #1,%d1
+        bmi.s   9f
+        bra.s   2f
+1:      addq.l  #1,%d1
+        cmp.l   %d0,%d1
+        bge.s   9f
+2:      move.l  %d1,sc_sel
+        bsr.w   sc_scroll
+        bra.w   sc_draw
+9:      rts
+
+| RIGHT and YES on a family: its scales, on the shown one when it is there.
+sc_key_right:
+        tst.l   sc_level
+        bne.s   9f
+sc_enter:
+        move.l  sc_sel,%d0
+        move.l  %d0,sc_fam
+        moveq   #1,%d0
+        move.l  %d0,sc_level
+        bsr.w   sc_rows
+        move.l  sc_shown,%a0
+        subq.l  #1,%a0
+        suba.l  %d1,%a0
+        move.l  %a0,%d1                 | the shown ID's row
+        cmp.l   %d0,%d1
+        bcs.s   1f
+        moveq   #0,%d1
+1:      move.l  %d1,sc_sel
+        clr.l   sc_top
+        bsr.w   sc_scroll
+        bra.w   sc_draw
+9:      rts
+
+| LEFT on a scale: the families, on this one.
+sc_key_left:
+        tst.l   sc_level
+        beq.s   9f
+        clr.l   sc_level
+        move.l  sc_fam,%d0
+        move.l  %d0,sc_sel
+        clr.l   sc_top
+        bsr.w   sc_scroll
+        bra.w   sc_draw
+9:      rts
+
+| YES: a family is entered, a scale is picked.
+sc_key_yes:
+        tst.l   sc_level
+        beq.w   sc_enter
         lea     -24(%sp),%sp
         movem.l %d2-%d7,(%sp)
-        move.l  sc_modebase,%d0
-        add.l   sc_modesel,%d0
-        addq.l  #1,%d0
+        bsr.w   sc_rows
+        move.l  %d1,%d2
+        add.l   sc_sel,%d2
+        addq.l  #1,%d2                  | the ID picked
+        bsr.w   sc_close
+        move.l  %d2,%d0
         move.l  sc_client,%d1
-        beq.s   1f
+        beq.s   2f
         move.l  %d1,%a0
         jsr     (%a0)
-1:      movem.l (%sp),%d2-%d7
+2:      movem.l (%sp),%d2-%d7
         lea     24(%sp),%sp
+        rts
+
+| d0 x, d1 y, a0 the string; a5 the surface.
+sc_text:
+        move.l  %a0,-(%sp)
+        pea     -1
+        move.l  %d1,-(%sp)
+        move.l  %d0,-(%sp)
+        move.l  %a5,-(%sp)
+        pea     FONT
+        jsr     TEXT
+        lea     24(%sp),%sp
+        rts
+
+sc_draw:
+        lea     -44(%sp),%sp
+        movem.l %d2-%d7/%a2-%a5,(%sp)
+        move.l  sc_win,%d0
+        beq.w   8f
+        movea.l %d0,%a4                 | the window
+        lea     36(%a4),%a5             | its surface
+| MAIN MENU's frame (0x40064d7c): the band reads <set>/<project>, cut to
+| what fits, then the inside is cleared.
+        pea     PROJ_NAME
+        pea     SET_NAME
+        pea     TITLE_FMT
+        pea     sc_band
+        jsr     SPRINTF
+        lea     16(%sp),%sp
+        pea     sc_band
+        pea     WINW-6
+        pea     FONT
+        jsr     TEXTFIT
+        lea     12(%sp),%sp
+        lea     sc_band,%a0
+        clr.b   (%a0,%d0.l)
+        clr.l   -(%sp)
+        pea     sc_band
+        move.l  %a4,-(%sp)
+        jsr     WTITLE
+        lea     12(%sp),%sp
+        move.l  %a5,-(%sp)
+        jsr     WINSIDE
+        addq.l  #4,%sp
+| PERSONALIZE's page (0x40068e00), Elektron y 0 at the bottom: the title
+| right-aligned 6 from the edge and the icon at 6, both 20 under the top;
+| a rule beneath them; the scroll arrows beside the first and last row.
+        move.l  (%a5),%d7               | d7: w
+        move.l  4(%a5),%d6
+        subi.l  #20,%d6                 | d6: h - 20
+        lea     t_scales,%a2            | the title: SCALES, or the family
+        tst.l   sc_level
+        beq.s   1f
+        move.l  sc_fam,%d0
+        lea     sc_fam_labels,%a0
+        move.l  (%a0,%d0.l*4),%a2
+1:      move.l  %a2,-(%sp)
+        pea     -1
+        pea     FONT
+        jsr     TEXTW
+        lea     12(%sp),%sp
+        move.l  %d7,%d1
+        subq.l  #6,%d1
+        sub.l   %d0,%d1
+        move.l  %d1,%d0
+        move.l  %d6,%d1
+        addq.l  #2,%d1
+        move.l  %a2,%a0
+        bsr.w   sc_text
+        move.l  %d6,-(%sp)
+        pea     6
+        move.l  %a5,-(%sp)
+        pea     sc_icon
+        jsr     ICON
+        lea     16(%sp),%sp
+        pea     1
+        move.l  %d7,%d0
+        subq.l  #6,%d0
+        move.l  %d0,-(%sp)
+        move.l  %d6,%d0
+        subq.l  #1,%d0
+        move.l  %d0,-(%sp)
+        pea     4
+        move.l  %a5,-(%sp)
+        jsr     RULE
+        lea     20(%sp),%sp
+        bsr.w   sc_rows
+        move.l  %d0,%d4                 | d4: the rows
+        move.l  %d1,%d3                 | d3: the first scale's ID - 1 (scales)
+        move.l  sc_top,%d5              | d5: the first row shown
+        tst.l   %d5
+        ble.s   2f
+        moveq   #ROW0_Y+1,%d1
+        move.l  %d7,%d0
+        subq.l  #8,%d0
+        lea     ARROW_UP,%a0
+        bsr.w   sc_text
+2:      move.l  %d5,%d0
+        addq.l  #VISIBLE,%d0
+        cmp.l   %d4,%d0
+        bge.s   3f
+        moveq   #ROW0_Y+1-(VISIBLE-1)*ROW_PITCH,%d1
+        move.l  %d7,%d0
+        subq.l  #8,%d0
+        lea     ARROW_DOWN,%a0
+        bsr.w   sc_text
+| Five rows from d5: the label at 4, the mark at 77, the bar from 3 to 107
+| on the cursor's row.
+3:      moveq   #ROW0_Y,%d6             | d6: this row's bar
+        moveq   #VISIBLE,%d7            | d7: rows left to draw
+4:      cmp.l   %d4,%d5
+        bge.w   7f
+        tst.l   sc_level
+        bne.s   5f
+        lea     sc_fam_labels,%a0       | a family: its name; the shown scale's short
+        move.l  (%a0,%d5.l*4),%a2       | name on its row
+        suba.l  %a3,%a3
+        move.l  sc_shown,%d0
+        bsr.w   sc_family
+        cmp.l   %d5,%d0
+        bne.s   6f
+        move.l  sc_shown,%d0
+        bsr.w   sc_short
+        move.l  %a0,%a3
+        bra.s   6f
+5:      move.l  %d3,%d2                 | a scale: its name; a ticked box on the shown one
+        add.l   %d5,%d2
+        lea     sc_names,%a0
+        move.l  (%a0,%d2.l*4),%a2
+        suba.l  %a3,%a3
+        addq.l  #1,%d2
+        cmp.l   sc_shown,%d2
+        bne.s   6f
+        lea     box_on,%a3
+6:      moveq   #4,%d0
+        move.l  %d6,%d1
+        addq.l  #1,%d1
+        move.l  %a2,%a0
+        bsr.w   sc_text
+        move.l  %a3,%d0
+        beq.s   61f
+        moveq   #VALUE_X,%d0
+        move.l  %d6,%d1
+        addq.l  #1,%d1
+        move.l  %a3,%a0
+        bsr.w   sc_text
+61:     cmp.l   sc_sel,%d5
+        bne.s   62f
+        pea     -1                      | the cursor's row inverted, as PERSONALIZE's bar
+        move.l  %d6,-(%sp)
+        addq.l  #6,(%sp)
+        pea     BAR_X2
+        move.l  %d6,-(%sp)
+        pea     BAR_X1
+        move.l  %a5,-(%sp)
+        jsr     BOX
+        lea     24(%sp),%sp
+62:     subq.l  #ROW_PITCH,%d6
+        addq.l  #1,%d5
+        subq.l  #1,%d7
+        bne.w   4b
+7:      moveq   #1,%d0
+        move.l  %d0,SCRDIRTY
+8:      movem.l (%sp),%d2-%d7/%a2-%a5
+        lea     44(%sp),%sp
         rts
 
 | ==== ARP SETUP's KEY ======================================================
@@ -696,6 +977,8 @@ kl_tick:
         clr.l   sc_pushed               | released
         tst.l   sc_turned
         bne.s   6f
+        tst.l   sc_win
+        bne.s   6f
         tst.l   LIST_OPEN
         bne.s   6f
         tst.l   DIALOG_OPEN
@@ -815,8 +1098,8 @@ sc_tonics:
         .ascii  "C\0C#D\0D#E\0F\0F#G\0G#A\0A#B\0"
 
         .balign 4
-| The chooser's rows: each family, then each ID's name (sc_fam_cb lists a
-| family's run of this table).
+| The chooser's rows: each family, then each ID's name (a family's scales are
+| a run of this table).
 sc_fam_labels:
         .long   f_maj,f_mel,f_hmin,f_hmaj,f_dbl,f_pent,f_blues,f_jap,f_sym
 sc_names:
@@ -824,15 +1107,51 @@ sc_names:
         .long   n19,n20,n21,n22,n23,n24,n25,n26,n27,n28,n29,n30,n31,n32,n33,n34
         .long   n35,n36,n37,n38,n39,n40,n41,n42,n43,n44,n45,n46,n47,n48,n49,n50
         .long   n51,n52
-sc_fam_cbs:
-        .rept   SC_FAMILIES
-        .long   sc_fam_cb
+| The window's keys: {0, keys, encoders, 0, 0, -1, -1}, a key record 26 B
+| (code, 0, press, 0, repeat, 0, 0, repeat delay and rate), as STEMS's.
+sc_layer:
+        .long   0, sc_keys, sc_encs, 0, 0, -1, -1
+sc_keys:
+        .byte   0x33, 0                 | UP
+        .long   sc_key_ud, 0, sc_key_ud, 0, 0
+        .word   15, 5
+        .byte   0x20, 0                 | DOWN
+        .long   sc_key_ud, 0, sc_key_ud, 0, 0
+        .word   15, 5
+        .byte   0x34, 0                 | LEFT
+        .long   sc_key_left, 0, 0, 0, 0
+        .word   0, 0
+        .byte   0x21, 0                 | RIGHT
+        .long   sc_key_right, 0, 0, 0, 0
+        .word   0, 0
+        .byte   0x31, 0                 | YES
+        .long   sc_key_yes, 0, 0, 0, 0
+        .word   0, 0
+        .byte   0x32, 0                 | NO
+        .long   sc_close, 0, 0, 0, 0
+        .word   0, 0
+        .byte   0xff, 0
+        .long   0, 0, 0, 0, 0
+        .word   0, 0
+sc_encs:
+        .byte   0xff, 0
+        .long   0, 0, 0, 0, 0
+        .balign 4
+| The title's icon, a keyboard (a stock icon record: 19 x 9, a long a
+| column, the column in its top bits; the second plane as stock's).
+sc_icon:
+        .long   0x13, 0x09, 0x01, sc_icon_p0, sc_icon_p1
+sc_icon_p0:
+        .long   0xff800000, 0x80800000, 0xfc800000, 0xff800000, 0xfc800000
+        .long   0xfc800000, 0xff800000, 0xfc800000, 0x80800000, 0xff800000
+        .long   0x80800000, 0xfc800000, 0xff800000, 0xfc800000, 0xfc800000
+        .long   0xff800000, 0xfc800000, 0x80800000, 0xff800000
+sc_icon_p1:
+        .rept   19
+        .long   0xff800000
         .endr
-sc_mode_cbs:
-        .rept   DIATONIC                | the largest family
-        .long   sc_mode_cb
-        .endr
-
+t_scales: .asciz "SCALES"
+box_on:   .byte  0x16, 0                | the small UI font's ticked box, as PERSONALIZE's
 f_maj:  .asciz  "MAJOR"
 f_mel:  .asciz  "MELODIC MINOR"
 f_hmin: .asciz  "HARMONIC MINOR"
@@ -903,6 +1222,9 @@ sc_pushed:  .long 0                     | encoder F was pushed at the last tick
 sc_turned:  .long 0                     | ... and turned since
 sc_client:  .long 0                     | the chooser's client
 sc_shown:   .long 0                     | the ID it opened on
-sc_famsel:  .long 0                     | the family row chosen
-sc_modesel: .long 0                     | the scale row chosen
-sc_modebase: .long 0                    | the chosen family's first ID - 1
+sc_win:     .long 0                     | the chooser's window, 0 closed
+sc_level:   .long 0                     | 0 the families, 1 a family's scales
+sc_fam:     .long 0                     | the family shown at level 1
+sc_sel:     .long 0                     | the cursor's row
+sc_top:     .long 0                     | the first row shown
+sc_band:    .space 64                   | the title band: <set>/<project>
