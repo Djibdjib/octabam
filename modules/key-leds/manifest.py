@@ -46,6 +46,9 @@ MODULE = Module(
         Detour(0x400442E2, bytes.fromhex("42854284428647f9400135b0"), "kl", "kl_chromatic",
                "trig-LED pass, CHROMATIC branch: the track's scale instead of C major",
                pad_to=12),
+        Detour(0x40056AB8, bytes.fromhex("4ab9460d1e4c"), "kl", "kl_tick",
+               "UI task's per-tick routine: a KEY / SCALE / ROOT turned while in CHROMATIC "
+               "asks the dispatcher for the trig LEDs"),
     ),
     gates=(Gate("tools/verify/verify_key_leds.py", venv=True),),
 )

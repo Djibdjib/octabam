@@ -14,6 +14,9 @@ QUANTIZER an audio track is stock's C major; with it, its SCALE and ROOT
 SCALE on ROOT C and A and every ROOT in MINOR, and key k is expected to
 sound ROOT + k (its README, "key 1 sounds the root"); SCALE OFF is stock.
 The 24 scales are the semitone lists of its README, not its mask words.
+A KEY (and, with SCALE QUANTIZER, a ROOT) changed while CHROMATIC is
+already shown, with no key pressed after it, must reach the keys: the
+per-tick refresh.
 """
 import os
 import pathlib
@@ -86,7 +89,7 @@ def shown(stream):
                    for k in range(16))
 
 
-def script(path, midi):
+def script(path, midi, later=()):
     lines, t = [], 1500
 
     def send(text, gap=150):
@@ -105,6 +108,8 @@ def script(path, midi):
     tap(0x20)                             # the trig-mode list
     tap(0x20)                             # CHROMATIC
     send("key 0x2d up", 1500)
+    for line in later:                    # after CHROMATIC is drawn, no key after it
+        send(line, 2000)
     send("quit")
     path.write_text("\n".join(lines) + "\n")
 
@@ -132,6 +137,8 @@ def main():
                    stdout=subprocess.DEVNULL, check=True)
     script(out / "midi.script", True)
     script(out / "audio.script", False)
+    script(out / "midi-later.script", True, (f"poke {KEY_LANE:#x}=6",))         # C MAJ -> D MIN
+    script(out / "audio-later.script", False, (f"poke {NV_ROOT:#x}=9",))         # MINOR on C -> on A
     modes = "0x80000012=00;0x80000013=00;0x80000014=00;0x80000015=00"
     runs = [(f"midi-{k}", "midi", k, f"{KEY_LANE:#x}={k}") for k in keys]
     if quantizer:
@@ -140,6 +147,9 @@ def main():
                  for sc, r in audio]
     else:
         runs.append(("audio", "audio", (0, 0), f"{KEY_LANE:#x}=6"))
+    runs.append(("refresh-midi", "midi-later", 6, f"{KEY_LANE:#x}=1"))
+    if quantizer:
+        runs.append(("refresh-audio", "audio-later", (6, 9), f"{NV_SCALE:#x}=6;{NV_ROOT:#x}=0"))
     fails = 0
     for model in ("mki", "mkii"):
         cmd = [str(ROOT / "out/emu/ot_emu"), "--image", str(image), "--card", str(card),
@@ -156,14 +166,15 @@ def main():
         bad = []
         for tag, kind, key, _poke in runs:
             base = out / f"{model}-{tag}"
-            want = expected(key) if kind == "midi" else expected_audio(*key)
+            want = expected(key) if kind.startswith("midi") else expected_audio(*key)
             got = shown(base.with_suffix(".a")) if base.with_suffix(".a").exists() else "(no stream)"
             ended = "ended on quit" in base.with_suffix(".log").read_text()
             if got != want or not ended:
                 bad.append(f"{tag}: want {want} got {got}{'' if ended else ' (the script did not end)'}")
-        side = (f"{len(runs) - len(keys)} audio SCALE / ROOT" if quantizer else "an audio track, stock")
+        audio = sum(kind.startswith("audio") for _t, kind, _k, _p in runs)
+        side = (f"{audio} audio SCALE / ROOT" if quantizer else "an audio track, stock")
         print(f"  [{'FAIL' if bad else 'PASS'}] verify_key_leds: {model}, {len(runs)} runs "
-              f"(MIDI KEY {keys.start}..{keys.stop - 1}; {side})")
+              f"(MIDI KEY {keys.start}..{keys.stop - 1}; {side}; a KEY / ROOT turned in CHROMATIC)")
         for line in bad[:8]:
             print(f"      {line}")
         fails += bool(bad)

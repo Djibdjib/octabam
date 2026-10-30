@@ -31,11 +31,18 @@
 | routines and the sources are C calls (d0-d1/a0-a1 scratch). After the
 | 16th key, stock goes to 0x400444f4 with d3 = 0, which is where this one
 | ends.
+|
+| Stock runs the pass when a key or a mode change asks the LED dispatcher
+| for it, not when a KEY, a SCALE or a ROOT is turned. Detour at
+| 0x40056ab8, the UI task's per-tick routine (`tstl 0x460d1e4c`): in
+| CHROMATIC, kl_tick asks the source again and, when the answer differs
+| from what the keyboard shows, asks the dispatcher for the trig LEDs
+| (0x4007e998(0)), as stock does after a CHROMATIC key.
 
         .include "remix.inc"            | HAVE_MIDI_SCALES, HAVE_SCALE_QUANTIZER
 
         .text
-        .globl  kl_chromatic, kl_source
+        .globl  kl_chromatic, kl_source, kl_tick
         .balign 2
 
         .if     HAVE_MIDI_SCALES
@@ -50,6 +57,10 @@
         .equ    CUR_TRACK, 0x80000000   | byte: the UI's current track
         .equ    MIDI_MODE, 0x80000012   | long: nonzero in MIDI mode
         .equ    KEY_LANE,  0x46c76df1   | + 68 * t: MIDI track t's KEY byte
+        .equ    TRIG_MODE, 0x460d16f0   | long: the trig mode, 1 = CHROMATIC
+        .equ    LED_PASS,  0x4007e998   | (slot): the LED dispatcher; slot 0 runs the trig-LED pass
+        .equ    TICK_BACK, 0x40056abe   | the per-tick routine after its first instruction
+        .equ    TICK_FLAG, 0x460d1e4c   | what that instruction tests
         .equ    STOCK_LOOP, 0x400442ee  | stock's loop, after the displaced span
         .equ    LOOP_DONE, 0x400444f4   | stock after the 16th key, d3 = 0
         .equ    STOCK_KEYS, 24          | stock's KEY values: 12 tonics x Major / Minor
@@ -60,13 +71,8 @@
 | + 1 mod 12), d5 = the tonic, d6 = the scale's pitch classes (bit p =
 | pitch class p, C = 0).
 kl_chromatic:
-        mvz.b   CUR_TRACK,%d0
-        and.l   #7,%d0
-        moveq   #0,%d1                  | audio
-        tst.l   MIDI_MODE
-        beq.s   1f
-        moveq   #1,%d1                  | MIDI
-1:      bsr.w   kl_source
+        bsr.w   kl_current
+        move.l  %d0,kl_shown
         tst.l   %d0
         bmi.w   kl_stock
         move.l  %d0,%d5
@@ -117,6 +123,35 @@ kl_stock:
         clr.l   %d6
         lea     SET_LEVEL,%a3
         jmp     STOCK_LOOP
+
+| The per-tick check: in CHROMATIC, the current answer against the one the
+| keyboard shows; a difference asks the dispatcher for the trig LEDs (the
+| pass, then kl_chromatic, records the new one). Outside CHROMATIC the
+| record is cleared, so entering it draws as stock does, unprompted.
+kl_tick:
+        moveq   #1,%d0
+        cmp.l   TRIG_MODE,%d0
+        bne.s   2f
+        bsr.w   kl_current
+        cmp.l   kl_shown,%d0
+        beq.s   3f
+        clr.l   -(%sp)
+        jsr     LED_PASS
+        addq.l  #4,%sp
+        bra.s   3f
+2:      moveq   #-2,%d0                 | no answer is -2: the next CHROMATIC pass sets it
+        move.l  %d0,kl_shown
+3:      tst.l   TICK_FLAG               | the displaced instruction; its flags go on
+        jmp     TICK_BACK
+
+| The current track's answer, on the side the MIDI key selects.
+kl_current:
+        mvz.b   CUR_TRACK,%d0
+        and.l   #7,%d0
+        moveq   #0,%d1                  | audio
+        tst.l   MIDI_MODE
+        beq.s   kl_source
+        moveq   #1,%d1                  | MIDI
 
 | kl_source: d0 = track 0..7, d1 = 0 audio / 1 MIDI -> d0 = mask << 8 |
 | key1 << 4 | tonic: mask bit p = pitch class p in the scale, key1 = the
@@ -188,3 +223,8 @@ kl_none:
 | seven diatonic modes, in the order MIDI SCALES' ms_decode numbers them.
 kl_masks:
         .word   0xab5,0x6ad,0x5ab,0xad5,0x6b5,0x5ad,0x56b
+
+        .data
+        .balign 4
+kl_shown:                               | the answer the keyboard shows, -2 none
+        .long   -2

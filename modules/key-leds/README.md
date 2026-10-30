@@ -19,7 +19,7 @@ and ROOT (PROJECT > CONTROL > SEQUENCER), whose keyboard starts on ROOT.
   C major, unchanged.
 
 No menu, no setting, nothing saved. `Kind.CF_PATCH`: one DRAM unit
-(`key_leds.s`, about 250 B) and one detour.
+(`key_leds.s`, about 360 B) and two detours.
 
 ## How
 
@@ -35,6 +35,17 @@ red is id 2k, its green 2k + 1 (`tools/panel/KEYMAP.md`, "LED colours").
 | site | what |
 |---|---|
 | `0x400442e2` (12 bytes: `clrl %d5; clrl %d4; clrl %d6; lea 0x400135b0,%a3`) | the CHROMATIC branch's first instructions: `kl_chromatic` |
+| `0x40056ab8` (6 bytes: `tstl 0x460d1e4c`) | the UI task's per-tick routine (called as `a5` from the UI loop's tick, `0x40056c90`): `kl_tick` |
+
+Stock runs the pass when a key or a mode change asks the LED dispatcher
+`0x4007e998(slot)` for it (after a CHROMATIC key: slots 7 and 0), not when
+a KEY, a SCALE or a ROOT is turned: on the unit the keyboard kept the old
+scale until TRACK mode and back (MIDI) or a trig press (audio). `kl_tick`,
+in CHROMATIC only, asks `kl_source` again each UI tick and, when the
+answer differs from the one the keys show (`kl_shown`, which
+`kl_chromatic` records), calls `0x4007e998(0)`; the pass then draws the new
+scale. Outside CHROMATIC it clears the record. It replays the displaced
+`tstl` and joins stock at `0x40056abe` with its flags.
 
 `kl_chromatic` asks `kl_source` for the current track's (`0x80000000`)
 scale, on the side `0x80000012` says (audio or MIDI). With an answer it
@@ -116,6 +127,10 @@ refuses an overlap by itself.
   MINOR (60 runs, plus KEY 0..24 on the MIDI side: 85 per model), against
   the 24 scales as its README lists their semitones and key k = ROOT + k:
   all equal. A planted defect (key 1 left on C) fails it.
+- The refresh: KEY C MAJ -> D MIN poked 2 s after CHROMATIC is drawn,
+  no key after it (`refresh-midi`), shows D minor; with the dispatcher
+  call removed it shows C major still and fails. `refresh-audio` (ROOT C
+  -> A in MINOR) passes either way (above).
 - KEY 0 and the audio track decode to stock's C major (keys 1 and 13
   yellow, the white keys red), the same as the stock image.
 
@@ -124,9 +139,10 @@ refuses an overlap by itself.
 - Not run on a unit yet. The colours are the panel stream's levels; that
   red 15 / green 15 is the yellow and red 15 the red a player sees is
   KEYMAP.md's measurement against the manual, not this module's.
-- When the pass runs again after a KEY turn in ARP SETUP while CHROMATIC
-  is on: the gate sets the KEY before entering CHROMATIC. If the keyboard
-  only updates at the next LED pass (a page change, a track change), that
-  is stock's refresh, not changed here.
+- The refresh on the audio side: under the port the audio keyboard
+  redrew after a ROOT change even with the dispatcher call removed, so
+  the gate's `refresh-audio` run does not tell the tick's work from
+  something else; on the unit (OCTABAM21, without the tick) it needed a
+  trig press. To be checked on the unit with the tick.
 - With MIDI SCALES, a followed track's scale is whatever `ms_raw`'s
   source rules give (MIDI Follow and Harmony are not in this tree).
