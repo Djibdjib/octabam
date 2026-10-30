@@ -345,7 +345,8 @@ commands' reply formats are the header comment of `main.cpp`
   load the port prints `ready sample=<n> frames=<n>` and answers one line
   per command on stdin. Integers are decimal or `0x..` (a leading zero is
   not octal). Anything malformed answers `err <message>` and the loop
-  continues; EOF exits 0. `--main-level` defaults to 64 here; the batch
+  continues; EOF exits 0, and so does a dead parent (`ot_emu: parent <pid> is
+  gone: exiting`, status 3) even while a `run` is executing. `--main-level` defaults to 64 here; the batch
   posts no level unless asked.
   - `run <ms> [wall <s>]` is the only command that advances emulated time;
     `stop=` in its reply is `time`, `gate`, `fault`, `illegal` or `wall`.
