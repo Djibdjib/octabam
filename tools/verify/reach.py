@@ -1105,14 +1105,15 @@ def entry_name(kind, command):
 # other (--skip-jobs); a name that is no gate job is refused there, so a
 # rename cannot drop a gate. The `project` part is the jobs that read
 # OT_PROJECT: its unit alone gets the generated project (ci.yml, tools/hw/
-# ot_fresh.py, 255 s on a runner), the others run as they did without one.
+# ot_fresh.py, 255 s on a runner), the others run as they did without one
+# (pattern-mute writes the mute masks its checks expect into its copy).
 # `image` is not in it: with a project its verify_brain fails and the job took
 # 2869 s on cxosc-core (27 Oct 2026). The shared half: its module_gates step on
 # one unit, every other step on the other (Makefile SHARED_PART). Times of run
 # 40467801048: remix-switch 481 s of octabam's 1886 s over 3 shards (the other
 # jobs: 1405 s, 468 s over 3 shards); module_gates --shared 353 s of the shared
 # half's 645 s, run serially.
-SPLIT_REMIX_JOBS = {"octabam": {"long": ("remix-switch",), "project": ("set", "mode-defaults", "plocks-p2")}}
+SPLIT_REMIX_JOBS = {"octabam": {"long": ("remix-switch",), "project": ("set", "mode-defaults", "plocks-p2", "pattern-mute")}}
 
 # A unit that runs one gate on its own, with a generated project, beside the units above: `check-remix <remix> (<name>)`
 # is COMMAND. It is additive (the remix's other units still run that gate, without a project), so it exists only when
