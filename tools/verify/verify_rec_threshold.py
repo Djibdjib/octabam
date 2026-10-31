@@ -53,6 +53,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import time
 import wave
 from concurrent.futures import ThreadPoolExecutor
 
@@ -72,6 +73,7 @@ QPL_PUBLISHED = 0x80000C9E           # slot 10: IN under THR, not edited
 LEV_DB = (-60, -56, -52, -48, -44, -40, -36, -32, -28, -24,   # thresh.s lev_db, raw -1 .. 16
           -20, -16, -12, -8, -6, -4, -2, 0)
 ARM_PC = 0x400069D6
+RUN_TIMEOUT_S = 900                  # per port run
 
 # Panel key codes (tools/panel/key_map.json: row 0x20+r, bit b -> r*8+b).
 NO, FUNC, REC_AB, REC_CD, T1 = 0x32, 0x2D, 0x2B, 0x2C, 0x10
@@ -210,7 +212,15 @@ def run(work, card, armed, name, audio, script, quit_ms):
         start, length = arena_span()
         args += ["--mem-dump", f"{start:#x},{length:#x}={work / 'late_arena.bin'}"]
     args += ["--audio-in", "tones"] if audio == "tones" else ["--audio-in", str(audio), "--audio-in-from-boot"]
-    r = subprocess.run(args, cwd=ROOT, capture_output=True, text=True, timeout=900)
+    started = time.monotonic()
+    try:
+        r = subprocess.run(args, cwd=ROOT, capture_output=True, text=True, timeout=RUN_TIMEOUT_S)
+    except subprocess.TimeoutExpired as exc:
+        partial = (exc.stdout or b"") + (exc.stderr or b"")
+        if isinstance(partial, bytes):
+            partial = partial.decode(errors="replace")
+        return name, None, f"{name}: no exit after {RUN_TIMEOUT_S} s\n" + partial
+    print(f"  {name}: {time.monotonic() - started:.0f} s", flush=True)
     return name, r.returncode, r.stdout + r.stderr
 
 
@@ -272,6 +282,9 @@ def main():
         first = first_numbered(work / "late_arena.bin") if (work / "late_arena.bin").is_file() else None
 
     for name, (rc, out) in results.items():
+        if rc is None:
+            timed_out = ", ".join(n for n, (r, _) in results.items() if r is None)
+            return fail(f"{name}: the port run timed out after {RUN_TIMEOUT_S} s (timed out: {timed_out})", out)
         if rc or "M6a gate   : PASS" not in out or "ended on quit" not in out:
             return fail(f"{name}: the port run did not finish cleanly (exit {rc})", out)
 
