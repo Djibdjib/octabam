@@ -28,12 +28,14 @@
 | A MIDI track's scale. Its KEY (ARP SETUP, setup record +0x11) keeps the
 | tonic and, for the seven diatonic modes, the mode -- the values stock
 | (1..24) and MIDI SCALES (25..84) gave it, so a project saved with either
-| plays as before. A scale outside those seven also writes its ID in the
-| setup record's +0x12, a byte with no parameter (CTRL1's setup slot 0,
-| MIDI_TRACKS.md): stock loads it (clamped to 127) and saves it, and
-| CTRL1's commit-all writes back the value its window read. The KEY then
-| holds the tonic in Major or Minor (the scale's third), what stock plays
-| for it. +0x12 = 0: the KEY's own mode.
+| plays as before. A scale outside those seven keeps its ID in sc_lib (a
+| byte per bank, Part and track), saved with the project in scales.work (a
+| STORE client); the native setup record has no byte to spare (MIDI FOLLOW
+| and MIDI HARMONY hold its unused slots). The KEY then holds the tonic in
+| Major or Minor (the scale's third), what stock plays for it, and the ID
+| holds while the KEY agrees with it: OFF, or that Major / Minor on any
+| tonic. A KEY changed another way (a Part reload or paste, stock) gives
+| the KEY's own mode back. ID 0: the KEY's own mode.
 |
 | ARP SETUP's KEY (encoder F): turned, the tonic (OFF, C .. B), the scale
 | kept; pressed and released without a turn, the chooser. The sequencer's
@@ -72,12 +74,15 @@
         .globl  sc_count, sc_mask, sc_name, sc_short, sc_family, sc_snap
         .globl  sc_pick, sc_track, sc_win
         .globl  kl_chromatic, kl_source, kl_tick
-        .globl  sc_encoder, sc_output, sc_format
+        .globl  sc_encoder, sc_output, sc_format, sc_lib
+        .globl  sc_st_loadall_pre, sc_st_loadmask_pre, sc_st_newproj, sc_st_bankw_post
+        .globl  sc_st_pstore_pre, sc_st_pstore_post, sc_st_preload_post, sc_st_partclear
+        .globl  sc_st_answer
         .balign 2
 
         .equ    SC_COUNT,  52
         .equ    SC_FAMILIES, 9
-        .equ    DIATONIC,  7            | IDs 1..7: the KEY's own modes, +0x12 = 0
+        .equ    DIATONIC,  7            | IDs 1..7: the KEY's own modes, kept as 0
         .equ    MINOR,     5            | the KEY's mode of natural Minor (ID 6)
         .equ    STOCK_KEYS, 24          | stock's KEY values: 12 tonics x Major / Minor
         .equ    LAST_KEY,  84           | MIDI SCALES' last KEY value
@@ -90,7 +95,6 @@
         .equ    MIDI_MODE, 0x80000012   | long: nonzero in MIDI mode
         .equ    LIVE_SETUP, 0x46c76de0  | + 68 * t + offset: MIDI track t's live setup byte
         .equ    KEY,       0x11         | the setup record's KEY
-        .equ    EXT,       0x12         | the setup record's scale ID byte (CTRL1 setup slot 0, no parameter)
         .equ    TRIG_MODE, 0x460d16f0   | long: the trig mode, 1 = CHROMATIC
         .equ    LED_PASS,  0x4007e998   | (slot): the LED dispatcher; slot 0 runs the trig-LED pass
         .equ    TICK_BACK, 0x40056abe   | the per-tick routine after its first instruction
@@ -101,6 +105,11 @@
 
         .equ    UI_TRACK,  0x100b14cc   | byte: the setup windows' MIDI track
         .equ    UI_PART,   0x100b14cf   | byte: the current Part
+        .equ    CUR_BANK,  0x80000002   | byte: the current bank
+        .equ    F_COPY,    0x40016388   | (dst path, src path, 0) -> < 0 error
+        .equ    FMAGIC,    0x53434c53   | 'SCLS': scales.work's header
+        .equ    LIB_B,     512          | 16 banks x 4 Parts x 8 tracks, an ID each
+        .equ    SC_CLIENT, 6            | STORE's client id
         .equ    BANK_RAM,  0x46c82456   | long: the current bank's RAM
         .equ    PART_SETUP, 0x8f262     | + bank RAM + 0x18b2 * p + 0x24 * t: the Part's setup record
         .equ    CS1_SETUP, 0x100a53b0   | + 0x18b2 * p + 0x24 * t: its CS1 mirror
@@ -341,25 +350,109 @@ sc_live:
         adda.l  %d0,%a0
         rts
 
+| d0 MIDI track 0..7 -> d0 = ID << 4 | tonic, -1 for KEY OFF, in the Part
+| the UI edits (STORE's UI context).
 sc_track:
-        bsr.s   sc_live
-        mvz.b   KEY(%a0),%d0
-        mvz.b   EXT(%a0),%d1
-        move.l  %d1,-(%sp)
+        move.l  %d0,-(%sp)
+        jsr     store_part_ui_context
+        move.l  %d0,%d1
+        move.l  (%sp)+,%d0
+                                        | on into sc_track_ctx
+
+| d0 MIDI track 0..7, d1 a STORE context (bank * 4 + Part, -1 none) -> d0 =
+| ID << 4 | tonic, -1 for KEY OFF: that Part's KEY (the live one without a
+| context) and the ID sc_lib keeps for it. Clobbers d1 and a0.
+sc_track_ctx:
+        lea     -8(%sp),%sp
+        movem.l %d2-%d3,(%sp)
+        move.l  %d0,%d2
+        move.l  %d1,%d3
+        bsr.w   sc_ext                  | the ID, 0 the KEY's own
+        move.l  %d2,%d1
+        move.l  %d0,%d2                 | d2 the ID
+        move.l  %d1,%d0                 | d0 the track
+        move.l  %d3,%d1
+        bsr.w   sc_key_of
         bsr.w   sc_key_decode
-        move.l  (%sp)+,%d1
         tst.l   %d0
         bmi.s   9f                      | KEY OFF
+        move.l  %d2,%d1
         subq.l  #1,%d1
         cmpi.l  #SC_COUNT,%d1
-        bcs.s   1f                      | +0x12 names a scale
+        bcs.s   1f                      | sc_lib names a scale
         move.l  %d0,%d1
         lsr.l   #4,%d1                  | else the KEY's mode: ID - 1
 1:      addq.l  #1,%d1
         lsl.l   #4,%d1
         andi.l  #15,%d0
         or.l    %d1,%d0
+9:      movem.l (%sp),%d2-%d3
+        lea     8(%sp),%sp
+        rts
+
+| d0 MIDI track 0..7, d1 a STORE context -> d0 = that Part's KEY (STORE's
+| coherent read), the live KEY without a context. Clobbers a0.
+sc_key_of:
+        tst.l   %d1
+        bmi.s   1f
+        jsr     store_part_midi_key
+        tst.l   %d0
+        bpl.s   9f
+        moveq   #0,%d0
 9:      rts
+1:      bsr.w   sc_live
+        mvz.b   KEY(%a0),%d0
+        rts
+
+| d0 MIDI track 0..7, d1 a STORE context 0..63 -> a0 = its byte in sc_lib.
+sc_slot:
+        move.l  %d1,-(%sp)
+        andi.l  #63,%d1
+        lsl.l   #3,%d1
+        andi.l  #7,%d0
+        add.l   %d0,%d1
+        lea     sc_lib,%a0
+        adda.l  %d1,%a0
+        move.l  (%sp)+,%d1
+        rts
+
+| d0 MIDI track 0..7, d1 a STORE context -> d0 = the ID sc_lib keeps for it
+| (DIATONIC+1 .. SC_COUNT) while that Part's KEY agrees: OFF, or the KEY
+| mode that stands for the ID (sc_key_mode); else 0, the KEY's own mode (and
+| 0 without a context). Clobbers d1 and a0.
+sc_ext:
+        lea     -12(%sp),%sp
+        movem.l %d2-%d4,(%sp)
+        tst.l   %d1
+        bmi.s   8f
+        move.l  %d0,%d2
+        move.l  %d1,%d4
+        bsr.s   sc_slot
+        mvz.b   (%a0),%d3
+        cmpi.l  #DIATONIC,%d3
+        bls.s   8f
+        cmpi.l  #SC_COUNT,%d3
+        bhi.s   8f
+        move.l  %d2,%d0
+        move.l  %d4,%d1
+        bsr.s   sc_key_of
+        tst.l   %d0
+        beq.s   7f                      | OFF: the ID waits for a tonic
+        bsr.w   sc_key_decode
+        tst.l   %d0
+        bmi.s   8f
+        lsr.l   #4,%d0                  | the KEY's mode
+        move.l  %d0,%d2
+        move.l  %d3,%d0
+        bsr.w   sc_key_mode
+        cmp.l   %d0,%d2
+        bne.s   8f
+7:      move.l  %d3,%d0
+        bra.s   9f
+8:      moveq   #0,%d0
+9:      movem.l (%sp),%d2-%d4
+        lea     12(%sp),%sp
+        rts
 
 | ==== the chooser ==========================================================
 | A window of MAIN MENU's size, drawn as MAIN MENU draws SYSTEM >
@@ -729,7 +822,7 @@ sc_setup_write:
         rts
 
 | The chooser's client for ARP SETUP: d0 the chosen ID -> the KEY (the
-| tonic kept, C when it was OFF) and +0x12.
+| tonic kept, C when it was OFF) and sc_lib, scales.work due.
 sc_key_chosen:
         lea     -12(%sp),%sp
         movem.l %d2-%d4,(%sp)
@@ -755,8 +848,15 @@ sc_key_chosen:
         cmpi.l  #DIATONIC,%d2
         bls.s   2f
         move.l  %d2,%d1
-2:      moveq   #EXT,%d0
-        bsr.w   sc_setup_write
+2:      move.l  %d1,%d3
+        jsr     store_part_ui_context
+        move.l  %d0,%d1
+        bmi.s   3f                      | no Part edited: nothing to keep
+        mvz.b   UI_TRACK,%d0
+        bsr.w   sc_slot
+        move.b  %d3,(%a0)
+        moveq   #1,%d0
+        move.l  %d0,sc_dirty
         tst.l   ARP_WINDOW
         beq.s   3f
         jsr     ARP_DRAW
@@ -776,10 +876,14 @@ sc_encoder:
         movem.l %d0-%d3/%a0,(%sp)
         moveq   #1,%d0
         move.l  %d0,sc_turned           | a turn while pushed is no press
+        jsr     store_part_ui_context
+        move.l  %d0,%d1
+        mvz.b   UI_TRACK,%d0
+        bsr.w   sc_ext
+        move.l  %d0,%d3                 | the scale sc_lib keeps, 0 none
         mvz.b   UI_TRACK,%d0
         bsr.w   sc_live
         mvz.b   KEY(%a0),%d2            | the KEY before
-        mvz.b   EXT(%a0),%d3
         move.l  %d2,%d0
         bsr.w   sc_key_decode
         moveq   #0,%d1                  | OFF: ordinal 0
@@ -816,7 +920,7 @@ sc_encoder:
         bmi.s   6f
         andi.l  #0xf0,%d1               | the mode kept
         bra.s   7f
-6:      move.l  %d0,-(%sp)              | from OFF: the mode for +0x12's scale
+6:      move.l  %d0,-(%sp)              | from OFF: the mode for sc_lib's scale
         move.l  %d3,%d0
         bsr.w   sc_key_mode
         move.l  %d0,%d1
@@ -833,23 +937,32 @@ sc_encoder:
 
 | Detour at 0x4009fb58 (`tstl %fp@(-64); bles 0x4009fb80`), stock's output
 | quantization: d7 the MIDI track, a2 the note. A scale stock does not play
-| (MIDI SCALES' modes, +0x12's) snaps here; stock's Major / Minor and OFF
+| (MIDI SCALES' modes, sc_lib's) snaps here; stock's Major / Minor and OFF
 | go on as stock's.
 sc_output:
         lea     -12(%sp),%sp
         movem.l %d0-%d1/%a0,(%sp)
         move.l  %d7,%d0
-        bsr.w   sc_live
-        mvz.b   EXT(%a0),%d1
-        mvz.b   KEY(%a0),%d0
-        beq.s   8f                      | OFF
+        jsr     store_part_midi_context | the Part the MIDI engine plays
+        move.l  %d0,%d1
+        move.l  %d1,-(%sp)
+        move.l  %d7,%d0
+        bsr.w   sc_ext
+        move.l  %d0,-(%sp)
+        move.l  %d7,%d0
+        move.l  4(%sp),%d1
+        bsr.w   sc_key_of
+        move.l  (%sp)+,%d1              | the ID
+        tst.l   %d0
+        beq.s   7f                      | OFF
         subq.l  #1,%d1
         cmpi.l  #SC_COUNT,%d1
-        bcs.s   1f                      | +0x12 names a scale
+        bcs.s   1f                      | sc_lib names a scale
         cmpi.l  #STOCK_KEYS,%d0
-        bls.s   8f                      | stock's own
+        bls.s   7f                      | stock's own
 1:      move.l  %d7,%d0
-        bsr.w   sc_track
+        move.l  (%sp)+,%d1
+        bsr.w   sc_track_ctx
         tst.l   %d0
         bmi.s   8f
         move.l  %d0,%d1
@@ -860,6 +973,7 @@ sc_output:
         movem.l (%sp),%d0-%d1/%a0
         lea     12(%sp),%sp
         jmp     OUT_DONE
+7:      addq.l  #4,%sp                  | the context
 8:      movem.l (%sp),%d0-%d1/%a0
         lea     12(%sp),%sp
         tst.l   -64(%fp)
@@ -1228,3 +1342,292 @@ sc_fam:     .long 0                     | the family shown at level 1
 sc_sel:     .long 0                     | the cursor's row
 sc_top:     .long 0                     | the first row shown
 sc_band:    .space 64                   | the title band: <set>/<project>
+sc_dirty:   .long 0                     | scales.work is due
+sc_nowrite: .long 0                     | scales.work was refused: never overwritten
+sc_backup:  .long 0                     | the next write first copies scales.work to scales.bak
+FMT_WORK:   .asciz "%s/scales.work"
+FMT_STRD:   .asciz "%s/scales.strd"
+FMT_BAK:    .asciz "%s/scales.bak"
+MODE_R:     .asciz "r"
+MODE_W:     .asciz "w"
+
+        .section .bss
+        .balign 4
+sc_lib:     .space LIB_B                | bank * 32 + Part * 8 + track: the ID, 0 the KEY's own
+sc_stage:   .space LIB_B                | scales.work read here before it is applied
+sc_hdr:     .space 16                   | 'SCLS', version 1, LIB_B, CRC-32 of the IDs
+sc_ctx:     .space 4120                 | STORE_CTX
+sc_path:    .space 260
+sc_psrc:    .space 260
+
+| ==== scales.work: STORE's handlers (modules/store) ========================
+| scales.work beside the bank files: the header, then sc_lib. Written at the
+| bank writer and before the project store when an ID changed; scales.strd
+| is its copy at the project store, copied back at a project reload. No
+| file: no scale past the KEY's own. A file that is not version 1 or fails
+| its CRC is refused (STORE's prompt) and never written over. Handlers may
+| clobber every register.
+
+        .text
+        .balign 2
+
+| sc_clear: d1 = a bank mask -> those banks' IDs 0. Clobbers d0-d2, a0.
+sc_clear:
+        moveq   #0,%d2
+1:      btst    %d2,%d1
+        beq.w   3f
+        move.l  %d2,%d0
+        lsl.l   #5,%d0
+        lea     sc_lib,%a0
+        adda.l  %d0,%a0
+        moveq   #8,%d0
+2:      clr.l   (%a0)+
+        subq.l  #1,%d0
+        bne.w   2b
+3:      addq.l  #1,%d2
+        cmpi.l  #16,%d2
+        bne.w   1b
+        rts
+
+| sc_copy_file: a0 = the source format, a1 = the destination's -> d0 < 0
+| when the copy failed.
+sc_copy_file:
+        move.l  %a1,-(%sp)
+        lea     sc_psrc,%a1
+        moveq   #0,%d0
+        jsr     store_path
+        move.l  (%sp)+,%a0
+        lea     sc_path,%a1
+        moveq   #0,%d0
+        jsr     store_path
+        clr.l   -(%sp)
+        pea     sc_psrc
+        pea     sc_path
+        jsr     F_COPY
+        lea     12(%sp),%sp
+        rts
+
+| sc_write -> d0 = 0 when scales.work holds sc_lib.
+sc_write:
+        move.l  %d2,-(%sp)
+        tst.l   sc_backup
+        beq.w   1f
+        clr.l   sc_backup               | the refused file kept as scales.bak
+        lea     FMT_WORK,%a0
+        lea     FMT_BAK,%a1
+        bsr.w   sc_copy_file
+1:      lea     sc_lib,%a0
+        move.l  #LIB_B,%d0
+        moveq   #0,%d1
+        jsr     store_crc32
+        move.l  %d0,sc_hdr+12
+        move.l  #FMAGIC,%d0
+        move.l  %d0,sc_hdr
+        moveq   #1,%d0
+        move.l  %d0,sc_hdr+4
+        move.l  #LIB_B,%d0
+        move.l  %d0,sc_hdr+8
+        lea     FMT_WORK,%a0
+        lea     sc_path,%a1
+        moveq   #0,%d0
+        jsr     store_path
+        lea     sc_path,%a0
+        lea     MODE_W,%a1
+        lea     sc_ctx,%a2
+        jsr     store_fopen
+        tst.l   %d0
+        bmi.w   8f
+        lea     sc_hdr,%a0
+        moveq   #16,%d0
+        jsr     store_fwrite
+        move.l  %d0,%d2
+        lea     sc_lib,%a0
+        move.l  #LIB_B,%d0
+        jsr     store_fwrite
+        subq.l  #1,%d0
+        bne.w   7f
+        subq.l  #1,%d2
+        bne.w   7f
+        jsr     store_fclose
+        moveq   #0,%d0
+        bra.w   9f
+7:      jsr     store_fclose
+8:      moveq   #-1,%d0
+9:      move.l  (%sp)+,%d2
+        rts
+
+sc_write_due:
+        tst.l   sc_dirty
+        beq.w   1f
+        tst.l   sc_nowrite
+        bne.w   1f
+        bsr.w   sc_write
+        tst.l   %d0
+        bne.w   1f
+        clr.l   sc_dirty
+1:      rts
+
+| sc_read: d1 = a bank mask -> d0 = 0 the masked banks read, 1 no file, 2 a
+| file that is not scales.work version 1 or fails its CRC (sc_lib is not
+| touched then).
+sc_read:
+        lea     -8(%sp),%sp
+        movem.l %d2-%d3,(%sp)
+        move.l  %d1,%d3
+        lea     FMT_WORK,%a0
+        lea     sc_path,%a1
+        moveq   #0,%d0
+        jsr     store_path
+        lea     sc_path,%a0
+        lea     MODE_R,%a1
+        lea     sc_ctx,%a2
+        jsr     store_fopen
+        tst.l   %d0
+        bpl.w   1f
+        moveq   #1,%d0
+        bra.w   9f
+1:      lea     sc_hdr,%a0
+        moveq   #16,%d0
+        jsr     store_fread
+        subq.l  #1,%d0
+        bne.w   7f
+        lea     sc_hdr,%a0
+        move.l  (%a0),%d0
+        cmpi.l  #FMAGIC,%d0
+        bne.w   7f
+        moveq   #1,%d0
+        cmp.l   4(%a0),%d0
+        bne.w   7f
+        move.l  8(%a0),%d0
+        cmpi.l  #LIB_B,%d0
+        bne.w   7f
+        lea     sc_stage,%a0
+        move.l  #LIB_B,%d0
+        jsr     store_fread
+        subq.l  #1,%d0
+        bne.w   7f
+        jsr     store_fclose
+        lea     sc_stage,%a0
+        move.l  #LIB_B,%d0
+        moveq   #0,%d1
+        jsr     store_crc32
+        cmp.l   sc_hdr+12,%d0
+        bne.w   6f
+        moveq   #0,%d2                  | the bank
+2:      btst    %d2,%d3
+        beq.w   4f
+        move.l  %d2,%d0
+        lsl.l   #5,%d0
+        lea     sc_stage,%a0
+        adda.l  %d0,%a0
+        lea     sc_lib,%a1
+        adda.l  %d0,%a1
+        moveq   #8,%d1
+3:      move.l  (%a0)+,(%a1)+
+        subq.l  #1,%d1
+        bne.w   3b
+4:      addq.l  #1,%d2
+        cmpi.l  #16,%d2
+        bne.w   2b
+        moveq   #0,%d0
+        bra.w   9f
+7:      jsr     store_fclose
+6:      moveq   #2,%d0
+9:      movem.l (%sp),%d2-%d3
+        lea     8(%sp),%sp
+        rts
+
+| sc_load: d1 = a bank mask: those banks from scales.work; empty when it has
+| none, empty and never overwritten when it is refused.
+sc_load:
+        move.l  %d1,%d4
+        bsr.w   sc_read
+        tst.l   %d0
+        beq.w   9f
+        move.l  %d0,%d5
+        move.l  %d4,%d1
+        bsr.w   sc_clear
+        cmpi.l  #2,%d5
+        bne.w   9f
+        moveq   #1,%d0
+        move.l  %d0,sc_nowrite
+        moveq   #SC_CLIENT,%d0          | STORE's prompt offers what to do with it
+        moveq   #0,%d1
+        jsr     store_refuse
+9:      rts
+
+sc_st_loadall_pre:
+        clr.l   sc_nowrite
+        clr.l   sc_dirty
+        move.l  #0xffff,%d1
+        bra.w   sc_load
+
+sc_st_loadmask_pre:                     | d1 = the mask
+        bra.w   sc_load
+
+sc_st_newproj:
+        move.l  #0xffff,%d1
+        bsr.w   sc_clear
+        clr.l   sc_nowrite
+        clr.l   sc_dirty
+        rts
+
+sc_st_bankw_post:
+sc_st_pstore_pre:
+        bra.w   sc_write_due
+
+sc_st_pstore_post:
+        tst.l   sc_nowrite
+        bne.w   9f
+        lea     FMT_WORK,%a0
+        lea     FMT_STRD,%a1
+        bra.w   sc_copy_file
+9:      rts
+
+| A project reload: scales.strd back to scales.work and read; a project
+| stored without one has no scale past the KEY's own.
+sc_st_preload_post:
+        lea     FMT_STRD,%a0
+        lea     FMT_WORK,%a1
+        bsr.w   sc_copy_file
+        clr.l   sc_nowrite
+        clr.l   sc_dirty
+        tst.l   %d0
+        bmi.w   1f
+        move.l  #0xffff,%d1
+        bra.w   sc_load
+1:      move.l  #0xffff,%d1
+        bsr.w   sc_clear
+        moveq   #1,%d0
+        move.l  %d0,sc_dirty
+        rts
+
+sc_st_partclear:                        | d0 = the Part
+        andi.l  #3,%d0
+        mvz.b   CUR_BANK,%d1
+        andi.l  #15,%d1
+        lsl.l   #2,%d1
+        add.l   %d1,%d0
+        lsl.l   #3,%d0
+        lea     sc_lib,%a0
+        adda.l  %d0,%a0
+        clr.l   (%a0)+
+        clr.l   (%a0)
+        moveq   #1,%d0
+        move.l  %d0,sc_dirty
+        rts
+
+| d0 = IGNORE / OVERWRITE / BACKUP for a refused scales.work. OVERWRITE
+| leaves the banks it would have filled empty and writes the file at the
+| next save; BACKUP has that write copy the file to scales.bak first.
+sc_st_answer:
+        tst.l   %d0
+        beq.w   9f
+        cmpi.l  #2,%d0
+        bne.w   1f
+        moveq   #1,%d0
+        move.l  %d0,sc_backup
+1:      clr.l   sc_nowrite
+        moveq   #1,%d0
+        move.l  %d0,sc_dirty
+9:      rts

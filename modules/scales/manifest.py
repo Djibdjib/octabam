@@ -36,8 +36,8 @@ MODULE = Module(
     author_url="https://github.com/Djibdjib",
     proof=Proof.PORT,
     proof_note="verify_scales: the catalogue against its own model, the chooser driven from "
-               "ARP SETUP's keys, the KEY and +0x12 in the Part, the CS1 mirror and the live "
-               "copy, the trig LEDs from the panel stream, MKI and MKII; not yet on a unit",
+               "ARP SETUP's keys, the KEY in the Part, the CS1 mirror and the live copy, the ID "
+               "in sc_lib and scales.work, the trig LEDs from the panel stream, MKI and MKII; not yet on a unit",
     doc="One catalogue of 52 scales in 9 families for every module; ARP SETUP's KEY turns the "
         "tonic and, pressed, opens the scale chooser (the families, then their scales); the "
         "sequencer and the arpeggiator play the scale; the CHROMATIC trig keys light it "
@@ -61,5 +61,6 @@ MODULE = Module(
     ),
     conflicts=(("MIDI SCALES", "both own ARP SETUP's KEY; SCALES reads MIDI SCALES' KEY values "
                                "and plays its modes"),),
+    requires=("STORE",),
     gates=(Gate("tools/verify/verify_scales.py", venv=True),),
 )

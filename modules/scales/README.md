@@ -69,16 +69,42 @@ drawing its own list. A module's new scales come here, with the next IDs.
 The KEY (setup record `+0x11`) keeps what stock (1..24: 12 tonics x Major /
 Minor) and [MIDI SCALES](../midi-scales/README.md) (25..84: Dorian,
 Phrygian, Lydian, Mixolydian and Locrian per tonic) wrote, so a project
-saved with either plays the same. A scale outside the seven diatonic modes
-also writes its ID in the setup record's `+0x12`, a byte with no parameter
-(CTRL1's setup slot 0, `docs/firmware/MIDI_TRACKS.md`); the KEY then holds
-the tonic in Major or Minor (Minor when the scale has a minor third and no
-major one), which is what stock plays for it. `+0x12` = 0, or past the
-catalogue: the KEY's own mode.
+saved with either plays the same. The KEY is stored as stock's ARP SETUP
+writer stores it (`0x4007a3ea..`): the Part byte, the CS1 mirror, the four
+unsaved flags, `0x40027e00`, the live byte.
 
-The chooser's ID is stored as stock's ARP SETUP writer stores the KEY
-(`0x4007a3ea..`): the Part byte, the CS1 mirror, the four unsaved flags,
-`0x40027e00`, the live byte.
+A scale outside the seven diatonic modes keeps its ID in `sc_lib`, one
+byte per bank, Part and MIDI track (512 bytes), saved with the project in
+`scales.work`; the KEY then holds the tonic in Major or Minor (Minor when
+the scale has a minor third and no major one), which is what stock plays
+for it. The native setup record has no byte to spare: its four setup
+pages' empty slots (NOTE SETUP D and F, ARP SETUP A, B, D and E, CTRL1
+SETUP A and B, read from the pages drawn under the port) are MIDI FOLLOW's
+and MIDI HARMONY's (`modules/store/parts.py`). SCALES wrote `+0x12` until
+MIDI HARMONY's byte 18 was found there (#980), and now writes no native
+byte beyond the KEY.
+
+**The ID holds while the KEY agrees with it**: KEY OFF (the ID waits for a
+tonic), or the Major or Minor that stands for it, on any tonic. A KEY
+changed another way (a Part reload or paste, a KEY turned on stock, a
+MIDI SCALES mode) gives the KEY's own mode back, so `sc_lib` never plays
+a scale the Part no longer asks for.
+
+**Which Part.** The playing notes use the Part the MIDI engine plays
+(`store_part_midi_context`), the KEY field, the chooser and the keys the
+Part the UI edits (`store_part_ui_context`); the KEY is read through
+STORE (`store_part_midi_key`). SCALES is registered as a STORE Part client
+with the MIDI setup window to read and no byte to write.
+
+**scales.work** (a STORE client, `modules/store`): a 16-byte header
+(`SCLS`, version 1, length 512, the CRC-32 of the IDs) then `sc_lib`,
+beside the bank files. Written by the bank writer and before the project
+store when an ID changed; `scales.strd` is its copy at the project store,
+copied back at a project reload. A load of every bank reads every bank, a
+masked load those banks; no file is no scale past the KEY's own. Part
+Clear empties that Part's IDs. A file that is not version 1 or fails its
+CRC is refused: STORE's prompt (client 6, SCALES NOT LOADED), never
+written over unless the answer says so.
 
 ## How
 
@@ -116,11 +142,11 @@ run of one table of name pointers, so nothing is built at run time.
 **The turn.** `sc_encoder` maps the KEY to an ordinal (OFF, C .. B), adds
 stock's detent accumulator's step (`0x40032510(5, movement, 1024)`, four
 counts a step, one step a report, as MIDI SCALES does), and gives stock's
-store the change in d5. The mode is kept; from OFF it is `+0x12`'s
+store the change in d5. The mode is kept; from OFF it is `sc_lib`'s
 scale's (Major for none).
 
 **The output.** `sc_output` snaps the note at `(a2)` for track d7 when the
-scale is one stock does not play (MIDI SCALES' modes, `+0x12`'s IDs);
+scale is one stock does not play (MIDI SCALES' modes, `sc_lib`'s IDs);
 stock's Major / Minor and OFF go to stock's own path.
 
 **The keys.** `kl_chromatic` asks `kl_source` for the current track's
@@ -143,7 +169,7 @@ The keys ask one question; the answers are chosen at build time
 
 | side | in the remix | the source |
 | --- | --- | --- |
-| MIDI | always | `sc_track`: the KEY and `+0x12`, key 1 = C |
+| MIDI | always | `sc_track`: the KEY and `sc_lib`, key 1 = C |
 | audio | SCALE QUANTIZER | its own `SCALE_AT` (`0x400d2ca8`, the pinned `jmp qz_scale_mask`: the SCALE's pitch classes rotated by ROOT, 0 = OFF) and ROOT (`0x100b14ee`); its keyboard plays ROOT on key 1 (its README), so key1 = tonic = ROOT |
 | audio | otherwise | none: stock's keyboard |
 
@@ -154,19 +180,18 @@ of its own: one more `HAVE_<NAME>` in `_sources` and its branch in
 ## Guards
 
 - **Every table index is checked.** An ID outside 1..52 is refused by
-  every service entry; a KEY past 84 or 0 is OFF; `+0x12` past 52 means
-  the KEY's own mode.
-- **Stock's scales stay stock's.** KEY 1..24 with `+0x12` = 0 goes to
-  stock's output path, as without the module.
+  every service entry; a KEY past 84 or 0 is OFF; an ID in `sc_lib` past
+  52, or one the KEY does not agree with, means the KEY's own mode.
+- **Stock's scales stay stock's.** KEY 1..24 with no ID goes to stock's
+  output path, as without the module.
 - **The push is only a press.** A push with a turn is stock's quick edit;
   nothing opens over the chooser, stock's list window, a dialog or a text
   editor, or outside ARP SETUP on a MIDI track.
-- **`+0x12` survives stock.** Stock 1.40C loads it (values past 127 load
-  as 127; the IDs stop at 52) and SAVE PROJECT writes it; CTRL1 SETUP's
-  YES (`0x4003fe14`) writes back the value its window read when it opened
-  (`0x40059620`). BRAIN's MIDI templates leave it out (a byte with no
-  parameter). On stock, a track with an ID in `+0x12` plays the KEY's
-  Major or Minor.
+- **No native byte but the KEY.** The setup record's other bytes are
+  stock's or other modules' (`+0x12` is MIDI HARMONY's); the gate checks
+  every chooser run leaves `+0x12` as the project had it. On stock, a
+  track with an ID plays the KEY's Major or Minor, and stock leaves
+  `scales.work` alone.
 - **Only the CHROMATIC branch.** The other trig modes, the running light
   and every other LED are untouched.
 
@@ -186,29 +211,31 @@ span.
   tables:
   - the linked code under unicorn, the image's own bytes: every ID's mask,
     family and names, the refusals; `sc_snap` for every ID x tonic x note
-    (79,872); `sc_track` for every KEY 0..255 x 9 `+0x12` values; the
-    installed output on 8 tracks (3,072 notes, stock's paths included);
-    the installed encoder for every KEY 0..84 x 5 `+0x12` x 7 movements
-    (2,975); the formatter's two strings and its bounds;
+    (79,872); `sc_track` for every KEY 0..255 x 9 IDs in `sc_lib` (the ID
+    held only while the KEY agrees); the installed output on 8 tracks
+    (3,840 notes, stock's paths included); the installed encoder for every
+    KEY 0..84 x 5 IDs x 7 movements (2,975); the formatter's two strings
+    and its bounds; the contexts and the KEY through STORE;
   - under the ColdFire port, MKI and MKII, on `test/scales`: the trig
     LEDs from the panel stream for every KEY 0..84 and every ID 8..52 on a
     tonic, a KEY turned while CHROMATIC is shown; the chooser driven from
-    ARP SETUP's keys for each of the 52 IDs, the KEY and `+0x12` read back
-    from the Part, the CS1 mirror and the live copy; reopened (YES YES
-    keeps the scale), NO, F turned while pushed (no window), the window
-    left open after a plain push, RIGHT into a family and LEFT back;
-    CTRL1 SETUP's YES. Under `--watch-mem` the
-    commit-all (`pc 0x4003fe74`) writes `+0x12` back with the chosen ID.
-    132 LED and 58 chooser runs per model, all equal. The window's six
+    ARP SETUP's keys for each of the 52 IDs, the KEY read back from the
+    Part, the CS1 mirror and the live copy, the ID from `sc_lib`, `+0x12`
+    unchanged; reopened (YES YES keeps the scale), NO, F turned while
+    pushed (no window), the window left open after a plain push, RIGHT
+    into a family and LEFT back; CTRL1 SETUP's YES. 132 LED and 58
+    chooser runs per model, all equal;
+  - `scales.work` under the port, MKII: a scale picked then SAVE PROJECT
+    writes `scales.work` and `scales.strd` (header, CRC-32, the ID in bank
+    1 Part 1 track 1, nothing else); the saved card booted again gives the
+    ID and the KEY back; a run with no save writes no file. The window's six
     states drawn under the port and looked at (families, a family, back,
     scrolled, reopened with the marks).
   - On `test/scales-quantizer`, the audio side as well: every SCALE 0..24
     on ROOT C and A and every ROOT in MINOR, key k = ROOT + k.
 - Planted defects: the CS1 store removed fails every chooser run's CS1
-  read-back; the dispatcher call removed fails `refresh-midi`.
-- `+0x12` and `+0x13` under stock 1.40C (a 16-bank project, every value
-  0..255 in every bank, Part and track): load, SAVE PROJECT, load on stock,
-  save, load on octabam: each value kept, 128..255 loaded as 127.
+  read-back; the dispatcher call removed fails `refresh-midi`; the KEY /
+  ID agreement removed fails the unicorn checks.
 - The keys' display and refresh (KEY LEDS, the module this one grew from)
   on the user's MKII (OCTABAM22, 30 Oct 2026): the keys follow KEY, SCALE
   and ROOT, MIDI and audio, without a key press.
@@ -221,6 +248,9 @@ span.
 - The short names in the KEY field: the formatter's two 5-byte strings
   draw 4 characters under the port (`PHRD`); lowercase `b` in names
   (`DOb2`) is drawn by the port's font as the unit's is assumed to.
-- CTRL1 SETUP opened on one track and its YES pressed after the track
-  changed writes the first track's `+0x12` (and CC numbers) to the second:
-  stock's commit-all writes its window's values to the current track.
+- An unsaved ID does not survive a power cycle: the KEY does (stock's CS1
+  mirror), the ID is read from `scales.work` at the next load, so the track
+  plays the KEY's Major or Minor until the scale is picked again. A CS1
+  copy would need a CS1 range no module holds; none is claimed.
+- A Part reload or paste that leaves the KEY on the same Major / Minor
+  keeps the destination's ID: `sc_lib` follows Part Clear, not copies.

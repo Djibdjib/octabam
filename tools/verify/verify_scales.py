@@ -12,19 +12,24 @@ tonic).
 
 1. The linked code (unicorn, the image's own bytes): every ID's mask,
    family, names; sc_snap for every ID x tonic x note (nearest, ties
-   downward); sc_track for every KEY x +0x12; the installed output detour
-   on eight tracks; the installed encoder's change for every KEY x +0x12 x
-   movement; the formatter's two strings.
+   downward); sc_track for every KEY x sc_lib ID (an ID holds while the
+   KEY is OFF or the Major / Minor that stands for it); the installed output
+   detour on eight tracks; the installed encoder's change for every KEY x
+   ID x movement; the formatter's two strings.
 2. Under the port, MKI and MKII:
    - the trig LEDs (panel stream) for every KEY 0..84, every ID 8..52 on a
      tonic, SCALE QUANTIZER's SCALE / ROOT on an audio track when the remix
      has it, a KEY / ROOT turned while CHROMATIC is shown;
    - the chooser from ARP SETUP's keys: encoder F pushed opens its window on
      the families, DOWN / YES pick each of the 52 scales, RIGHT enters a
-     family and LEFT goes back; the KEY and +0x12 in the Part,
-     the CS1 mirror and the live copy; reopened, YES YES keeps the scale;
-     NO keeps it; F turned while pushed opens nothing; CTRL1 SETUP's YES
-     (its commit-all writes +0x12) keeps +0x12.
+     family and LEFT goes back; the KEY in the Part, the CS1 mirror and
+     the live copy, the ID in sc_lib, the setup record's +0x12 untouched;
+     reopened, YES YES keeps the scale; NO keeps it; F turned while pushed
+     opens nothing; CTRL1 SETUP's YES keeps the scale.
+   - scales.work (MKII): a scale picked and SAVE PROJECT write scales.work
+     and scales.strd (header, CRC-32, the ID in bank 1 Part 1 track 1); the
+     saved card booted again gives the ID back; a run with no save writes
+     no scales.work.
 """
 import os
 import pathlib
@@ -42,7 +47,8 @@ from panel_link import PanelLink  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 LIVE = 0x46c76de0                         # MIDI track t's live setup record: + 68 * t
-KEY, EXT = 0x11, 0x12
+KEY, EXT = 0x11, 0x12                     # EXT: a native byte SCALES must leave alone (MIDI HARMONY's)
+BANK0 = 0x400e21e0
 PART_SETUP = 0x400e21e0 + 0x8f262         # bank 1, Part 1, track 1's setup record
 CS1_SETUP = 0x100a53b0
 NV_SCALE, NV_ROOT = 0x100b14ec, 0x100b14ee  # SCALE QUANTIZER's SCALE (0 OFF, 1..24) and ROOT (0..11)
@@ -130,12 +136,27 @@ def encode(tonic, ident):
     return 25 + 5 * tonic + (1, 2, 3, 4, 6).index(m)
 
 
+def stands(ident):
+    """The KEY mode's ID that stands for a scale past the seven: Minor (6) for a
+    minor third and no major one, else Major (1)."""
+    notes = CATALOGUE[ident][4]
+    return 6 if 3 in notes and 4 not in notes else 1
+
+
+def holds(key, ext):
+    """An ID in sc_lib holds while the KEY is OFF or the mode that stands for it."""
+    if not 8 <= ext <= len(CATALOGUE):
+        return False
+    d = decode(key)
+    return key == 0 or (d is not None and d[1] == stands(ext))
+
+
 def track_scale(key, ext):
     """What a MIDI track plays: (tonic, ID) or None."""
     d = decode(key)
     if d is None:
         return None
-    return d[0], ext if 1 <= ext <= len(CATALOGUE) else d[1]
+    return d[0], ext if holds(key, ext) else d[1]
 
 
 def snap(note, tonic, ident):
@@ -154,11 +175,24 @@ def machine_gate(remix):
     def symbols():
         raw = subprocess.check_output(["m68k-elf-nm", str(ROOT / "out/platform/runtime/runtime.elf")],
                                       text=True)
-        return {n: int(a, 16) for a, n in re.findall(r"^([0-9a-f]+) [Tt] ((?:sc|kl)_\w+)$", raw, re.M)}
+        return {n: int(a, 16) for a, n in re.findall(r"^([0-9a-f]+) [TtBbDd] ((?:sc|kl)_\w+)$", raw, re.M)}
 
     m = h.Machine(symbol_loader=symbols)
     u = m.uc
     bad = []
+    # bank 1, Part 1 for the UI and both engines (STORE's contexts 0); a track's
+    # KEY in the native Part (STORE reads it) and the live copy, its ID in sc_lib.
+    u.mem_write(0x46c82456, BANK0.to_bytes(4, "big"))
+    u.mem_write(0x100b14cf, b"\0")
+    u.mem_write(0x80000002, b"\0")
+    u.mem_write(0x80001828, b"\0\0")
+    u.mem_write(0x8000666e, b"\xff" * 16)
+    lib = m.sym["sc_lib"]
+
+    def set_track(track, key, ext):
+        m.set_key(track, key)
+        u.mem_write(BANK0 + 0x8f262 + 36 * track + KEY, bytes((key,)))
+        u.mem_write(lib + track, bytes((ext,)))
     for site, name in ((0x4007a3e2, "sc_encoder"), (0x4009fb58, "sc_output"),
                        (0x400442e2, "kl_chromatic"), (0x40056ab8, "kl_tick")):
         if bytes(u.mem_read(site, 6)) != b"\x4e\xf9" + m.sym[name].to_bytes(4, "big"):
@@ -207,23 +241,21 @@ def machine_gate(remix):
 
     for key in range(256):
         for ext in (0, 1, 7, 8, 19, 52, 53, 127, 255):
-            m.set_key(2, key)
-            u.mem_write(LIVE + 68 * 2 + EXT, bytes((ext,)))
+            set_track(2, key, ext)
             got = m.call("sc_track", 2)
             want = track_scale(key, ext)
             want = 0xffffffff if want is None else (want[1] << 4) | want[0]
             if got != want:
-                bad.append(f"sc_track KEY {key} +0x12 {ext}: {got:#x} != {want:#x}")
+                bad.append(f"sc_track KEY {key} ID {ext}: {got:#x} != {want:#x}")
 
     installed = 0
     for track in range(8):
         for key in (0, 1, 2, 24, 25, 30, 84, 85):
-            for ext in (0, 8, 41, 53):
-                m.set_key(track, key)
-                u.mem_write(LIVE + 68 * track + EXT, bytes((ext,)))
+            for ext in (0, 8, 41, 47, 53):
+                set_track(track, key, ext)
                 for note in (0, 37, 60, 61, 66, 127):
                     u.mem_write(m.scratch - 1, bytes((0xa5, note, 0xa5)))
-                    stock = key == 0 or key > 84 or not 1 <= ext <= 52 and key <= 24
+                    stock = key == 0 or key > 84 or not holds(key, ext) and key <= 24
                     for flag in (0, 1):     # stock's -64(fp): a KEY to quantize
                         u.mem_write(m.scratch + 0x100 - 64, flag.to_bytes(4, "big"))
                         dest = (0x4009fb5e if flag else 0x4009fb80) if stock else 0x4009fb80
@@ -233,19 +265,18 @@ def machine_gate(remix):
                         ts = track_scale(key, ext)
                         want = note if stock or ts is None else snap(note, *ts)
                         if bytes(u.mem_read(m.scratch - 1, 3)) != bytes((0xa5, want, 0xa5)):
-                            bad.append(f"output t{track} KEY {key} +0x12 {ext} note {note}")
+                            bad.append(f"output t{track} KEY {key} ID {ext} note {note}")
                         if m.uc.reg_read(h.UC_M68K_REG_D0) != 0x12345678:
                             bad.append("output: d0 not kept")
                         installed += 1
-    print(f"  [{'FAIL' if bad else 'ok'}] sc_track: 256 KEY x 9 +0x12; output: {installed} notes on 8 tracks")
+    print(f"  [{'FAIL' if bad else 'ok'}] sc_track: 256 KEY x 9 IDs; output: {installed} notes on 8 tracks")
 
     turns = 0
     for key in range(85):
         for ext in (0, 8, 15, 36, 41):
             for move in (-12, -4, -1, 0, 1, 4, 12):
                 u.mem_write(0x100b14cc, b"\0")
-                m.set_key(0, key)
-                u.mem_write(LIVE + EXT, bytes((ext,)))
+                set_track(0, key, ext)
                 u.mem_write(0x46c7d244 + 5 * 20, bytes(4))      # the accumulator's state
                 m.call("sc_encoder", 5, stop=0x4007a3ea,
                                 regs={UC_M68K_REG_D5: move & 0xffffffff})
@@ -259,21 +290,20 @@ def machine_gate(remix):
                 elif d is not None:
                     want = encode(new - 1, d[1])                      # the KEY's mode kept
                 else:
-                    want = encode(new - 1, ext if 1 <= ext <= 52 else 1)  # from OFF: +0x12's scale
+                    want = encode(new - 1, ext if holds(0, ext) else 1)  # from OFF: sc_lib's scale
                 if key + change != want:
-                    bad.append(f"encoder KEY {key} +0x12 {ext} move {move}: {key + change} != {want}")
+                    bad.append(f"encoder KEY {key} ID {ext} move {move}: {key + change} != {want}")
                 turns += 1
     for slot in range(5):
         m.call("sc_encoder", slot, stop=0x4007a4cc)
-    print(f"  [{'FAIL' if bad else 'ok'}] encoder F: {turns} turns (KEY x +0x12 x movement), "
+    print(f"  [{'FAIL' if bad else 'ok'}] encoder F: {turns} turns (KEY x ID x movement), "
           f"the other encoders stock's")
 
     buf = m.scratch + 0x200
     for key in (0, 1, 2, 23, 25, 84):
-        for ext in (0, 8, 52):
+        for ext in (0, 8, 47, 52):
             u.mem_write(0x100b14cc, b"\3")
-            m.set_key(3, key)
-            u.mem_write(LIVE + 68 * 3 + EXT, bytes((ext,)))
+            set_track(3, key, ext)
             u.mem_write(buf - 4, b"\xa5" * 18)
             u.mem_write(m.stack + 4, buf.to_bytes(4, "big"))
             m.call("sc_format")
@@ -282,7 +312,7 @@ def machine_gate(remix):
             want = (b"OFF\0\0", b"\0" * 5) if ts is None else (
                 TONICS[ts[0]].encode().ljust(5, b"\0"), CATALOGUE[ts[1]][3].encode().ljust(5, b"\0"))
             if raw[:4] != b"\xa5" * 4 or raw[14:] != b"\xa5" * 4 or (raw[4:9], raw[9:14]) != want:
-                bad.append(f"formatter KEY {key} +0x12 {ext}: {raw.hex()}")
+                bad.append(f"formatter KEY {key} ID {ext}: {raw.hex()}")
     print(f"  [{'FAIL' if bad else 'ok'}] formatter: tonic and short name, bounded to 10 bytes")
     for line in bad[:12]:
         print(f"      {line}")
@@ -373,7 +403,7 @@ def choose(s, ident):
 
 
 def chooser_runs(out):
-    """(tag, script, want (KEY, +0x12), want the list open)."""
+    """(tag, script, want (KEY, sc_lib's ID), want the list open)."""
     runs = []
     for ident in CATALOGUE:
         s = Script()
@@ -425,7 +455,7 @@ def chooser_runs(out):
     s.tap(0x31, 800)
     s.write(out / "rightleft.script")
     runs.append(("rightleft", (encode(0, 40), 40), False))
-    s = Script()                          # CTRL1 SETUP's YES commits +0x12 with the CC numbers
+    s = Script()                          # CTRL1 SETUP's YES (its commit-all writes +0x12..+0x17)
     arp(s)
     choose(s, 47)
     s.send("key 0x2d down")
@@ -464,12 +494,15 @@ def main():
                    stdout=subprocess.DEVNULL, check=True)
     chromatic(True).write(out / "midi.script")
     chromatic(False).write(out / "audio.script")
-    chromatic(True, (f"poke {LIVE + KEY:#x}=6",)).write(out / "midi-later.script")       # C MAJ -> D MIN
+    chromatic(True, (f"poke {LIVE + KEY:#x}=6;{PART_SETUP + KEY:#x}=6",)).write(out / "midi-later.script")  # C MAJ -> D MIN
     chromatic(False, (f"poke {NV_ROOT:#x}=9",)).write(out / "audio-later.script")        # MINOR on C -> on A
     modes = "0x80000012=00;0x80000013=00;0x80000014=00;0x80000015=00"
+    nm = subprocess.check_output(["m68k-elf-nm", str(ROOT / "out/platform/runtime/runtime.elf")], text=True)
+    lib = int(re.search(r"^([0-9a-f]+) [Bb] sc_lib$", nm, re.M).group(1), 16)
 
     def lane(key, ext):
-        return f"{LIVE + KEY:#x}={key};{LIVE + EXT:#x}={ext}"
+        """Track 1's KEY (the live copy and the native Part, which STORE reads) and its ID."""
+        return f"{LIVE + KEY:#x}={key};{PART_SETUP + KEY:#x}={key};{lib:#x}={ext}"
 
     leds = [(f"midi-{k}", "midi", (k, 0), lane(k, 0)) for k in range(85)]
     leds += [(f"midi-id{i}", "midi", (encode(i % 12, i), i), lane(encode(i % 12, i), i))
@@ -484,10 +517,9 @@ def main():
     if quantizer:
         leds.append(("refresh-audio", "audio-later", (6, 9), f"{NV_SCALE:#x}={6};{NV_ROOT:#x}=0"))
     chooser = chooser_runs(out)
-    nm = subprocess.check_output(["m68k-elf-nm", str(ROOT / "out/platform/runtime/runtime.elf")], text=True)
     window = int(re.search(r"^([0-9a-f]+) [Dd] sc_win$", nm, re.M).group(1), 16)
     dumps = (f"{LIVE:#x},{0x24}", f"{PART_SETUP:#x},{0x24}", f"{CS1_SETUP:#x},{0x24}",
-             f"{window:#x},4", "0x46c82456,4", "0x100b14cf,1")
+             f"{window:#x},4", "0x46c82456,4", "0x100b14cf,1", f"{lib:#x},1")
     for model in ("mki", "mkii"):
         cmd = [str(ROOT / "out/emu/ot_emu"), "--image", str(image), "--card", str(card),
                "--set", "SCSET", "--project", "SCPRJ", "--load-ms", "90000",
@@ -513,19 +545,23 @@ def main():
             ended = "ended on quit" in base.with_suffix(".log").read_text()
             if got != want or not ended:
                 bad.append(f"{tag}: want {want} got {got}{'' if ended else ' (the script did not end)'}")
+        untouched = None                  # +0x12 as the project left it: HARMONY's byte, never SCALES'
         for tag, (key, ext), is_open in chooser:
             base = out / f"{model}-{tag}"
             log = base.with_suffix(".log").read_text()
             try:
-                live, part, cs1, lst, bank, p = (pathlib.Path(f"{base}.m{i}").read_bytes() for i in range(6))
+                live, part, cs1, lst, bank, p, slot = (pathlib.Path(f"{base}.m{i}").read_bytes() for i in range(7))
             except FileNotFoundError:
                 bad.append(f"{tag}: no memory dump")
                 continue
             if bank != (0x400e21e0).to_bytes(4, "big") or p != b"\0":
                 bad.append(f"{tag}: not bank 1 / Part 1 ({bank.hex()} {p.hex()})")
             for where, rec in (("live", live), ("Part", part), ("CS1", cs1)):
-                if (rec[KEY], rec[EXT]) != (key, ext):
-                    bad.append(f"{tag}: {where} KEY / +0x12 {rec[KEY]} / {rec[EXT]}, want {key} / {ext}")
+                untouched = rec[EXT] if untouched is None else untouched
+                if (rec[KEY], rec[EXT]) != (key, untouched):
+                    bad.append(f"{tag}: {where} KEY / +0x12 {rec[KEY]} / {rec[EXT]}, want {key} / {untouched}")
+            if slot[0] != ext:
+                bad.append(f"{tag}: sc_lib holds {slot[0]}, want {ext}")
             if bool(int.from_bytes(lst, "big")) != is_open:
                 bad.append(f"{tag}: the window is {'closed' if is_open else 'open'}")
             if "ended on quit" not in log:
@@ -536,7 +572,70 @@ def main():
         for line in bad[:10]:
             print(f"      {line}")
         fails += bool(bad)
+    fails += persist(out, image, card, lib)
     return int(bool(fails))
+
+
+def persist(out, image, card, lib):
+    """scales.work under the port, MKII: written by SAVE PROJECT, read at the next boot."""
+    import struct
+    import zlib
+    from concurrent.futures import ThreadPoolExecutor
+    sys.path.insert(0, str(ROOT / "tools/emu"))
+    import emu_card
+    d = out / "persist"
+    d.mkdir()
+    ident = 47
+    for tag, save in (("saved", True), ("unsaved", False)):
+        s = Script()
+        arp(s)
+        choose(s, ident)
+        if save:                          # PROJ: SAVE PROJECT
+            s.tap(0x1c, 1000)
+            s.tap(0x21, 700)
+            s.tap(0x20, 500)
+            s.tap(0x31, 1100)
+            s.tap(0x31, 30000)
+        s.write(d / f"{tag}.script")
+    s = Script()
+    s.tap(0x32, 400)
+    s.write(d / "idle.script")
+    modes = "0x80000012=00;0x80000013=00;0x80000014=00;0x80000015=00"
+
+    def boot(tag, card_, script, card_out):
+        cmd = [ROOT / "out/emu/ot_emu", "--image", image, "--card", card_, "--set", "SCSET",
+               "--project", "SCPRJ", "--load-ms", "90000", "--mkii", "--live-script", script,
+               "--poke", modes, "--mem-dump", f"{lib:#x},{0x200}={d / (tag + '.lib')};{LIVE:#x},{0x24}={d / (tag + '.live')}"]
+        if card_out:
+            cmd += ["--card-out", d / f"{tag}.img"]
+        with open(d / f"{tag}.txt", "w") as f:
+            return subprocess.run(list(map(str, cmd)), cwd=ROOT, stdout=f, stderr=subprocess.STDOUT).returncode
+
+    bad = []
+    with ThreadPoolExecutor(2) as ex:
+        rc = list(ex.map(lambda j: boot(*j), (("saved", card, d / "saved.script", True),
+                                              ("unsaved", card, d / "unsaved.script", True))))
+    if rc != [0, 0]:
+        bad.append(f"the save and the unsaved run exited {rc}")
+    files = emu_card.extract_image((d / "saved.img").read_bytes())
+    for ext in ("work", "strd"):
+        f = next((v for k, v in files.items() if k.lower().endswith(f"/scprj/scales.{ext}")), b"")
+        if not (len(f) == 16 + 512 and f[:12] == b"SCLS\0\0\0\1\0\0\2\0"
+                and struct.unpack(">I", f[12:16])[0] == zlib.crc32(f[16:])
+                and f[16] == ident and not any(f[17:])):
+            bad.append(f"scales.{ext}: {len(f)} B {f[:16].hex()} ID {f[16] if len(f) > 16 else None}")
+    uf = emu_card.extract_image((d / "unsaved.img").read_bytes())
+    if any(k.lower().endswith("/scprj/scales.work") for k in uf):
+        bad.append("the unsaved run wrote scales.work")
+    rc = boot("reboot", d / "saved.img", d / "idle.script", False)
+    lib_b, live = (d / "reboot.lib").read_bytes(), (d / "reboot.live").read_bytes()
+    if rc or lib_b[0] != ident or live[KEY] != encode(0, ident):
+        bad.append(f"reboot: exited {rc}, sc_lib {lib_b[0]}, KEY {live[KEY]} (want {ident}, {encode(0, ident)})")
+    print(f"  [{'FAIL' if bad else 'PASS'}] verify_scales: scales.work, MKII (SAVE PROJECT writes .work and "
+          f".strd with the ID; the saved card boots it back; no save, no file)")
+    for line in bad:
+        print(f"      {line}")
+    return bool(bad)
 
 
 if __name__ == "__main__":
