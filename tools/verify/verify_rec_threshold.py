@@ -74,6 +74,7 @@ LEV_DB = (-60, -56, -52, -48, -44, -40, -36, -32, -28, -24,   # thresh.s lev_db,
           -20, -16, -12, -8, -6, -4, -2, 0)
 ARM_PC = 0x400069D6
 RUN_TIMEOUT_S = 900                  # per port run
+ELAPSED = {}                         # job name -> wall seconds, None while running
 
 # Panel key codes (tools/panel/key_map.json: row 0x20+r, bit b -> r*8+b).
 NO, FUNC, REC_AB, REC_CD, T1 = 0x32, 0x2D, 0x2B, 0x2C, 0x10
@@ -215,7 +216,9 @@ def run(work, card, armed, name, audio, script, quit_ms):
     started = time.monotonic()
     try:
         r = subprocess.run(args, cwd=ROOT, capture_output=True, text=True, timeout=RUN_TIMEOUT_S)
+        ELAPSED[name] = time.monotonic() - started
     except subprocess.TimeoutExpired as exc:
+        ELAPSED[name] = time.monotonic() - started
         partial = (exc.stdout or b"") + (exc.stderr or b"")
         if isinstance(partial, bytes):
             partial = partial.decode(errors="replace")
@@ -224,8 +227,19 @@ def run(work, card, armed, name, audio, script, quit_ms):
                             f"{'ended on quit' in partial}; M6a gate PASS: {'M6a gate   : PASS' in partial}; "
                             f"{len(partial)} bytes of output, last emulated ms stamp: {stamps[-1] if stamps else None}\n"
                             + partial)
-    print(f"  {name}: {time.monotonic() - started:.0f} s", flush=True)
+    print(f"  {name}: {ELAPSED[name]:.0f} s", flush=True)
     return name, r.returncode, r.stdout + r.stderr
+
+
+def job_summary(host, results):
+    """Append the host line and each port run's wall time to the Actions job summary."""
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not path:
+        return
+    rows = "".join(f"| {name} | {ELAPSED[name]:.0f} | {'timed out' if results[name][0] is None else results[name][0]} |\n"
+                   for name in results if name in ELAPSED)
+    with open(path, "a") as f:
+        f.write(f"\n**verify_rec_threshold**: {host}\n\n| port run | wall s | exit |\n|---|---|---|\n{rows}")
 
 
 def writes(output, addr):
@@ -280,10 +294,12 @@ def main():
         full = work / "full.wav"
         write_full_scale(full, 10, 6)
         jobs += [("full", full, SETUP + lev(0) + press(3200), 14000)]
-        print(f"  host: {os.cpu_count()} cpus, load average {os.getloadavg()[0]:.1f}, {len(jobs)} port runs at once", flush=True)
+        host = f"{os.cpu_count()} cpus, load average {os.getloadavg()[0]:.1f}, {len(jobs)} port runs at once"
+        print(f"  host: {host}", flush=True)
         with ThreadPoolExecutor(max_workers=len(jobs)) as pool:
             results = {name: (rc, out) for name, rc, out in
                        pool.map(lambda j: run(work, card, armed, *j), jobs)}
+        job_summary(host, results)
         first = first_numbered(work / "late_arena.bin") if (work / "late_arena.bin").is_file() else None
 
     for name, (rc, out) in results.items():
