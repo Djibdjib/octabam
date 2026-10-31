@@ -277,8 +277,11 @@ shared check verifies payload placement, not the correctness of mutable values.
 `remixes/test/` is picked by `make reach` in either tier, as a carrier, the
 floor, the cover or identity. A change to a module that only test remixes
 carry (CF METER, EUCLID, MINIVERB, TAPE ECHO, most USB variants)
-reaches the selftest and no remix check, and the listing says
-so; `TESTS=1` brings the test remixes back.
+reaches that module's own gates on its test remixes (`check-shared` for the
+module, `check-remix` with the module's gates), not the selftest alone: before
+30 Oct 2026 it reached the selftest and a green run read as a checked
+module (#953). Other changes to a test remix, and the cover and identity,
+still leave the test remixes out; `TESTS=1` brings them back.
 
 **Two tiers.** The default is QUICK, for working without losing the
 machine: a module change checks the remixes users flash that carry it
