@@ -10,6 +10,6 @@ REMIX = Remix(
     modules=("OCTA303", "CX OSC",
              "FILTER", "EQUALIZER", "DJ EQ", "PHASER", "FLANGER",
              "CHORUS", "SPATIALIZER", "COMB FILTER", "COMPRESSOR", "LO-FI",
-             "DELAY", "PLATE REV", "DARK REV"),
+             "DELAY", "PLATE REV", "SPRING REV", "DARK REV"),
     fallback="NONE",
 )
