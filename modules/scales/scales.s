@@ -68,7 +68,7 @@
 | (0x4007e998(0)), as stock does after a CHROMATIC key. The same tick
 | watches encoder F's push switch while ARP SETUP is open.
 
-        .include "remix.inc"            | HAVE_SCALE_QUANTIZER
+        .include "remix.inc"            | HAVE_SCALE_QUANTIZER, SC_CLIENT (STORE's client id)
 
         .text
         .globl  sc_count, sc_mask, sc_name, sc_short, sc_family, sc_snap
@@ -109,7 +109,6 @@
         .equ    F_COPY,    0x40016388   | (dst path, src path, 0) -> < 0 error
         .equ    FMAGIC,    0x53434c53   | 'SCLS': scales.work's header
         .equ    LIB_B,     512          | 16 banks x 4 Parts x 8 tracks, an ID each
-        .equ    SC_CLIENT, 6            | STORE's client id
         .equ    BANK_RAM,  0x46c82456   | long: the current bank's RAM
         .equ    PART_SETUP, 0x8f262     | + bank RAM + 0x18b2 * p + 0x24 * t: the Part's setup record
         .equ    CS1_SETUP, 0x100a53b0   | + 0x18b2 * p + 0x24 * t: its CS1 mirror

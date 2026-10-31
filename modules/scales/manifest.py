@@ -9,22 +9,28 @@ Other modules ask it (sc_mask, sc_name, sc_snap, ...) and open its chooser
 (sc_pick) rather than carry their own tables: README "Service".
 
 A MIDI track's ARP SETUP KEY: turned, the tonic; pressed, the chooser
-(stock's list window: the families, then the family's scales). The
-sequencer's and the arpeggiator's notes snap to the scale. The KEY keeps
-stock's and MIDI SCALES' values for their scales; the others add their ID
-in a setup byte with no parameter (+0x12), which stock loads and saves.
+(a window of MAIN MENU's size: the families, then the family's scales).
+The sequencer's and the arpeggiator's notes snap to the scale. The KEY
+keeps stock's and MIDI SCALES' values for their scales; the others keep
+their ID in scales.work (a STORE client), no native byte.
 
 The CHROMATIC keys light the scale (the tonic yellow, the scale red, the
 rest dark): a MIDI track's, and an audio track's SCALE QUANTIZER SCALE on
 its ROOT when the remix has it. KEY OFF, SCALE OFF: stock's C major.
 """
 
+import runpy
+from pathlib import Path
+
 from remix.schema import Category, Detour, Gate, Kind, Linked, Module, Poke, Proof, SymbolRef
 
 
 def _sources(modules, _remix):
-    """remix.inc: which modules answer kl_source on the audio side (README "Sources")."""
-    return f".set HAVE_SCALE_QUANTIZER, {int('SCALE QUANTIZER' in modules)}\n"
+    """remix.inc: which modules answer kl_source on the audio side (README "Sources"),
+    and SCALES' number in STORE's refusal registry."""
+    ids = runpy.run_path(str(Path(__file__).parents[1] / "store/manifest.py"))["CLIENT_IDS"]
+    return (f".set HAVE_SCALE_QUANTIZER, {int('SCALE QUANTIZER' in modules)}\n"
+            f".set SC_CLIENT, {ids['SCALES']}\n")
 
 
 MODULE = Module(
