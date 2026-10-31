@@ -12,7 +12,8 @@
 |   CC 83-89 on the PROG CH channel (LIVE PEDAL's, flashed on OCTABAM2/4/7):
 |          83 PLAY / STOP, 84 clear R1-R8 (stopped), 85 / 86 next /
 |          previous pattern, 88 / 89 next / previous bank; value 0 ignored;
-|          admitted as stock admits a Program Change.
+|          admitted as stock admits a Program Change, except that the AUTO
+|          channel stays admitted in MIDI mode.
         .text
         .globl  fl_cc, fl_gate_stub, fl_ui_stub, fl_rec_stub, fl_trig_stub
         .globl  fl_cfg, fl_st, fl_saved, fl_now, fl_playing_was, fl_clear_all, fl_bank_seen
@@ -119,12 +120,10 @@ go:
         move.l  %d2,%d0
         andi.l  #0x1ff,%d0
         beq     out                     | the channel reaches no track
-        btst    #8,%d2
-        beq     admit
-        jsr     0x40033970              | stock's guard on the auto channel
-        tst.l   %d0
-        bne     out
-        bra     admit
+        bra     admit                   | the AUTO channel in MIDI mode too: these
+                                        | are the transport's and the banks', not a
+                                        | track's (stock's PC guard, 0x40033970,
+                                        | refuses AUTO when MIDI mode is on)
 fixed:
         cmp.l   %d3,%d0
         bne     out

@@ -29,7 +29,11 @@ C D, T1-T4 FLEX on R1-R4, R5-R8 their UNDO buffers, T5-T8 left to samples).
 | CC 88 / 89 | pattern 1 of the next / previous bank |
 
 CC 83-89 are admitted as stock admits a Program Change (PROG CH RECEIVE
-on; the PROG CH channel, or the AUTO channel when it is AUTO). A change of
+on; the PROG CH channel, or the AUTO channel when it is AUTO), except that
+the AUTO channel is admitted in MIDI mode too: they drive the transport and
+the banks, not a track (stock refuses a Program Change on AUTO in MIDI
+mode, `0x40033970`; the user's MKII, 31 Oct 2026: CC 83 did nothing with
+MIDI on; scenario `midistop`). A change of
 the playing bank while the sequencer runs clears R1-R8.
 
 ## A track's pedals

@@ -71,6 +71,10 @@ DIR CD. T1 and T3 are FREE, T2 and T4 GRID.
 | UP / DOWN (window) | the row |
 | LEFT / RIGHT, any encoder (window) | the value |
 
+CC 83 to 89 work in MIDI mode as well, on the AUTO channel too: you can
+play a synth from a MIDI track and still start and stop the sequencer from
+the pedalboard.
+
 | Row | Values |
 |---|---|
 | ROLE | OFF, GRID, FREE |

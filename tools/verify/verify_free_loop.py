@@ -27,6 +27,8 @@ input a steady tone (--audio-in tones).
            muted once its loop starts again (~18 s)
   mutedclear T1 muted (a tap), then its REC held 1.5 s: R1 empty at 13.3 s
   stopclear  the sequencer stopped (CC 83), then T1's REC held 1.5 s: R1 empty
+  midistop   the same take, then MIDI mode (the MIDI key) and CC 83 on the PROG CH
+           channel (AUTO, 11): the sequencer stops, as in audio mode
   slow     T1 BARS 2, MAX 100, a take of 2 bars at 90: the slot's tempo and
            LOOP_BARS are the loop's (FLEX's stretch 1), the voice moves 22,050
            samples in 500 ms
@@ -351,6 +353,13 @@ def main():
         check("stopclear: stopped, REC held 1 s: R1 empty",
               u32(d["transport"]) != 1 and u32(d["end1"]) == 0 and d["st"][8] == 0,
               f"transport {u32(d['transport'])}, end {u32(d['end1'])}, has {d['st'][8]}")
+
+    if run("midistop"):
+        lines = FREE + key(11500, 0x35) + [f"12000 midi ba 53 7f"]   # MIDI mode, then CC 83 on AUTO (11)
+        d, _ = boot("midistop", lines, 13000, {**STATE, "midimode": (0x80000012, 4)})
+        check("midistop: in MIDI mode, CC 83 on the AUTO channel stops the sequencer",
+              u32(d["midimode"]) != 0 and u32(d["transport"]) != 1,
+              f"MIDI mode {u32(d['midimode'])}, transport {u32(d['transport'])}")
 
     if run("end"):
         lines = FREE + [cc93(12000, 0, 127)]
