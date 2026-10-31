@@ -853,8 +853,11 @@ def classify(paths, ctx):
                              + [cmd_accept(r) for r in remixes])
                     note = f"{key} -> " + ", ".join(remixes)
                 elif ctx.test_carriers.get(key):
-                    note = f"{key}: carried only by test remixes ({', '.join(sorted(ctx.test_carriers[key]))}): not checked; TESTS=1 runs them"
-                    gates = [CMD["selftest"]]
+                    # No shipped remix carries it: its own gates run on its test remixes (the one-module remixes
+                    # exist for this), not nothing -- a green run must not read as a checked module (#953).
+                    remixes = ctx.carriers(sorted(ctx.test_carriers[key]))
+                    gates = [cmd_check_shared(remixes, [key])] + [cmd_check_remix(r, [key]) for r in remixes]
+                    note = f"{key} -> " + ", ".join(remixes) + " (carried only by test remixes)"
                 else:
                     note = f"{key}: no remix carries it (the selftest refuses this)"
                     gates = [CMD["selftest"]]

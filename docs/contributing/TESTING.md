@@ -277,8 +277,11 @@ shared check verifies payload placement, not the correctness of mutable values.
 `remixes/test/` is picked by `make reach` in either tier, as a carrier, the
 floor, the cover or identity. A change to a module that only test remixes
 carry (CF METER, EUCLID, MINIVERB, TAPE ECHO, most USB variants)
-reaches the selftest and no remix check, and the listing says
-so; `TESTS=1` brings the test remixes back.
+reaches that module's own gates on its test remixes (`check-shared` for the
+module, `check-remix` with the module's gates), not the selftest alone: before
+30 Oct 2026 it reached the selftest and a green run read as a checked
+module (#953). Other changes to a test remix, and the cover and identity,
+still leave the test remixes out; `TESTS=1` brings them back.
 
 **Two tiers.** The default is QUICK, for working without losing the
 machine: a module change checks the remixes users flash that carry it
@@ -729,7 +732,7 @@ PR; a first-time contributor's run waits for maintainer approval:
 | 🗺️ Plan Gates | `reach.py --json --jobs 3` | the units the diff's gates split into; no firmware |
 | 🧪 Gates — `<unit>` | `make reach RUN=1 KEEP=1 JOBS=3 REACHARGS='--only "<unit>"'` | one unit of the plan, on the stock 1.40C fetched into its own runner (Ubuntu) |
 | 🧪 Gates — make reach | `needs` the two above | green when the plan ran and every unit passed (or the plan had none); the one check that stands for all of them |
-| 🎛️ DSP Toolchain — dsp56300 | `make ci-dsp` | the vendored DSP emulator at its pin takes our patch, builds, passes upstream's runner; `dsp_asm` emits the one-word displaced move |
+| 🎛️ DSP Toolchain — dsp56300 | `make ci-dsp` | the vendored DSP emulator at its pin takes our patch, builds, passes upstream's runner; `dsp_asm` emits the one-word displaced move (Ubuntu only) |
 | 🔌 ColdFire Port Unit Tests | `make ci-emu` | `ot_emu` builds on both hosts (the fork unshare has a macOS and a Linux path) and passes `emac` and `periph` |
 | 📚 Docs, Site and Web Patches | `make verify-docs`; `make test-acceptance` when `acceptance` is affected (the runner refuses skipped, failed, incomplete and over-budget evidence; `reach` routes as documented; the shard runner covers the recipe); `tools/web/stale.py`; on a PR that reaches the site, `mkdocs build --strict` | the rendered tables are current, every remix has a README, every link between tracked files resolves; the web builder's patch manifest matches its patch files; the manual site builds |
 
