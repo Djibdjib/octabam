@@ -53,8 +53,10 @@ as MIDI note-on `0x4000e746`). The build refuses the pair.
 Beside **ANALOG BD** or **OCTA303** the machine list is shared through
 [HOOKS](../hooks/README.md) (`machine_rows`): CX OSC takes the row after
 theirs (6, or 7 with both), the first machine's hooks keep the list's sites
-and hand CX OSC's row on to its routines, and CX OSC's renderer, PLAYBACK
-page resolver and START rewrite follow OCTA303's in their chains. Built that
+and hand CX OSC's row on to its routines. CX OSC's renderer heads the
+FLEX kind entry's chain (its page code finds its records in the words before
+the renderer that entry names), then OCTA303's and ANALOG BD's; its PLAYBACK
+page resolver and START rewrite follow OCTA303's. Built that
 way (`HK_MACHINE_ROWS`) `machine.s` adds `fm_main_commit_hk` (the chain
 enters after stock's `adda` at `0x40079816`) and `fm_publish` (its page
 record, from the first machine's tick); `poly.s`'s `po_machwin` replays the

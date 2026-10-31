@@ -49,7 +49,7 @@ and each is built with its place (`flags_inc` → `machine_inc`: `MC_ROW`,
 routine). The first present is the head and keeps every shared site; the
 head's names table and tick take the others' names and page records
 (`mc_names_tail`, `mc_publish`). Three hooks chain in their own order: the
-renderer OCTA303 → CX OSC → ANALOG BD (whose C renderer calls stock itself),
+renderer CX OSC → OCTA303 → ANALOG BD (CX OSC first: its page code reads its records from the words before the renderer the FLEX kind entry names, and with OCTA303 first the port's boot jumped through garbage; ANALOG BD's C renderer calls stock itself),
 the page resolver and the START rewrite OCTA303 → CX OSC. Two adapters were
 needed, both in CX OSC: its machine-window commit sits at `0x40079816`, six
 bytes before the others' `0x4007981c`, so the chain enters after stock's
