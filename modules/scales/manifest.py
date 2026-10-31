@@ -40,10 +40,10 @@ MODULE = Module(
     category=Category.MIDI_USB,
     author="djib",
     author_url="https://github.com/Djibdjib",
-    proof=Proof.PORT,
-    proof_note="verify_scales: the catalogue against its own model, the chooser driven from "
-               "ARP SETUP's keys, the KEY in the Part, the CS1 mirror and the live copy, the ID "
-               "in sc_lib and scales.work, the trig LEDs from the panel stream, MKI and MKII; not yet on a unit",
+    proof=Proof.HARDWARE,
+    proof_note="djib's MKII, OCTABAM26 (live-djib, BUILD 26), 31 Oct 2026: the chooser, the "
+               "snapped notes and LEDs, scales.work across SAVE PROJECT and a power cycle; "
+               "verify_scales on MKI and MKII",
     doc="One catalogue of 52 scales in 9 families for every module; ARP SETUP's KEY turns the "
         "tonic and, pressed, opens the scale chooser (the families, then their scales); the "
         "sequencer and the arpeggiator play the scale; the CHROMATIC trig keys light it "
