@@ -592,26 +592,29 @@ class Context:
                     test_carriers.setdefault(k, []).append(name)
         gate_owners, gate_shared, gate_once = {}, {}, {}
         plain = {g.script for m in mods.values() for g in getattr(m, "gates", ())}
+        def add_gate(key, g):
+            owners = gate_owners.setdefault(g.script, [])
+            if key not in owners:
+                owners.append(key)
+            gate_shared[g.script] = (gate_shared.get(g.script, True) and not g.remix_arg
+                                     and g.stage == "isolated")
+            gate_once[g.script] = gate_once.get(g.script, False) or getattr(g, "once", False)
+
         for m in mods.values():
             for g in variant_gates(m):
-                gate_owners.setdefault(g.script, []).append(m.key)
-                # the shared half runs the isolated remix-independent gates;
-                # an image-stage gate runs in each carrying remix's half
-                gate_shared[g.script] = (gate_shared.get(g.script, True) and not g.remix_arg
-                                         and g.stage == "isolated")
-                gate_once[g.script] = gate_once.get(g.script, False) or getattr(g, "once", False)
-        # A gate only a build variant declares runs where that variant is
-        # built: the remixes whose bound module carries it (verify_usb_post:
-        # the TRACKS POST layout's remixes, not every USB remix).
+                add_gate(m.key, g)
+        # Both build variants and selection callbacks can add gates. Discover
+        # the latter from actual bound selections, then route each optional
+        # gate only to remixes that install it (including test-only clients).
         gate_remixes = {}
-        if set(gate_owners) - plain:
-            for name in registry.remix_names():
-                r = registry.remix(name)
-                b = registry.bound(r)
-                for k in r.modules:
-                    for g in getattr(b[k], "gates", ()):
-                        if g.script not in plain:
-                            gate_remixes.setdefault(g.script, set()).add(name)
+        for name in registry.remix_names():
+            r = registry.remix(name)
+            b = registry.bound(r)
+            for k in r.modules:
+                for g in getattr(b[k], "gates", ()):
+                    add_gate(k, g)
+                    if g.script not in plain:
+                        gate_remixes.setdefault(g.script, set()).add(name)
         make_head = (ROOT / "Makefile").read_text()
         make_base = None
 
@@ -1080,12 +1083,14 @@ LIGHT = ("selftest",)
 
 # Commands a CI job of its own runs for every diff that plans them, so the
 # matrix has no unit for them (a local `make reach RUN=1` still runs them):
-# verify_docs by Docs, Site and Web Patches (always); test-acceptance by Acceptance Runner
-# Tests and ci (ci-dsp, ci-emu, test-acceptance, verify-docs) by it, DSP
-# Toolchain and ColdFire Port Unit Tests, whose path prefixes
-# (tools/verify/ci_paths.py) cover every path that plans `ci`: the Makefile
-# and .github/.
-DEDICATED = ("verify_docs", "test-acceptance", "ci")
+# verify_docs and test-acceptance by Docs, Site and Web Patches (always; the
+# acceptance step when `acceptance` is affected), ci-dsp by DSP Toolchain, ci-emu
+# by ColdFire Port Unit Tests, and ci (ci-dsp, ci-emu, test-acceptance,
+# verify-docs) by those. The path prefixes (tools/verify/ci_paths.py) of
+# those jobs cover every path that plans these commands: the Makefile and
+# .github/ plan `ci`; tools/harness/dsp_host, tools/patches and
+# scripts/{setup,vendor}.sh plan ci-dsp; tools/emu/ot_emu plans ci-emu.
+DEDICATED = ("verify_docs", "test-acceptance", "ci", "ci-dsp", "ci-emu")
 
 
 def entry_name(kind, command):
@@ -1100,14 +1105,23 @@ def entry_name(kind, command):
 # other (--skip-jobs); a name that is no gate job is refused there, so a
 # rename cannot drop a gate. The `project` part is the jobs that read
 # OT_PROJECT: its unit alone gets the generated project (ci.yml, tools/hw/
-# ot_fresh.py, 255 s on a runner), the others run as they did without one.
+# ot_fresh.py, 255 s on a runner), the others run as they did without one
+# (pattern-mute writes the mute masks its checks expect into its copy).
 # `image` is not in it: with a project its verify_brain fails and the job took
 # 2869 s on cxosc-core (27 Oct 2026). The shared half: its module_gates step on
 # one unit, every other step on the other (Makefile SHARED_PART). Times of run
 # 40467801048: remix-switch 481 s of octabam's 1886 s over 3 shards (the other
 # jobs: 1405 s, 468 s over 3 shards); module_gates --shared 353 s of the shared
 # half's 645 s, run serially.
-SPLIT_REMIX_JOBS = {"octabam": {"long": ("remix-switch",), "project": ("set", "mode-defaults", "plocks-p2")}}
+SPLIT_REMIX_JOBS = {"octabam": {"long": ("remix-switch",), "project": ("set", "mode-defaults", "plocks-p2", "pattern-mute")}}
+
+# A unit that runs one gate on its own, with a generated project, beside the units above: `check-remix <remix> (<name>)`
+# is COMMAND. It is additive (the remix's other units still run that gate, without a project), so it exists only when
+# MODULE is reached. `brain`: BRAIN's image-stage gate, verify_brain, needs a project; the `image` job cannot take one, and
+# scoping it with --modules does not narrow it (that is "reached from BRAIN": 9 gates of ten modules, 4581 s, with
+# verify_usb_post, verify_load_meter and verify_usb_load_meter failing on a generated project, run 40640514673), so the
+# unit runs verify_brain alone. It builds its own image and reads OT_PROJECT, which ci.yml sets for a `(brain)` unit.
+SPLIT_EXTRA_UNITS = {"octabam": {"brain": ("BRAIN", ".venv/bin/python3 tools/verify/verify_brain.py octabam")}}
 
 
 def entries(items, jobs):
@@ -1138,6 +1152,9 @@ def entries(items, jobs):
                     for part, names in parts.items():
                         out.append({"name": f"check-remix {r} ({part})",
                                     "items": [(kind, line(f"--only-jobs {','.join(names)} "), paths)]})
+                    for name, (module, command) in SPLIT_EXTRA_UNITS.get(r, {}).items():
+                        if modules is None or module in modules:
+                            out.append({"name": f"check-remix {r} ({name})", "items": [(kind, command, paths)]})
                 else:
                     out.append({"name": f"check-remix {r}", "items": [(kind, line(), paths)]})
         elif kind == "check-shared":

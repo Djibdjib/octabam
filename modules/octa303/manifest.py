@@ -38,7 +38,9 @@ def remix_inc(modules, remix=None):
     """remix.inc for octa303.s: dEVILish's FX id when the remix carries it.
 
     The build calls include(modules, remix) (schema.Linked.include); the remix is not needed here."""
-    return "        .set    DEVIL_ID, 0x%x\n" % (DEVIL_ID if "DEVILISH" in modules else 0x100)
+    from remix import hooks_flags
+    return ("        .set    DEVIL_ID, 0x%x\n" % (DEVIL_ID if "DEVILISH" in modules else 0x100)
+            + hooks_flags.inc("OCTA303", modules))
 
 
 CHROM_HOOK = 0x4004FC58                  # `lea (4,a2,a2.l*4),a2; mvz.b 0x100b14cf,d0` (quantizer's qz_chrom site)
@@ -142,7 +144,6 @@ MODULE = Module(
     conflicts=(
         ("SYNTH MACHINE", "both own the FLEX renderer entry 0x400d6438, the PLAYBACK resolver "
                           "load 0x40031ece and the command-byte copy 0x4000c634"),
-        ("ANALOG BD", "both own the FLEX renderer entry 0x400d6438 and machine row 5 (v7.0)"),
         ("BLACKPYRAMIDS_303", "both are a TB-303 on machine row 5: 16 shared detour sites (the machine "
                               "chooser, SRC SETUP, the Part validator 0x40002318, the LFO PMTR names "
                               "0x4003bff0 among them) and 7 shared "

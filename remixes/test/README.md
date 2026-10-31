@@ -33,6 +33,12 @@ Each carries one module, or one combination, for that module's gates: `make chec
 | [`events-empty`](events-empty/README.md) | EVENTS with no clients: no event hooks or dispatcher code. | `make check`: Empty EVENTS selection: stock boundaries checked in the built image. |
 | [`ext-probe`](ext-probe/README.md) | octabam's core and stock effects (EQUALIZER's id is the probe's) with EXTPROBE on FX1: the highest window word a reverb writes. | `make check` |
 | [`gateverb`](gateverb/README.md) | GATE VERB alone: the fixture of its render gate. | local render: `verify_gateverb`; not flashed |
+| [`hooks`](hooks/README.md) | MORPH, REC_TRIG_MUTE and REC THRESHOLD together (HOOKS bridges the [TRACK] key layer and the status icons) with STORE and the stock effects. | port-gated: verify_hooks: the bridged chain and table under Unicorn, and this image's sites |
+| [`hooks-boot`](hooks-boot/README.md) | BOOT TRACE beside STORE and MIDI LOOPBACK: HOOKS runs both at the boot's post-loader call. | port-gated: verify_hooks: the boot chain under Unicorn and in this image |
+| [`hooks-chrom-303`](hooks-chrom-303/README.md) | OCTA303 (the OCTA-303 machine) beside SCALE QUANTIZER: HOOKS gives a 303 track's CHROMATIC keys to OCTA303 and every other track's to SCALE QUANTIZER. | port-gated: verify_hooks: the bridged CHROMATIC sites in this image and the chains under Unicorn |
+| [`hooks-chrom-bp`](hooks-chrom-bp/README.md) | BLACKPYRAMIDS_303 beside SCALE QUANTIZER: HOOKS gives a BLACKPYRAMIDS track's CHROMATIC octave keys, key index and keyboard picture to it and every other track's to SCALE QUANTIZER; SPRING REV given up. | port-gated: verify_hooks: the bridged CHROMATIC sites in this image and the chains under Unicorn |
+| [`hooks-core`](hooks-core/README.md) | CORE + MORPH, REC THRESHOLD, CF METER, CF METER IDLE and BOOT TRACE: HOOKS owns the five sites they share with CORE. | port-gated: verify_hooks: the five bridged sites in this image; the chains under Unicorn |
+| [`hooks-machines`](hooks-machines/README.md) | ANALOG BD and OCTA303 in one image: HOOKS gives the track's machine list seven rows, ANALOG BD on row 5 and OCTA-303 on row 6, and the list scrolls. | port-gated: verify_hooks: the bridged machine sites in this image; the two machines' UI gates under the port |
 | [`ids64`](ids64/README.md) | BBD on FX2 id 0x25 in a 64-id image (DSP dispatch and ColdFire tables grown). | `make check`: port only; not flashed |
 | [`kits`](kits/README.md) | KITS (255 Kits per project) on the stock effects. | port-gated: verify_kits under the port |
 | [`kyoti-fixes`](kyoti-fixes/README.md) | stock effects with QUANTIZE_LIVE_REC_TOGGLE, ERASE_EMPTY_TRIGLESS_LOCKS and BATCH_BUGFIXES together. | `make check` |
@@ -40,7 +46,7 @@ Each carries one module, or one combination, for that module's gates: `make chec
 | [`kyoti-mute-sidechain`](kyoti-mute-sidechain/README.md) | stock effects with MUTE_MODES and SIDECHAIN_COMPRESSOR together: a muted KEY track keeps feeding the compressor (SC_KEY). | `make check` |
 | [`lofi-amf-fix`](lofi-amf-fix/README.md) | Reference minimal build: the LO-FI AMF mpysu->mpyuu fix, alone. | `make check` |
 | [`lofi2`](lofi2/README.md) | LOFI2 beside the stock effects (all but PLATE REV and SPRING REV, whose words it takes). | `make check` |
-| [`midi-loopback`](midi-loopback/README.md) | Stock effects plus the Part-scoped per-track MIDI loopback routing. | on hardware |
+| [`midi-loopback`](midi-loopback/README.md) | Stock effects plus the Part-scoped per-track MIDI loopback routing. | port-gated: routing previously tested on MKII; STORE Part migration requires new hardware qualification |
 | [`midi-scales`](midi-scales/README.md) | All twelve keys and seven modes in the native ARP SETUP KEY control. | port-gated |
 | [`midi-scenes`](midi-scenes/README.md) | Reference minimal build: the MIDI SCENES ColdFire patch, plus direct-jump so `swd` runs. | port-gated: `verify_scenes` against MIDISC2.1 under the port; not flashed |
 | [`miniverb`](miniverb/README.md) | Minimal allocator-owned FDN reverb. | local render: `make verify-miniverb` |
@@ -49,6 +55,8 @@ Each carries one module, or one combination, for that module's gates: `make chec
 | [`mute-modes`](mute-modes/README.md) | stock effects with MUTE_MODES: PERSONALIZE > MUTE MODE (OT, OTFX, OTFX-T, DT-T). | `make check` |
 | [`octa303`](octa303/README.md) | the OCTA-303 machine (a circuit-modelled TB-303 voice on the ColdFire) with the stock effects. | port-gated: built and its UI gate run under the port, 19 Oct 2026; OCTA303 itself on the owner's MK1 in remix acidtrack (ACIDV70, BUILD 87) |
 | [`octatrick`](octatrick/README.md) | SYNTH MACHINE + SCALE QUANTIZER + DIRECT JUMP + TUNER + USB (20 channels out, 4 in onto A-D) on the stock effects less SPATIALIZER. | on hardware: Tim's MKI, test build 3.0 b40 (this selection at BUILD 40), 29 Sep 2026: USB AUDIO IN brings the Mac's audio onto the inputs in a one-minute check (long runs not yet tested). The same four modules with the 26 Sep USB AUDIO (out only) ran on the same MKI through the 2.9 test builds; the tuner works on test build 3.0 b40 (UP + TEMPO); the last two 2.9 fixes are not yet confirmed on hardware |
+| [`pattern-mute`](pattern-mute/README.md) | smoke: PATTERN MUTE alone | `make check`: PATTERN MUTE smoke |
+| [`pattern-mute-modes`](pattern-mute-modes/README.md) | smoke: PATTERN MUTE and MUTE_MODES together, stock effects | `make check`: PATTERN MUTE beside MUTE_MODES |
 | [`persistent-buffers`](persistent-buffers/README.md) | Recorder buffers BUFFERS/REC1.wav..REC8.wav under the project on SAVE / LOAD. | `make check`: verify_persistent_buffers under the port |
 | [`pext-probe`](pext-probe/README.md) | PEXT PROBE on FX1 and USB audio out (TRACKS) beside the stock effects (all but EQUALIZER, whose id it takes, and PLATE REV and SPRING REV, whose words it takes). | `make check` |
 | [`plocks-p2`](plocks-p2/README.md) | Page-2 parameter locks (PLOCKS P2) and page-2 scene locks (SCENES P2), stock effects. | port-gated: verify_plocks_p2 under the port |

@@ -427,6 +427,16 @@ class PlanTests(unittest.TestCase):
         self.assertIn("tools/verify/verify_usb_post.py", scripts)
         self.assertIn("tools/verify/verify_usb_align.py", scripts)
 
+    def test_selection_only_store_gate_reaches_its_actual_clients(self):
+        context = reach.Context.from_registry()
+        script = "tools/verify/verify_store_part_selection.py"
+        self.assertEqual(context.gate_owners[script], ["STORE"])
+        self.assertEqual(context.gate_remixes[script],
+                         {"hooks-boot", "midi-loopback"})
+        rows = reach.classify([script], context)
+        self.assertEqual(reach.remixes_reached(rows),
+                         ["hooks-boot", "midi-loopback"])
+
     def test_remixes_reached(self):
         rows = reach.classify(["modules/character/a.asm", "remixes/miniverb/remix.py"], ctx())
         self.assertEqual(reach.remixes_reached(rows), ["bamsep26", "miniverb", "usb"])
@@ -571,6 +581,8 @@ class PlanJsonTests(unittest.TestCase):
         return [("verify_docs", "python3 tools/verify/verify_docs.py", ["a"]),
                 ("test-acceptance", "make test-acceptance", ["b"]),
                 ("ci", "make ci", ["g"]),
+                ("ci-dsp", "make ci-dsp", ["h"]),
+                ("ci-emu", "make ci-emu", ["i"]),
                 ("selftest", "python3 tools/remix/selftest.py", ["f"]),
                 ("refhash", "scripts/refhash.sh check", ["c"]),
                 ("check-shared", 'make check-shared REMIXES="x y"', ["d"]),
@@ -582,7 +594,7 @@ class PlanJsonTests(unittest.TestCase):
                                      "check-remix x", "check-remix y", "selftest"])
         self.assertEqual(got["selftest"], ["python3 tools/remix/selftest.py"])
         commands = [c for cs in got.values() for c in cs]
-        for dedicated in ("verify_docs.py", "make test-acceptance", "make ci"):
+        for dedicated in ("verify_docs.py", "make test-acceptance", "make ci", "make ci-dsp", "make ci-emu"):
             self.assertFalse([c for c in commands if dedicated in c], dedicated)
         self.assertEqual(got["check-shared"], ['make check-shared REMIXES="x y" SHARED_PART=rest'])
         self.assertEqual(got["check-shared (module gates)"], ['make check-shared REMIXES="x y" SHARED_PART=modules'])
@@ -602,6 +614,18 @@ class PlanJsonTests(unittest.TestCase):
         for line in got.values():
             self.assertEqual(reach.shards_line(line)[0], [line.split()[-1]])
 
+    def test_the_brain_unit_exists_only_when_brain_is_reached(self):
+        def names(modules):
+            flag = f'--modules "{modules}" ' if modules else ""
+            items = [("check-remix", f"python3 tools/verify/check_shards.py --jobs 3 {flag}octabam", ["e"])]
+            return {e["name"]: e["items"][0][1] for e in reach.entries(items, 3)}
+        got = names("BRAIN,KITS")
+        self.assertEqual(got["check-remix octabam (brain)"], ".venv/bin/python3 tools/verify/verify_brain.py octabam")
+        self.assertIn("check-remix octabam (brain)", names(""))              # an unscoped run reaches BRAIN too
+        self.assertNotIn("check-remix octabam (brain)", names("KITS"))
+        # additive: the plain unit still skips only the SPLIT_REMIX_JOBS parts, image stays in it
+        self.assertNotIn("image", got["check-remix octabam"].split("--skip-jobs ")[1].split()[0].split(","))
+
     def test_recipe_scripts_follow_an_implementation_cut_into_halves(self):
         mk = ("verify-shared: ## x\n\t$(MAKE) -j1 verify-shared-impl\n\n"
               "verify-shared-impl: verify-shared-rest-impl $(if $(Y),,verify-shared-modules-impl)\n\n"
@@ -617,7 +641,7 @@ class PlanJsonTests(unittest.TestCase):
     def test_the_json_matrix_lists_each_units_commands(self):
         d = reach.plan_json("origin/main", None, True, 3, ["x", "y"], self.items())
         self.assertEqual([e["name"] for e in d["matrix"]][-1], "selftest")
-        self.assertEqual(len(d["gates"]), 7)
+        self.assertEqual(len(d["gates"]), 9)
 
     def test_only_keeps_one_unit_and_refuses_an_unknown_one(self):
         import contextlib

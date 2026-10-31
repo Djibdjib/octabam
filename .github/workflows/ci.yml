@@ -261,13 +261,15 @@ jobs:
       # firmware itself under the port from the runner's own OS (tools/hw/ot_fresh.py), on the unit's remix, and kept
       # in .git/octabam-fresh-cache by image, port and script. Only the `(project)` unit of a remix (reach.SPLIT_REMIX_JOBS)
       # runs the jobs that read it; the image job is not one: with a project it ran 2869 s and failed in verify_brain.
+      # The `(brain)` unit (reach.SPLIT_EXTRA_UNITS) runs BRAIN's image-stage gate, verify_brain, with one.
       - name: 📁 Fresh Project
-        if: contains(matrix.name, ' (project)')
+        if: contains(matrix.name, ' (project)') || contains(matrix.name, ' (brain)')
         env:
           UNIT: ${{ matrix.name }}
         run: |
           remix="${UNIT#check-remix }"
           remix="${remix% (project)}"
+          remix="${remix% (brain)}"
           make emu-get
           .venv/bin/python3 tools/hw/ot_fresh.py --remix "$remix" --out out/fresh
           echo "OT_PROJECT=$PWD/out/fresh/$remix/NOPROJ" >> "$GITHUB_ENV"
@@ -387,36 +389,9 @@ jobs:
           [ "$PLAN" = success ] || exit 1
           [ "$GATES" = success ] || { [ "$COUNT" = 0 ] && [ "$GATES" = skipped ]; }
 
-  acceptance-runner:
-    name: ✅ Acceptance Runner Tests
-    needs: classify
-    if: needs.classify.outputs.acceptance == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: 📥 Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      # actions/checkout updates submodules one at a time; these are 16 clones
-      - name: 📥 Submodules
-        run: git submodule update --init --force --depth 1 --jobs 16
-
-      - name: 🐍 Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.12'
-
-      - name: 📦 Card Inspection Tool (Linux)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y lsof
-
-      - name: ✅ Acceptance Runner Tests
-        run: make test-acceptance
-
   docs:
-    # Docs, the manual site and the web builder's patches: all load the
+    # Docs, the manual site, the web builder's patches and the acceptance
+    # runner's tests: all load the
     # registry, whose manifests read the author submodules, so one checkout
     # serves them. The site builds with MkDocs shadcn: the generator runs the
     # registry, and mkdocs --strict fails on a bad manifest, a broken link or
@@ -462,6 +437,12 @@ jobs:
           else
             echo "no published patches yet"
           fi
+
+      # firmware-free tests of the acceptance runner and the reach classifier
+      # (make test-acceptance); lsof is the card inspection tool's
+      - name: ✅ Acceptance Runner Tests
+        if: ${{ !cancelled() && needs.classify.outputs.acceptance == 'true' }}
+        run: sudo apt-get update && sudo apt-get install -y lsof && make test-acceptance
 
       - name: 📦 Install Site Dependencies
         if: github.event_name == 'pull_request' && needs.classify.outputs.site == 'true'

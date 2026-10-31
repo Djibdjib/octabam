@@ -1,7 +1,8 @@
 """SIDECHAIN_COMPRESSOR -- stock COMPRESSOR with a side-chain KEY from any track and a base-width key filter: MON, KEY, KGN, KBAS and KWID on page 2.
 
 Source: `upstream/` is Zac Kyoti's repository (Zac-Kyoti/octatrack-kyoti-fw,
-submodule, pinned to `b0d49bf`). The declaration is
+submodule, pinned to `6c9180d` on the sambanks/octatrack-kyoti-fw fork until Zac-Kyoti/octatrack-kyoti-fw#4,
+its opt-in FORM = SHARED, is merged upstream). The declaration is
 `upstream/octabam-modules/sidechain-compressor/manifest.py`: two linked units
 (`patch_sidechain.s`, and `ui_switch.s`: KEY's 9-position rotary switch and KWID's link clip),
 placed in a ROM cave or DRAM by the `PLACE` setting

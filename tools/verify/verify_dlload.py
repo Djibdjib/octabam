@@ -8,7 +8,7 @@ staged project, each on its own boot, setting track effect ids by poking the liv
 (0x80000ec4 FX1, 0x80000ecc FX2) and the Part bytes behind them. Effects are numbered as in
 Remix.window_demand (k):
 
-  used       T1.. use effects 0.. on FX1 from the start -> each bound, its entry and code in the window
+  used       T1.. use effects 0..3 on FX1 from the start (one a block) -> each bound, its entry and code in the window
                                                           word for word, seen from both cores
   withdrawn  the same, T1's FX1 back to FILTER at 2 s  -> effect 0 unbound after the 2 s grace, its span empty, the rest bound
   grace      effect 0 unused at 2 s and used again at 3 s -> still bound, loaded once
@@ -17,13 +17,17 @@ Remix.window_demand (k):
   unused     no track uses any                          -> none bound
   plate-ok / spring-ok  effect 0 in use with PLATE or SPRING REV on its block's track -> loaded, no toast (neither reaches the code)
   race       effect 0 in use, a DARK REV on its block 60 ms later (inside the load debounce) -> never loaded, no block received
-  toast text  each effect's toast strings (EVICT Tn FX2 1ST, EVICT <name> 1ST) name the track of its own block and the effect's chooser name (the generated table)
+  toast text  each effect's toast strings (EVICT Tn FX2 1ST, EVICT <name> 1ST; a soft effect's SC KEY OFF: Tn FX2 / REV) name the track of its own block and the effect's chooser name, and its table row's soft flag is set for a stock_dsp effect only (the generated table)
   two-b, two-a, two-ab-b, two-ab-a  effect 0 on two tracks of one core, and on one track of each core: the instances each have their own r7 (a pcwatch on the proc)
   runs-b<k> / runs-a<k>  T1 (core B) / T5 (core A) uses effect k -> its loaded proc is reached on that core (--dsp-pcwatch)
   reverb-late effect 0 in use and loaded, then at 2 s the FX2 of its block's track becomes DARK REV (a route the choosers do not guard) -> effect 0 moves to its second home
   blocked    effect 0 in use, and the FX2 of its first home's track is DARK REV -> effect 0 is loaded into its second home, no toast
   both-blocked  DARK REV on the FX2 of both homes' tracks -> not loaded, a toast at the next page key
   stuck      effect 0 loaded in its first home, DARK REV already on the second's track, then on the first's -> it stays, a toast
+  moveback   effect 0 loaded in its second home (DARK REV on its first's track), that track back to DELAY at 3 s, DARK REV
+             on the second's at 5 s -> effect 0 moves back to its first home (the move that froze a unit, 28 Oct 2026)
+  pick-reverb-t4  the same move with the panel's keys: effect 0 in its second home, its first's track back to DELAY at 3 s,
+             then DARK REV picked from the FX2 chooser on the second home's track -> the reverb is taken, effect 0 back in its first home
   pick / pick-blocked  T2's chooser (FX1, else FX2; NONE, DOWN to its row, YES) picks effect 0; with the block's track on DARK REV
              the chooser leaves T2's FX1 as it was
 
@@ -98,7 +102,10 @@ def main():
         if f.is_file() and f.suffix.lower() == ".work":
             shutil.copy2(f, copy / f.name)
 
-    every = ";".join(poke(FX1_LIVE, FX1_PART, t, r["id"]) for t, r in enumerate(recs))
+    # one effect a block: the window has four, so with more demand effects than that the ones past the fourth are
+    # left out of `used` (each still loads and runs on its own: runs-b<k>, runs-a<k>)
+    used = recs[:4]
+    every = ";".join(poke(FX1_LIVE, FX1_PART, t, r["id"]) for t, r in enumerate(used))
     block_track = {0: 6, 1: 7, 2: 2, 3: 3}[(rec["addr"] - 0x30000) >> 14 & 3]       # modules/dlpump/manifest.py
     # the chooser that lists effect 0 (FX1 when it has a row there) and its row, from the image's id -> row tables
     img = image.read_bytes()
@@ -129,6 +136,12 @@ def main():
         "pick": (poke(live, part, 1, 0), []),
         "pick-blocked": (poke(live, part, 1, 0) + ";" + poke(FX2_LIVE, FX2_PART, block_track, DARK), []),
         "pick-both-blocked": (poke(live, part, 1, 0) + ";" + both, []),
+        # the move that froze a unit (28 Oct 2026): loaded in the second home, then back to the first when a reverb arrives on the second's track
+        "moveback": (poke(FX1_LIVE, FX1_PART, 0, mod_id) + ";" + poke(FX2_LIVE, FX2_PART, block_track, DARK),
+                     [(3000, poke(FX2_LIVE, FX2_PART, block_track, 0x08)), (5000, poke(FX2_LIVE, FX2_PART, alt_track, DARK))]),
+        # the same with the panel's keys, as on the unit: the reverb is picked on the second home's track from the chooser
+        "pick-reverb-t4": (every_first + ";" + poke(FX2_LIVE, FX2_PART, block_track, DARK),
+                           [(3000, poke(FX2_LIVE, FX2_PART, block_track, 0x08))]),
         "pick-reverb": (every_first + ";" + poke(FX2_LIVE, FX2_PART, block_track, 0), []),
         "pick-reverb-stuck": (every_first + ";" + poke(FX2_LIVE, FX2_PART, block_track, 0) + ";" + poke(FX2_LIVE, FX2_PART, alt_track, DARK), []),
         "pick-reverb-unused": (every_first + ";" + poke(FX2_LIVE, FX2_PART, block_track, 0),
@@ -158,7 +171,7 @@ def main():
         if tag.startswith("pick"):
             t = 1500 if not tag.startswith("pick-reverb") else 3500   # after the load has landed
             if tag.startswith("pick-reverb"):
-                keys = ((f"t{block_track + 1}", 400), ("fx2", 160), ("fx2", 800)) + (("down", 500),) * reverb_row + (("yes", 1500),)
+                keys = ((f"t{(alt_track if tag == 'pick-reverb-t4' else block_track) + 1}", 400), ("fx2", 160), ("fx2", 800)) + (("down", 500),) * reverb_row + (("yes", 1500),)
             else:
                 keys = (("no", 400), ("t2", 400), (chooser, 160), (chooser, 800)) + (("down", 500),) * row + (("yes", 1500),)
             if tag.startswith("pick-reverb"):
@@ -170,7 +183,7 @@ def main():
             lines += [f"{a.ms - 800} key {KEYS['fx1']:#x} down", f"{a.ms - 760} key {KEYS['fx1']:#x} up"]
         # the script is read in order, so a quit that is earlier than the last key waits for it; after a pick that moves
         # an effect, the reload (the debounce, then three sends) needs a few seconds past the last key
-        lines.append(f"{(t + 3000) if tag == 'pick-reverb' else (3400 if tag == 'reverb-takes' else a.ms)} quit")
+        lines.append(f"{(t + 3000) if tag in ('pick-reverb', 'pick-reverb-t4') else (3400 if tag == 'reverb-takes' else a.ms)} quit")
         (OUT / f"{tag}.script").write_text("\n".join(lines) + "\n")
         dump = OUT / f"{tag}_ids.bin"
         peeks = ";".join(f"{c}:X:{STAGE:x},1;{c}:X:{0x33DA3 + 8 * k:x},8;{c}:P:{r['addr']:x},{len(r['words'])}"
@@ -199,7 +212,7 @@ def main():
         return [int(t, 16) for t in m.group(1).split()] if m else []
 
     print("used:")
-    for k, r in enumerate(recs):
+    for k, r in enumerate(used):
         n = len(r["words"])
         for c in (1, 0):
             entry = peek("used", c, "X", 0x33DA3 + 8 * k)
@@ -209,13 +222,17 @@ def main():
                 check(f"{r['key']}: the copier counted three blocks received, none refused, three published (DLPROBE's counters)",
                       entry[5:8] == [3, 0, 3], f"{entry[5:8]}")
             code = peek("used", c, "P", r["addr"])
-            check(f"core {c}: {r['key']}'s code is in the window, every word", code == r["words"],
-                  f"{len(code)} of {n} words read")
+            # a block may end in zero words that are the code's own data, not code (SIDECHAIN_COMPRESSOR's key window and
+            # counters, written once it runs): compared up to the last non-zero word of the record
+            m = max((i for i, w in enumerate(r["words"]) if w), default=-1) + 1
+            note = f" (its last {n - m} words are data the running code writes)" if m < n else ""
+            check(f"core {c}: {r['key']}'s code is in the window, every word{note}",
+                  code[:m] == r["words"][:m] and len(code) == n, f"{len(code)} of {n} words read")
     check("the doorbell was consumed", peek("used", 1, "X", STAGE) == [0])
     print("withdrawn:")
     entry = peek("withdrawn", 1, "X", 0x33DA3)
     check(f"{recs[0]['key']} is unbound and its span empty", entry[:1] == [0] and entry[3:5] == [0, 0], f"{[hex(w) for w in entry]}")
-    for k, r in enumerate(recs[1:], 1):
+    for k, r in enumerate(used[1:], 1):
         check(f"{r['key']} stays bound", peek("withdrawn", 1, "X", 0x33DA3 + 8 * k)[:1] == [0xB0A5ED])
     print("grace:")
     entry = peek("grace", 1, "X", 0x33DA3)
@@ -239,6 +256,10 @@ def main():
     entry = peek("stuck", 1, "X", 0x33DA3)
     check(f"{recs[0]['key']} stays in its first home when a reverb reaches it and the other home is taken",
           entry[0] == 0xB0A5ED and entry[3] == rec["addr"] and entry[5:8] == [3, 0, 3], f"{[hex(w) for w in entry]}")
+    print("moveback:")
+    entry = peek("moveback", 1, "X", 0x33DA3)
+    check(f"{recs[0]['key']}, loaded in its second home, moves back to its first when a reverb that reaches the second arrives",
+          entry[0] == 0xB0A5ED and entry[3] == rec["addr"] and entry[5:8] == [6, 0, 6], f"{[hex(w) for w in entry]}")
     print("race:")
     entry = peek("race", 1, "X", 0x33DA3)
     check(f"{recs[0]['key']} is not loaded when reverbs arrive on every home 60 ms after it (a project load writes the ids over a stretch of frames)",
@@ -274,6 +295,13 @@ def main():
           f"FX2 of track {block_track + 1} = 0x{rv[8 + block_track]:02x}, toast calls {toasts('pick-reverb')}")
     entry = peek("pick-reverb", 1, "X", 0x33DA3)
     check(f"and the effect moves: it is bound in its second home", entry[0] == 0xB0A5ED and entry[3] == ALT, f"{[hex(w) for w in entry]}")
+    print("pick-reverb-t4:")
+    rv = (OUT / "pick-reverb-t4_ids.bin").read_bytes()
+    check(f"a stock reverb chosen on the FX2 slot of {recs[0]['key']}'s second home, while the code is there, is accepted",
+          rv[8 + alt_track] == DARK and toasts("pick-reverb-t4") == 0,
+          f"FX2 of track {alt_track + 1} = 0x{rv[8 + alt_track]:02x}, toast calls {toasts('pick-reverb-t4')}")
+    entry = peek("pick-reverb-t4", 1, "X", 0x33DA3)
+    check(f"and the effect moves back: it is bound in its first home", entry[0] == 0xB0A5ED and entry[3] == rec["addr"], f"{[hex(w) for w in entry]}")
     print("pick-reverb-stuck:")
     rv = (OUT / "pick-reverb-stuck_ids.bin").read_bytes()
     check(f"a stock reverb chosen there is refused when the other home is taken",
@@ -313,8 +341,14 @@ def main():
         name = registry.modules()[key].menu.fullname.decode().upper()[:10]
         need = re.search(rf'dl_need{k}: \.asciz "([^"]*)"', text).group(1)
         hold = re.search(rf'dl_hold{k}: \.asciz "([^"]*)"', text).group(1)
-        check(f"{key}: its toasts name its block's track T{track}",
-              need == f"EVICT T{track} FX2 1ST" and hold == f"EVICT {name} 1ST", f"{need!r}, {hold!r}")
+        soft = bool(registry.modules()[key].menu.stock_dsp)       # DLPUMP's soft effect (modules/dlpump/README.md)
+        if soft:
+            want_need, want_hold = f"SC KEY OFF: T{track} FX2", f"SC KEY OFF: T{track} REV"
+        else:
+            want_need, want_hold = f"EVICT T{track} FX2 1ST", f"EVICT {name} 1ST"
+        check(f"{key}: its toasts name its block's track T{track}{' (soft: nothing is refused)' if soft else ''}",
+              need == want_need and hold == want_hold, f"{need!r}, {hold!r}")
+        check(f"{key}: its table row's soft flag is {int(soft)}", rows[k][7] == str(int(soft)), f"{rows[k][7]!r}")
     print("PASS" if not FAILS else "FAIL")
     return 1 if FAILS else 0
 

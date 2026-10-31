@@ -7,7 +7,8 @@ x0xb0x reference set). With the companion effect [dEVILish](devilish.md) on the 
 ## Access
 
 Double-tap the [TRACK] key to open the machine list, choose **OCTA-303**
-(below PICKUP), [YES]. [FUNC] + [SRC] opens the same list; on a track with a
+(below PICKUP; in an image that also carries [Analog BD](analog-bassdrum.md),
+below ANALOG BD, and the list scrolls to it), [YES]. [FUNC] + [SRC] opens the same list; on a track with a
 sample it shows the sample list first, and [LEFT] reaches the machines. A new
 OCTA-303 track starts at TUNE C3, CUT RES ENV DEC 64, ACC 0.
 
@@ -51,3 +52,6 @@ OCTA-303 track starts at TUNE C3, CUT RES ENV DEC 64, ACC 0.
   p-locks work as on any track.
 - Cannot share an image with ANALOG BD, BLACKPYRAMIDS_303 or SYNTH
   MACHINE: they use the same firmware seams.
+- Beside SCALE QUANTIZER, an OCTA-303 track's chromatic keys stay semitones;
+  every other track's follow the scale as usual. That pairing has not been
+  flashed.

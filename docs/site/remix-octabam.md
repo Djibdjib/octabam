@@ -6,13 +6,14 @@
 
 Octabam adds the core features to Octatrack OS 1.40C and five effects. All 14
 stock effects and both effect menus stay as stock has them, with stock LO-FI's
-AMF knob fixed (the LOFI AMF FIX module). [Octabam Bus](remix-bus.md) adds the
+AMF knob fixed (the LOFI AMF FIX module) and a side-chain on COMPRESSOR's page 2
+([SIDECHAIN_COMPRESSOR](usage/sidechain-compressor.md)). [Octabam Bus](remix-bus.md) adds the
 delay and reverb bus to the same set.
 
 ## The effects
 
-SPECTRUM, CHARACTER, MODULATION and TRANSIENT are on FX1 and FX2. GATE VERB is on
-FX2. Their DSP code runs from the shared P window beside the stock effects, on
+SPECTRUM, CHARACTER and MODULATION are on FX1 and FX2. TRANSIENT is on FX2.
+Their DSP code runs from the shared P window beside the stock effects, on
 free effect ids.
 
 | Effect | FX1 | FX2 | Description |
@@ -20,8 +21,13 @@ free effect ids.
 | [SPECTRUM](reference/modules/spectrum.md) | ✓ | ✓ | filter: Moog ladder, SEM, Capacitor2, formants |
 | [CHARACTER](reference/modules/character.md) | ✓ | ✓ | fold, saturation, tilt, compressor, width |
 | [MODULATION](reference/modules/modulation.md) | ✓ | ✓ | Juno, Dimension, flanger, phaser, comb |
-| [TRANSIENT](reference/modules/transient.md) | ✓ | ✓ | transient shaper (Ignorato) |
-| [GATE VERB](reference/modules/gateverb.md) | — | ✓ | Gated plate reverb with AMNT, GAIN, TIME, DIFF, TONE, and GATE controls. |
+| [TRANSIENT](reference/modules/transient.md) | — | ✓ | transient shaper (Ignorato) |
+
+COMPRESSOR is stock COMPRESSOR with a side-chain: on page 2, KEY picks the track
+that drives it (see [SIDECHAIN_COMPRESSOR](usage/sidechain-compressor.md)). Its
+side-chain code is loaded while a track uses COMPRESSOR, like the four effects above;
+until it is, and while DARK REV or another loaded effect holds the top of T4's FX2
+block, COMPRESSOR works as stock and the screen says `SC KEY OFF`.
 
 The stations have their SLOTS build setting at FX1+FX2. CHARACTER's KEY = T1
 needs a BusDelay host, so in this remix it keys on the track's own input. A MODE
@@ -35,6 +41,8 @@ turned on the panel re-defaults the knobs around it (the MODE DEFAULTS module).
   [scene locks](reference/modules/scenes-p2.md): control both effect pages.
 - [MIDI scenes](reference/modules/midi-scenes.md), CC mapping, and CC feedback.
 - [USB](reference/modules/usb.md): MIDI input and output, plus audio to a computer: the 16 track channels, MAIN and CUE by default.
+- [PATTERN MUTE](reference/modules/pattern-mute.md): double-press FUNC to mute tracks per pattern as well as
+  globally, as on the Digitakt II.
 - Recorder, sequencing, mute, and storage fixes listed below.
 
 ## Build and install

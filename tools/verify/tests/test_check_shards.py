@@ -91,6 +91,27 @@ class PickJobs(unittest.TestCase):
                 check_shards.pick_jobs(jobs, only, skip)
             self.assertIn("no gate job nope", str(e.exception))
 
+    def test_a_job_outside_the_scoped_list_is_left_out_not_refused(self):
+        # --modules BRAIN: jobs holds BRAIN's; plocks-p2 is another module's job of the same remix
+        jobs = [(n, [], {}, set()) for n in ("set", "mode-defaults", "image")]
+        known = {j[0] for j in jobs} | {"plocks-p2"}
+        got = {j[0] for j in check_shards.pick_jobs(jobs, ["set", "mode-defaults", "plocks-p2"], [], known)}
+        self.assertEqual(got, {"set", "mode-defaults"})
+        got = {j[0] for j in check_shards.pick_jobs(jobs, [], ["set", "plocks-p2"], known)}
+        self.assertEqual(got, {"mode-defaults", "image"})
+        with self.assertRaises(SystemExit):      # a name no job has is still refused
+            check_shards.pick_jobs(jobs, [], ["nope"], known)
+
+    def test_extra_units_run_a_script_of_a_module_the_remix_carries(self):
+        import reach
+        from remix import registry
+        for remix, units in reach.SPLIT_EXTRA_UNITS.items():
+            for unit, (module, command) in units.items():
+                self.assertIn(module, registry.remix(remix).modules, unit)
+                script = next(w for w in command.split() if w.endswith(".py"))
+                self.assertTrue((ROOT / script).is_file(), unit)
+                self.assertIn(script, {g.script for g in registry.by_key(module).gates}, unit)
+
     def test_octabams_long_share_names_real_jobs(self):
         import reach
         names = {j[0] for j in check_shards.remix_jobs("octabam", ROOT)}

@@ -93,6 +93,7 @@ def _label(m) -> str:
         "analog-bassdrum": "Analog BD",
         "ata-write-guard": "ATA write guard",
         "bbd": "BBD delay",
+        "blackpyramids-303": "BlackPyramids 303",
         "character-txtr": "Character TXTR",
         "devilish": "dEVILish",
         "direct-jump-kyoti": "Direct jump (Kyoti)",
@@ -351,7 +352,10 @@ def main(quiet: bool = False) -> int:
         if registry.is_test(name) or registry.remix_dir(name) is None:
             continue
         jobs[f"_remix-{name}.md"] = remix_fragment(registry.remix(name), mods)
+    import gen_manual
+    jobs.update(gen_manual.main(mods, official))
     for name, text in sorted(jobs.items()):
+        (OUT / name).parent.mkdir(parents=True, exist_ok=True)
         (OUT / name).write_text(text)
         if not quiet:
             print(f"wrote docs/site/reference/{name}")

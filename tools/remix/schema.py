@@ -1465,17 +1465,56 @@ class DramRegion:
 @dataclass(frozen=True)
 class Override:
     """This module's own claim at `site` stands in for another module's
-    Detour there -- the way two mods that hook one stock instruction get to
-    share it. A BRIDGE module carries a stub that does what both hooks did,
-    in an order that respects each one's protocol, and declares an
-    Override per detour it replaces: `module` is the other module's key.
-    The build skips the overridden detour; the ledger treats the site as
-    the bridge's; the overridden module must be in the remix, or the
+    Detour, SymbolRef, Poke or TableGrow ref there -- the way two mods that
+    hook one stock instruction, or repoint one stock word, get to share it.
+    A BRIDGE module carries a stub (or a table) that does what both did, in
+    an order that respects each one's protocol, and declares an Override per
+    write it replaces: `module` is the other module's key. The build skips
+    the overridden write; the ledger treats the site as the bridge's; the
+    overridden module must be in the remix and must claim `site`, or the
     override is refused.
     """
 
     site: int
     module: str
+
+
+SELECTABLE = frozenset({"linked", "detours", "symbol_refs", "overrides", "pokes", "claims", "gates"})
+
+
+def apply_select(m, keys):
+    """`m` with its Module.select applied for a selection of module `keys`.
+    The same keys give the same module, so applying it twice is harmless."""
+    if m.select is None:
+        return m
+    over = m.select(frozenset(keys))
+    if set(over) - SELECTABLE:
+        raise ValueError(f"{m.name}: select may only set {', '.join(sorted(SELECTABLE))}")
+    return dataclasses.replace(m, **over)
+
+
+@dataclass(frozen=True)
+class DspOverride:
+    """This bridge stands in for another module's DspHook at `site`: the DSP form of Override.
+    The build does not plant the overridden module's jsr there; the one other hook at the site,
+    which must be a Remix.window_demand module's, gets a resident stub that runs its own body
+    when the module is loaded and then jumps to the overridden hook's entry, which replays the
+    displaced instruction (docs/proposals/SC_DEMAND_LOAD.md: SIDECHAIN_COMPRESSOR's moncommit
+    and LOAD METER's otop_e2 at P:0x50e / 0x303). `site` is one int for every payload or
+    {"A": addr, "B": addr}, as DspHook.site."""
+
+    site: int | Mapping[str, int]
+    module: str
+
+    def __post_init__(self):
+        if isinstance(self.site, Mapping):
+            object.__setattr__(self, "site", MappingProxyType(dict(self.site)))
+            if not self.site or set(self.site) - {"A", "B"}:
+                raise ValueError(f"DspOverride of {self.module!r}: site keys are payload tags A/B")
+
+    def site_on(self, payload: str):
+        """The site on that payload, or None where the override does not apply."""
+        return self.site.get(payload) if isinstance(self.site, Mapping) else self.site
 
 
 @dataclass(frozen=True)
@@ -1515,6 +1554,8 @@ class Module:
     # Claims of OTHER modules this module's own stand in for
     # (schema.Override) -- a bridge chaining two mods' hooks at one site.
     overrides: tuple[Override, ...] = ()
+    # DspHooks of OTHER modules this one stands in for (schema.DspOverride) -- the DSP bridge.
+    dsp_overrides: tuple[DspOverride, ...] = ()
     # Module KEYS this one is meaningless without -- a bridge whose overrides
     # skip another module's writes on the promise that a third module's
     # stubs stand at those sites (scenes-p2-kits). The ledger refuses a
@@ -1580,9 +1621,12 @@ class Module:
     # chosen code without asking (modules/usb is the first).
     variant: object | None = None
     # Optional build-time subscription selection: select(frozenset(module keys))
-    # returns only linked/detours. registry.bound applies it after settings, so
-    # claims, linking, installation and image gates all see the same subset.
-    # It must be deterministic and must not modify the registry or filesystem.
+    # returns linked, detours, symbol_refs, overrides, pokes, claims and gates (SELECTABLE).
+    # registry.bound applies it after settings, and ledger.check applies it to
+    # any selection it is given, so claims, linking, installation, image gates,
+    # the matrix and the remixer all see the same subset. It must be
+    # deterministic, depend only on the keys, and must not modify the registry
+    # or filesystem.
     select: object | None = None
     # CODE THAT THE BUILD DROPS WHEN IT CANNOT BE NEEDED: dsp_if(fixed) ->
     # bool, given {setting name: value} of the module's settings that are
@@ -2043,14 +2087,15 @@ class Remix:
     # Core 1 running code that sits in payload A's half is measured on the unit
     # (modules/pextprobe). The build refuses an address inside another owner's range
     # (tools/remix/dsp_ranges.py) or a module whose two payload sources assemble differently.
-    # A module placed this way has no hooks, no LFO or second table, and no tail.
+    # A module with DspHooks and no init/proc is reached by its hooks alone; its LFO table, ptable and ptable2 follow
+    # the code in that order. It has no tail and no pins.
     window: tuple[tuple[str, int], ...] = ()
     # DEMAND-LOADED WINDOW EFFECTS (docs/proposals/DEMAND_LOAD.md): module keys, each also in `window`
     # (at the address its code runs from). The module is assembled and placed as above but left out of
     # payload A's upload: its words, address, entry points and id go to out/dsp/demand_records.json for
     # the ColdFire loader (modules/dlpump). Its id's dispatch entries point at a trampoline of the stub
     # (modules/dlcopy/dlstub.asm) that passes the audio through until DLCOPY has published the code. The
-    # position in this tuple is the effect's index k, 0..3 (the entry at x:$33da3 + 8 k).
+    # position in this tuple is the effect's index k (the entry at x:$33da3 + 8 k; a fifth or later moves DLCOPY up 8 words each).
     window_demand: tuple[str, ...] = ()
     # OTHER HOMES OF A DEMAND EFFECT: (key, P address) pairs, any number per key. The effect's address in `window` is its
     # first home; each pair here is another, in a different FX2 block of the window. The build assembles the effect once per

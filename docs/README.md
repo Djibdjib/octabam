@@ -9,6 +9,7 @@ Where each doc is, by who reads it. A module's own page is
 | doc | what it is |
 |---|---|
 | [site/index.md](site/index.md) | the musician-facing manual site: choose a remix, build and flash it, use BRAIN, and recover to stock OS |
+| [../tools/site/README.md](../tools/site/README.md) | the site generator, including the per-remix manuals it renders from the manifests (`gen_manual.py`) |
 | [guide/BUILDING.md](guide/BUILDING.md) | what to install (macOS, Linux/WSL2), the toolchain, your own OS 1.40C, building an image, flashing from the card or over MIDI, after the flash, recovery, back to stock |
 | [../remixes/README.md](../remixes/README.md) | the remixes you can flash, with where each has run |
 | [guide/COMPOSING.md](guide/COMPOSING.md) | composing your own remix: a `remix.py` by hand |
@@ -60,6 +61,9 @@ implemented): [OTX_PROJECT_PROPOSAL.md](proposals/OTX_PROJECT_PROPOSAL.md)
 and [OTX_MODULE_GUIDELINES.md](proposals/OTX_MODULE_GUIDELINES.md), and
 [USB.md](proposals/USB.md), merging the four USB modules into one with
 run-time settings held by the brain (14 Oct 2026).
+[SHARED_HOOKS.md](proposals/SHARED_HOOKS.md): one owner per contested
+ColdFire site (STORE, EVENTS and a new PARTS), so conflicting modules can
+share an image (28 Oct 2026, not implemented).
 
 [proposals/remixes/](proposals/remixes/README.md): remix proposals, each
 taken on hardware to verified stable before it lands under `remixes/`.

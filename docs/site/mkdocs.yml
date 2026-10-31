@@ -6,10 +6,11 @@ docs_dir: .
 site_dir: ../../out/site
 use_directory_urls: false
 # the _remix-*.md fragments are snippet includes, not pages; usage/*.md
-# are included into generated module pages; img/ holds image assets.
+# are included into generated module pages, manual/*.md into the manuals; img/ holds image assets.
 exclude_docs: |
   reference/_remix-*.md
   usage/*.md
+  manual/*.md
 extra_css:
   - css/fonts.css
   - css/sidebar-spacing.css
@@ -30,6 +31,45 @@ nav:
       - Build and Install: web-builder.md
       - Feature Directory: reference/modules.md
       - About: about.md
+  - Manuals:
+      - Octabam Manual:
+          - Introduction: reference/manual/octabam/index.md
+          - Bus and effect setup: reference/manual/octabam/bus-setup.md
+          - Effects: reference/manual/octabam/effects.md
+          - Machines and the sequencer: reference/manual/octabam/machines.md
+          - Parts, Kits and scenes: reference/manual/octabam/parts.md
+          - MIDI and USB: reference/manual/octabam/midi-usb.md
+          - Settings and memory: reference/manual/octabam/settings.md
+          - Utilities: reference/manual/octabam/utilities.md
+          - Fixes to stock behaviour: reference/manual/octabam/fixes.md
+          - Diagnostics: reference/manual/octabam/diagnostics.md
+          - Effect Controls: reference/manual/octabam/appendix-controls.md
+          - Test Status: reference/manual/octabam/appendix-status.md
+          - Credits: reference/manual/octabam/credits.md
+      - Octabam Bus Manual:
+          - Introduction: reference/manual/octabam-bus/index.md
+          - Bus and effect setup: reference/manual/octabam-bus/bus-setup.md
+          - Effects: reference/manual/octabam-bus/effects.md
+          - Machines and the sequencer: reference/manual/octabam-bus/machines.md
+          - Parts, Kits and scenes: reference/manual/octabam-bus/parts.md
+          - MIDI and USB: reference/manual/octabam-bus/midi-usb.md
+          - Settings and memory: reference/manual/octabam-bus/settings.md
+          - Utilities: reference/manual/octabam-bus/utilities.md
+          - Fixes to stock behaviour: reference/manual/octabam-bus/fixes.md
+          - Diagnostics: reference/manual/octabam-bus/diagnostics.md
+          - Effect Controls: reference/manual/octabam-bus/appendix-controls.md
+          - Test Status: reference/manual/octabam-bus/appendix-status.md
+          - Credits: reference/manual/octabam-bus/credits.md
+      - CX Osc Core Manual:
+          - Introduction: reference/manual/cxosc-core/index.md
+          - Machines and the sequencer: reference/manual/cxosc-core/machines.md
+          - Parts, Kits and scenes: reference/manual/cxosc-core/parts.md
+          - MIDI and USB: reference/manual/cxosc-core/midi-usb.md
+          - Settings and memory: reference/manual/cxosc-core/settings.md
+          - Utilities: reference/manual/cxosc-core/utilities.md
+          - Fixes to stock behaviour: reference/manual/cxosc-core/fixes.md
+          - Test Status: reference/manual/cxosc-core/appendix-status.md
+          - Credits: reference/manual/cxosc-core/credits.md
   - Effects:
       - BBD Delay: reference/modules/bbd.md
       - Character: reference/modules/character.md
@@ -61,7 +101,7 @@ nav:
       - Tempo Sync: reference/modules/tempo-sync.md
   - Machines and Sequencer:
       - Analog BD: reference/modules/analog-bassdrum.md
-      - Blackpyramids 303: reference/modules/blackpyramids-303.md
+      - BlackPyramids 303: reference/modules/blackpyramids-303.md
       - Direct Jump: reference/modules/direct-jump.md
       - Direct Jump (Kyoti): reference/modules/direct-jump-kyoti.md
       - Erase Empty Trigless Locks: reference/modules/erase-empty-trigless-locks.md
@@ -69,6 +109,7 @@ nav:
       - Mute Modes: reference/modules/mute-modes.md
       - OCTA-303: reference/modules/octa303.md
       - Page 2 Parameter Locks: reference/modules/plocks-p2.md
+      - Pattern Mute: reference/modules/pattern-mute.md
       - Quantize Live Rec Toggle: reference/modules/quantize-live-rec-toggle.md
       - Rec Threshold: reference/modules/rec-threshold.md
       - Recorder Trig Mute: reference/modules/rec-trig-mute.md
@@ -85,7 +126,6 @@ nav:
   - Kits and Scenes:
       - Kits: reference/modules/kits.md
       - Morph: reference/modules/morph.md
-      - MIDI Part State: reference/modules/midi-part-state.md
       - MIDI Scenes: reference/modules/midi-scenes.md
       - Page 2 Scene Locks: reference/modules/scenes-p2.md
   - MIDI and USB:
@@ -96,6 +136,7 @@ nav:
       - USB: reference/modules/usb.md
   - Settings:
       - Brain: brain.md
+      - Hooks: reference/modules/hooks.md
       - Memory: reference/modules/memory.md
       - Persistent Buffers: reference/modules/persistent-buffers.md
       - Store: reference/modules/store.md
@@ -121,6 +162,7 @@ nav:
       - Dlpump: reference/modules/dlpump.md
       - Load Meter: reference/modules/load-meter.md
       - Pext Probe: reference/modules/pextprobe.md
+      - Sc Load Meter Bridge: reference/modules/sc-loadmeter-bridge.md
       - Testgen: reference/modules/testgen.md
       - Wave Load: reference/modules/waveload.md
   - Remix Reference:
