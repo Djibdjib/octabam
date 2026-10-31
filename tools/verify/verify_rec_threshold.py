@@ -219,7 +219,11 @@ def run(work, card, armed, name, audio, script, quit_ms):
         partial = (exc.stdout or b"") + (exc.stderr or b"")
         if isinstance(partial, bytes):
             partial = partial.decode(errors="replace")
-        return name, None, f"{name}: no exit after {RUN_TIMEOUT_S} s\n" + partial
+        stamps = re.findall(r"^\s*\[\s*([\d.]+)\]", partial, re.M)
+        return name, None, (f"{name}: no exit after {RUN_TIMEOUT_S} s; ended on quit: "
+                            f"{'ended on quit' in partial}; M6a gate PASS: {'M6a gate   : PASS' in partial}; "
+                            f"{len(partial)} bytes of output, last emulated ms stamp: {stamps[-1] if stamps else None}\n"
+                            + partial)
     print(f"  {name}: {time.monotonic() - started:.0f} s", flush=True)
     return name, r.returncode, r.stdout + r.stderr
 
@@ -276,6 +280,7 @@ def main():
         full = work / "full.wav"
         write_full_scale(full, 10, 6)
         jobs += [("full", full, SETUP + lev(0) + press(3200), 14000)]
+        print(f"  host: {os.cpu_count()} cpus, load average {os.getloadavg()[0]:.1f}, {len(jobs)} port runs at once", flush=True)
         with ThreadPoolExecutor(max_workers=len(jobs)) as pool:
             results = {name: (rc, out) for name, rc, out in
                        pool.map(lambda j: run(work, card, armed, *j), jobs)}
