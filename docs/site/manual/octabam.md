@@ -28,26 +28,22 @@ Octabam has no delay and reverb bus. If you want one, see
   patterns, reloading one track from the card, a recording length of one
   pattern pass (PLEN), recorder trig mute, mute modes, a scale quantizer
   and a tuner window.
-- **OCTA-303 and CX OSC.** Two machines below PICKUP in the machine list:
-  OCTA-303, a circuit-modelled TB-303 voice, then CX OSC, a Buchla-flavoured
-  complex oscillator. The list scrolls to reach them. See
-  [OCTA303](../../../usage/octa303.md) and [CX OSC](../../../usage/cxosc.md).
+- **OCTA-303.** A machine below PICKUP in the machine list: a
+  circuit-modelled TB-303 voice. The list scrolls to reach it. See
+  [OCTA303](../../../usage/octa303.md).
 - **More for the sequencer.** Track patterns (each track plays its own
-  pattern of the bank, clip style), Euclidean fills, varispeed for STATIC
-  and FLEX tracks, a track's scene morph played on its own (MORPH), and the
-  seven diatonic modes for the MIDI tracks' KEY (MIDI SCALES).
+  pattern of the bank, clip style), Euclidean fills, and a track's scene
+  morph played on its own (MORPH).
 - **Recording.** A recorder TRIG mode that waits for the input (REC
   THRESHOLD), and recorder buffers saved with the project (BUFFER SAVER).
-- **Utilities.** A full-screen scope, copying a project without loading it,
-  random names in the name editor, and FX2 LOCK, which stops the FX2
-  chooser changing a track's effect.
-- **Effects.** SPECTRUM, CHARACTER and MODULATION on FX1 and FX2,
-  TRANSIENT on FX2, and a side-chain on COMPRESSOR. The stock effects stay
-  as they were.
+- **Utilities.** Copying a project without loading it, and FX2 LOCK, which
+  stops the FX2 chooser changing a track's effect.
+- **Effects.** SPECTRUM, CHARACTER and MODULATION on FX1 and FX2. The stock
+  effects stay as they were.
 - **Fixes.** The recorder loop click, stock LO-FI's AMF knob and a few
   sequencer and card-write faults are corrected.
 
-SPECTRUM, CHARACTER, MODULATION, TRANSIENT and the side-chain are copied
+SPECTRUM, CHARACTER and MODULATION are copied
 into the audio DSP only while a track uses them. Until the code arrives,
 about 25 ms after you choose the effect, it passes the audio through.
 

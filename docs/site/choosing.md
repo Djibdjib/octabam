@@ -18,7 +18,7 @@ recorder, sequencer and storage fixes. The list is on each remix page.
 ## Octabam
 
 All 14 stock effects stay in the stock menus, with the LO-FI AMF control
-fixed. SPECTRUM, CHARACTER, MODULATION, TRANSIENT and DISTORX are added on FX1 and FX2,
+fixed. SPECTRUM, CHARACTER and MODULATION are added on FX1 and FX2,
 and GATE VERB on FX2. Each effect processes its own track.
 
 ## Octabam Bus
