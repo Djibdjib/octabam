@@ -1390,6 +1390,25 @@ address from `_exports` with one from the runtime, ask whether the staging
 repoint has run yet. Gate: the comparison itself, now that both sides are the
 runtime's.
 
+<a name="trap-staging-coincidence"></a>
+
+### A runtime's own bytes can spell the clones' staging range
+
+**THE FINAL SCAN FOR STAGING ADDRESSES READS EVERY EVEN OFFSET, SO TWO
+UNRELATED HALFWORDS CAN MAKE ONE.** PR #989 grew CC MAP by 14 bytes and
+octabam's build refused with `the DRAM runtime still holds a staging
+address`. Nothing was stale: OCTA303's `o3_over` table is `.long o3_names`
+then `.short 0x05f`, the shift put `o3_names` at an address with low half
+`0x4011`, and the scan read `0x4011005f` against staging
+`0x40110000..0x40110820`. The refusal named no word, so a CI cycle went to
+adding the names. Fix: the refusal prints each word, its runtime address and
+the symbol under it; on a hit the build runs again with staging 64 KiB
+higher (`OCTABAM_STAGE_SHIFT`, twice at most). A stale pointer comes from
+the link and moves with staging; a coincidence does not. The image does not
+depend on where staging was. Rule: a scan of raw bytes for a value range
+needs a second reading before it refuses. Gate: the scan itself, now
+re-run against a moved range.
+
 <a name="trap-machine-clamp"></a>
 
 ### The machine list's key handlers clamp the cursor to 5
