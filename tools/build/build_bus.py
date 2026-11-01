@@ -4107,9 +4107,20 @@ hostquit:
         _appends[_platform_at] = (
             "octabam loader + payloads (" + ", ".join(_pnames) + ")", _pappend)
         _raw = pathlib.Path("out/platform/runtime.raw").read_bytes()
-        if any(_lo <= int.from_bytes(_raw[_o:_o + 4], "big") < _hi
-               for _o in range(0, len(_raw) - 3, 2)):
-            sys.exit("descriptor clones: the DRAM runtime still holds a staging address")
+        _held = [_o for _o in range(0, len(_raw) - 3, 2)
+                 if _lo <= int.from_bytes(_raw[_o:_o + 4], "big") < _hi]
+        if _held:
+            # name each word: its runtime address and the symbol at or below it
+            _rbase = json.loads(pathlib.Path("out/platform", platform_build.LAYOUT).read_text())["base"]
+            _by = sorted((_v, _n) for _n, _v in _psyms2.items() if _rbase <= _v < _rbase + len(_raw))
+            for _o in _held[:8]:
+                _a = _rbase + _o
+                _sym = max(((_v, _n) for _v, _n in _by if _v <= _a), default=(_rbase, "?"))
+                print(f"  0x{_a:08x} ({_sym[1]}+0x{_a - _sym[0]:x}): "
+                      f"0x{int.from_bytes(_raw[_o:_o + 4], 'big'):08x}, staging is "
+                      f"0x{_lo:08x}..0x{_hi:08x}")
+            sys.exit(f"descriptor clones: the DRAM runtime still holds a staging address "
+                     f"({len(_held)} word(s), above)")
 
     # A DSP source machine (Module.dsp_source: ANALOG BD, BLACKPYRAMIDS_303)
     # replaces the source renderer on both cores. Its integrate step must see
