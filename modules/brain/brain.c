@@ -5707,7 +5707,7 @@ void brain_scr_draw(void *ctx)
 		} else if (r->kind == K_HEAD)
 			DOTH(ctx, x + (int)TEXT_W(FONT, -1, r->label) + 4, y + 2, rx);
 		else if (r->kind == K_TOGGLE)
-			checkbox(ctx, rx - 2, y, r->on);
+			checkbox(ctx, rx - 6, y, r->on);
 		else if ((r->kind == K_VALUE || r->kind == K_COST || r->kind == K_LINE) && r->val)
 			DRAWSTR(FONT, ctx, rx - (int)TEXT_W(FONT, -1, r->val), y, -1, r->val);
 		if (i == scur && selectable(i))

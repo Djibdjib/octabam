@@ -21138,20 +21138,20 @@ brain_scr_draw:
 	move.l (%a6),56(%sp)
 	add.l #-20,%d5
 	cmp.l %d0,%d1
-	jeq .L4377
+	jeq .L4378
 	lea CSWTCH.932,%a0
 	move.l (%a0,%d0.l*4),%a0
 	tst.l %a0
-	jeq .L4378
+	jeq .L4379
 	move.l (%a0),%d4
 	tst.l %d0
 	jeq .L4308
 	mov3q.l #5,%d6
 	cmp.l %d0,%d6
-	jeq .L4379
+	jeq .L4380
 	subq.l #3,%d0
 	tst.l %d0
-	jeq .L4380
+	jeq .L4381
 	moveq #52,%d2
 	lea about_name,%a0
 	mov3q.l #4,%d7
@@ -21231,7 +21231,7 @@ brain_scr_draw:
 	jne .L4315
 .L4316:
 	subq.l #1,%a5
-	cmp.l %d2,%a5
+	cmp.l %a5,%d2
 	jne .L4317
 	pea perf_title
 	mov3q.l #-1,-(%sp)
@@ -21322,7 +21322,7 @@ brain_scr_draw:
 	move.b 16(%a5),%d0
 	mvz.b %d0,%d1
 	cmp.l %d1,%d3
-	jeq .L4381
+	jeq .L4382
 .L4327:
 	tst.b %d0
 	jne .L4333
@@ -21339,7 +21339,7 @@ brain_scr_draw:
 .L4328:
 	move.l sn,%d0
 	cmp.l scur.l,%d4
-	jeq .L4382
+	jeq .L4383
 .L4339:
 	addq.l #1,%d5
 	subq.l #8,%a3
@@ -21396,7 +21396,7 @@ brain_scr_draw:
 	move.l (%a0,%d4.l*4),%a2
 	moveq #55,%d2
 	jra .L4311
-.L4382:
+.L4383:
 	cmp.l %d4,%d0
 	jls .L4339
 	mvz.b 16(%a2,%d2.l),%d1
@@ -21442,10 +21442,10 @@ brain_scr_draw:
 	move.l %d4,64(%sp)
 	tst.b %d0
 	jeq .L4373
-.L4385:
+.L4386:
 	moveq #23,%d4
 	cmp.l %d3,%d4
-	jeq .L4383
+	jeq .L4384
 	move.b %d0,(%a5)+
 	clr.b (%a5)
 	pea 72(%sp)
@@ -21454,13 +21454,13 @@ brain_scr_draw:
 	jsr 1073819440
 	lea (12,%sp),%sp
 	cmp.l %d0,%d6
-	jlt .L4384
+	jlt .L4385
 	move.l (%a2,%d2.l),%d1
 	addq.l #1,%d3
 	move.l %d1,%a0
 	add.l %d3,%a0
 	move.b (%a0),%d0
-	jne .L4385
+	jne .L4386
 .L4373:
 	move.l 64(%sp),%d4
 .L4323:
@@ -21485,7 +21485,7 @@ brain_scr_draw:
 	mvz.b %d0,%d1
 	cmp.l %d1,%d3
 	jne .L4327
-.L4381:
+.L4382:
 	move.l 4(%a5),%d3
 	moveq #52,%d6
 	move.l #1073813776,%a4
@@ -21593,7 +21593,7 @@ brain_scr_draw:
 	move.l sn,%d0
 	cmp.l scur.l,%d4
 	jne .L4339
-	jra .L4382
+	jra .L4383
 .L4315:
 	mov3q.l #1,-(%sp)
 	move.l %d3,-(%sp)
@@ -21603,29 +21603,29 @@ brain_scr_draw:
 	jsr 1073814420
 	lea (20,%sp),%sp
 	jra .L4316
-.L4377:
+.L4378:
 	mvz.b ted_grp,%d1
 	move.l ted_ref,%d0
 	lsr.l #8,%d0
 	cmp.l #255,%d1
-	jeq .L4386
+	jeq .L4387
 	moveq #72,%d6
 	cmp.l %d0,%d6
-	jeq .L4387
+	jeq .L4388
 	move.b ted_sub,%d0
 	mvz.b %d0,%d2
 	cmp.l #255,%d2
-	jeq .L4388
+	jeq .L4389
 	mov3q.l #1,%d3
 	cmp.l %d1,%d3
-	jeq .L4389
+	jeq .L4390
 	mov3q.l #7,%d4
 	and.l %d4,%d0
 	mov3q.l #4,%d6
 	move.l %d0,%d2
 	add.l #49,%d2
 	cmp.l %d1,%d6
-	jeq .L4390
+	jeq .L4391
 	moveq #84,%d3
 	moveq #32,%d4
 	move.b %d2,ted_tt+1
@@ -21633,7 +21633,7 @@ brain_scr_draw:
 	move.b %d3,ted_tt
 	move.b %d4,ted_tt+2
 	tst.l %d1
-	jne .L4391
+	jne .L4392
 	moveq #76,%d1
 	lea .LC159,%a2
 .L4304:
@@ -21669,7 +21669,7 @@ brain_scr_draw:
 	move.l #1074505846,-(%sp)
 	jsr 1073818584
 	lea (36,%sp),%sp
-.L4393:
+.L4394:
 	move.l %d5,-(%sp)
 	mov3q.l #6,-(%sp)
 	move.l %a6,-(%sp)
@@ -21704,7 +21704,7 @@ brain_scr_draw:
 .L4333:
 	mov3q.l #5,%d6
 	cmp.l %d1,%d6
-	jeq .L4392
+	jeq .L4393
 	subq.l #6,%d0
 	mvz.b %d0,%d0
 	mov3q.l #1,%d3
@@ -21734,19 +21734,19 @@ brain_scr_draw:
 	move.l sn,%d0
 	cmp.l scur.l,%d4
 	jne .L4339
-	jra .L4382
-.L4383:
+	jra .L4383
+.L4384:
 	move.l %d1,%a0
 	move.l 64(%sp),%d4
 	lea (23,%a0),%a0
 	jra .L4323
-.L4384:
+.L4385:
 	move.l (%a2,%d2.l),%d1
 	move.l 64(%sp),%d4
 	move.l %d1,%a0
 	add.l %d3,%a0
 	jra .L4323
-.L4378:
+.L4379:
 	lea sc_title,%a0
 	move.l (%a0,%d0.l*4),%d2
 	move.l %d2,-(%sp)
@@ -21765,24 +21765,22 @@ brain_scr_draw:
 	move.l #1074505846,-(%sp)
 	jsr 1073818584
 	lea (36,%sp),%sp
-	jra .L4393
-.L4392:
-	move.b 17(%a5),%d7
+	jra .L4394
+.L4393:
+	move.b 17(%a5),%d6
 	mov3q.l #1,-(%sp)
 	move.l #1073813776,%a4
-	move.l 56(%sp),%d3
-	addq.l #4,%d3
-	move.l %d3,-(%sp)
+	move.l 56(%sp),-(%sp)
 	move.l %a3,-(%sp)
-	move.l 64(%sp),%d6
-	subq.l #2,%d6
-	move.l %d6,-(%sp)
+	move.l 64(%sp),%d3
+	subq.l #6,%d3
+	move.l %d3,-(%sp)
 	move.l %a6,-(%sp)
 	jsr (%a4)
 	mov3q.l #1,-(%sp)
-	move.l %d3,-(%sp)
+	move.l 76(%sp),-(%sp)
 	move.l 72(%sp),-(%sp)
-	move.l %d6,-(%sp)
+	move.l %d3,-(%sp)
 	move.l %a6,-(%sp)
 	jsr (%a4)
 	lea (36,%sp),%sp
@@ -21790,55 +21788,71 @@ brain_scr_draw:
 	move.l #1073814420,%a4
 	move.l 48(%sp),-(%sp)
 	move.l %a3,-(%sp)
-	move.l %d6,-(%sp)
+	move.l %d3,-(%sp)
 	move.l %a6,-(%sp)
 	jsr (%a4)
 	mov3q.l #1,-(%sp)
 	move.l 68(%sp),-(%sp)
 	move.l %a3,-(%sp)
-	move.l %d3,-(%sp)
+	move.l 84(%sp),-(%sp)
 	move.l %a6,-(%sp)
 	jsr (%a4)
 	lea (40,%sp),%sp
-	tst.b %d7
+	tst.b %d6
 	jeq .L4328
+	move.l 52(%sp),%d6
+	subq.l #3,%d6
+	add.l %d6,%d6
+	mov3q.l #6,%d3
+	sub.l 52(%sp),%d3
 	move.l 52(%sp),%d7
-	addq.l #1,%d7
-	add.l %d7,%d7
-	mov3q.l #2,%d6
-	sub.l 52(%sp),%d6
-	move.l 52(%sp),%a4
-	subq.l #1,%a4
-	move.l %d2,64(%sp)
-	add.l %a3,%d6
+	subq.l #5,%d7
+	add.l %a3,%d3
 .L4335:
 	mov3q.l #1,-(%sp)
-	move.l #1073813776,%a5
-	move.l %a4,-(%sp)
-	move.l %d6,%d2
-	add.l %a4,%d2
-	move.l %d2,-(%sp)
-	move.l %a4,-(%sp)
+	move.l #1073813776,%a4
+	move.l %d7,-(%sp)
+	move.l %d3,%a5
+	add.l %d7,%a5
+	move.l %a5,-(%sp)
+	move.l %d7,-(%sp)
 	move.l %a6,-(%sp)
-	jsr (%a5)
+	jsr (%a4)
 	mov3q.l #1,-(%sp)
-	move.l %d7,%d0
-	sub.l %a4,%d0
+	move.l %d6,%d0
+	sub.l %d7,%d0
 	move.l %d0,-(%sp)
-	move.l %d2,-(%sp)
+	move.l %a5,-(%sp)
 	move.l %d0,-(%sp)
 	move.l %a6,-(%sp)
-	jsr (%a5)
-	addq.l #1,%a4
+	jsr (%a4)
+	addq.l #1,%d7
 	lea (40,%sp),%sp
-	cmp.l %a4,%d3
+	cmp.l 52(%sp),%d7
+	jeq .L4328
+	mov3q.l #1,-(%sp)
+	move.l #1073813776,%a4
+	move.l %d7,-(%sp)
+	move.l %d3,%a5
+	add.l %d7,%a5
+	move.l %a5,-(%sp)
+	move.l %d7,-(%sp)
+	move.l %a6,-(%sp)
+	jsr (%a4)
+	mov3q.l #1,-(%sp)
+	move.l %d6,%d0
+	sub.l %d7,%d0
+	move.l %d0,-(%sp)
+	move.l %a5,-(%sp)
+	move.l %d0,-(%sp)
+	move.l %a6,-(%sp)
+	jsr (%a4)
+	addq.l #1,%d7
+	lea (40,%sp),%sp
+	cmp.l 52(%sp),%d7
 	jne .L4335
-	move.l 64(%sp),%d2
-	move.l sn,%d0
-	cmp.l scur.l,%d4
-	jne .L4339
-	jra .L4382
-.L4389:
+	jra .L4328
+.L4390:
 	lsl.l #3,%d2
 	add.l #pg_lab,%d2
 	move.l %d2,-(%sp)
@@ -21857,14 +21871,14 @@ brain_scr_draw:
 	move.l #1074505846,-(%sp)
 	jsr 1073818584
 	lea (36,%sp),%sp
-	jra .L4393
-.L4379:
+	jra .L4394
+.L4380:
 	lea log_name,%a0
 	mov3q.l #2,%d7
 	move.l (%a0,%d4.l*4),%a2
 	moveq #50,%d2
 	jra .L4311
-.L4380:
+.L4381:
 	lea tpl_tab_name,%a0
 	mov3q.l #4,%d7
 	move.l (%a0,%d4.l*4),%a2
@@ -21915,7 +21929,7 @@ brain_scr_draw:
 	move.l %a1,72(%sp)
 	lea (12,%sp),%sp
 	jra .L4317
-.L4386:
+.L4387:
 	moveq #63,%d2
 	cmp.l %d0,%d2
 	jcc .L4297
@@ -21938,8 +21952,8 @@ brain_scr_draw:
 	move.l #1074505846,-(%sp)
 	jsr 1073818584
 	lea (36,%sp),%sp
-	jra .L4393
-.L4391:
+	jra .L4394
+.L4392:
 	lea ted_part,%a0
 	moveq #18,%d2
 	mvz.b 34(%a0,%d0.l),%d0
@@ -21961,7 +21975,7 @@ brain_scr_draw:
 	move.l %a1,%d2
 	move.b %d3,(%a1,%d0.l)
 	jra .L4298
-.L4387:
+.L4388:
 	lea pg_name,%a0
 	move.l (%a0,%d1.l*4),%d2
 	move.l %d2,-(%sp)
@@ -21980,8 +21994,8 @@ brain_scr_draw:
 	move.l #1074505846,-(%sp)
 	jsr 1073818584
 	lea (36,%sp),%sp
-	jra .L4393
-.L4388:
+	jra .L4394
+.L4389:
 	lea pp_name,%a0
 	move.l (%a0,%d1.l*4),%d2
 	move.l %d2,-(%sp)
@@ -22000,8 +22014,8 @@ brain_scr_draw:
 	move.l #1074505846,-(%sp)
 	jsr 1073818584
 	lea (36,%sp),%sp
-	jra .L4393
-.L4390:
+	jra .L4394
+.L4391:
 	moveq #77,%d0
 	moveq #32,%d1
 	move.b %d2,ted_tt+1

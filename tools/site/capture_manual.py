@@ -230,6 +230,8 @@ def capture_usb(p,r):
     shot(p,'usb','settings','BRAIN > SETTINGS, the USB group: CUE, IN and MAIN. A change to a value that takes effect at the next boot shows a popup when SETTINGS is left.',r)
     press(p,'down',7)
     shot(p,'usb','settings-end','The end of the USB group: TRACKS.',r)
+    press(p,'yes');press(p,'no')
+    shot(p,'usb','reboot-popup','Leaving SETTINGS after TRACKS was changed: the popup says to reboot.',r)
 
 
 def capture_analog(p,r):
