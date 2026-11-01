@@ -193,7 +193,7 @@ a real project. It is part of `make verify` when `OT_PROJECT` or
 - every track's record halfwords 18–26 equal its page-2 lane;
 - every track with record audio has a chain output;
 - CC 40 over MIDI IN moves T2's SEND;
-- (CC MAP) CC 68 reaches T1's FX1 page 2;
+- (CC MAP) CC 108 reaches T1's FX1 page 2 (CC 68 until 1 Nov 2026);
 - on a bus remix, each engine's host carries T2's send on its chain
   output, and an engine on the wrong core is refused;
 - the load rewrote no project file;
