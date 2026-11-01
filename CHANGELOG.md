@@ -18,6 +18,7 @@ The full text before this rewrite: `git show 666b6154:CHANGELOG.md`.
 
 ## Unreleased
 
+- **CC MAP / CC FEEDBACK** (issue #981): page 2 moves off the pedal CCs. FX2 page 2 is CC 102–107 (was 62–67), FX1 page 2 CC 108–111, 14, 15 (was 68–73). The old range held CC 64 (sustain) to 69 (hold 2): CC FEEDBACK's sweep at every project load sent CC 64 = 127 on channels 1–8, and a Tonverk on that MIDI out held every note, and a keyboard's sustain pedal moved an FX2 knob. Controller presets for page 2 (the BCR2000's, `tools/hw/bcr2000.py`) need the new numbers. `tools/remix/midi_cc.py` lists the CCs no module may map or send. Not flashed: the decode at CC MAP's entry is new; its write paths are image 96's.
 - DISTORX v10 (`modules/distorx`): the RAT and SD-1 sample loops split into settled (MIX 127, the wet alone), calm (d = 0, the MIX blend) and fading, with a leaner stage; bit for bit v9 in the emulator, static cost 291 → 223 (RAT, settled) and 227 → 181 (SD-1). Not flashed: v9's 9.45 % of core 0 at its dearest is the only unit figure, and `dear` is now MIX 126.
 - **USB** (`modules/usb`): less ColdFire time per frame. USB IN writes the
   DSP's block to on-chip SRAM (`0x80007880`) instead of SDRAM through the
