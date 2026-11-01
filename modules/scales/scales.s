@@ -6,8 +6,10 @@
 | the tonic, always). Written from the tonic up, IONIAN is 1010 1101 0101
 | (C . D . E F . G . A . B), the word 0xab5. A scale's ID (1..SC_COUNT)
 | names it for good: a saved ID never changes meaning, a new scale takes
-| the next ID. The IDs are grouped in families (MAJOR and its modes,
-| MELODIC MINOR and its modes, ...), in the chooser's order.
+| the next ID. IDs 1..127 are the catalogue's, 128..254 kept for scales a
+| module declares, 0 and 255 never a scale. The chooser groups the IDs in
+| families (MAJOR and its modes, MELODIC MINOR and its modes, ...) in the
+| order of sc_order, not of the IDs, so a later scale joins any family.
 |
 | The service (README "Service"), register calls, d0-d1/a0-a1 scratch:
 |   sc_count    -> d0 = SC_COUNT
@@ -504,7 +506,8 @@ sc_close:
         addq.l  #4,%sp
 9:      rts
 
-| -> d0 = the rows of the level shown, d1 = the first's ID - 1 (scales) or 0.
+| -> d0 = the rows of the level shown, d1 = the first's index in sc_order
+| (scales) or 0.
 sc_rows:
         moveq   #0,%d1
         moveq   #SC_FAMILIES,%d0
@@ -560,14 +563,20 @@ sc_enter:
         moveq   #1,%d0
         move.l  %d0,sc_level
         bsr.w   sc_rows
-        move.l  sc_shown,%a0
-        subq.l  #1,%a0
-        suba.l  %d1,%a0
-        move.l  %a0,%d1                 | the shown ID's row
-        cmp.l   %d0,%d1
-        bcs.s   1f
-        moveq   #0,%d1
-1:      move.l  %d1,sc_sel
+        lea     sc_order,%a0
+        adda.l  %d1,%a0                 | the family's IDs
+        move.l  %d2,-(%sp)
+        moveq   #0,%d1                  | the shown ID's row
+1:      cmp.l   %d0,%d1
+        bge.s   2f
+        mvz.b   (%a0,%d1.l),%d2
+        cmp.l   sc_shown,%d2
+        beq.s   3f
+        addq.l  #1,%d1
+        bra.s   1b
+2:      moveq   #0,%d1                  | not in this family: the first row
+3:      move.l  (%sp)+,%d2
+        move.l  %d1,sc_sel
         clr.l   sc_top
         bsr.w   sc_scroll
         bra.w   sc_draw
@@ -594,7 +603,8 @@ sc_key_yes:
         bsr.w   sc_rows
         move.l  %d1,%d2
         add.l   sc_sel,%d2
-        addq.l  #1,%d2                  | the ID picked
+        lea     sc_order,%a0
+        mvz.b   (%a0,%d2.l),%d2         | the ID picked
         bsr.w   sc_close
         move.l  %d2,%d0
         move.l  sc_client,%d1
@@ -691,7 +701,7 @@ sc_draw:
         lea     20(%sp),%sp
         bsr.w   sc_rows
         move.l  %d0,%d4                 | d4: the rows
-        move.l  %d1,%d3                 | d3: the first scale's ID - 1 (scales)
+        move.l  %d1,%d3                 | d3: the family's first index in sc_order
         move.l  sc_top,%d5              | d5: the first row shown
         tst.l   %d5
         ble.s   2f
@@ -730,10 +740,11 @@ sc_draw:
         bra.s   6f
 5:      move.l  %d3,%d2                 | a scale: its name; a ticked box on the shown one
         add.l   %d5,%d2
-        lea     sc_names,%a0
+        lea     sc_order,%a0
+        mvz.b   (%a0,%d2.l),%d2         | the row's ID
+        lea     sc_names-4,%a0
         move.l  (%a0,%d2.l*4),%a2
         suba.l  %a3,%a3
-        addq.l  #1,%d2
         cmp.l   sc_shown,%d2
         bne.s   6f
         lea     box_on,%a3
@@ -1187,7 +1198,23 @@ sc_masks:
         .word   0x18d,0x4a3,0x463,0x28d,0x18b                   | JAPANESE
         .word   0x555,0xb6d,0x6db,0x999,0xfff                   | SYMMETRIC
 
-| Each family's first ID - 1, and one past its last (the next family's).
+| The chooser's order: each family's IDs, family after family. A scale
+| added later takes the next ID and its row in any family here.
+sc_order:
+        .byte   1,2,3,4,5,6,7                                   | MAJOR
+        .byte   8,9,10,11,12,13,14                              | MELODIC MINOR
+        .byte   15,16,17,18,19,20,21                            | HARMONIC MINOR
+        .byte   22,23,24,25,26,27,28                            | HARMONIC MAJOR
+        .byte   29,30,31,32,33,34,35                            | DOUBLE HARMONIC
+        .byte   36,37,38,39,40                                  | PENTATONIC
+        .byte   41,42                                           | BLUES
+        .byte   43,44,45,46,47                                  | JAPANESE
+        .byte   48,49,50,51,52                                  | SYMMETRIC
+sc_order_end:
+        .ifne   sc_order_end - sc_order - SC_COUNT
+        .error  "sc_order lists every ID once"
+        .endif
+| Each family's first index in sc_order, and one past its last.
 sc_fam_first:
         .byte   0,7,14,21,28,35,40,42,47,52
 | Each ID's family.
@@ -1211,8 +1238,8 @@ sc_tonics:
         .ascii  "C\0C#D\0D#E\0F\0F#G\0G#A\0A#B\0"
 
         .balign 4
-| The chooser's rows: each family, then each ID's name (a family's scales are
-| a run of this table).
+| The chooser's rows: each family, then each ID's name (by ID; sc_order
+| gives the rows).
 sc_fam_labels:
         .long   f_maj,f_mel,f_hmin,f_hmaj,f_dbl,f_pent,f_blues,f_jap,f_sym
 sc_names:
@@ -1287,7 +1314,7 @@ n10:    .asciz  "LYDIAN AUGMENTED"
 n11:    .asciz  "LYDIAN DOMINANT"
 n12:    .asciz  "MIXOLYDIAN b6"
 n13:    .asciz  "LOCRIAN #2"
-n14:    .asciz  "ALTERED"
+n14:    .asciz  "SUPERLOCRIAN"
 n15:    .asciz  "HARMONIC MINOR"
 n16:    .asciz  "LOCRIAN #6"
 n17:    .asciz  "IONIAN #5"

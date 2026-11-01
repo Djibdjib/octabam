@@ -23,7 +23,7 @@ one when two are as near).
 | family | scales |
 | --- | --- |
 | MAJOR | Ionian (Major), Dorian, Phrygian, Lydian, Mixolydian, Aeolian (Minor), Locrian |
-| MELODIC MINOR | Melodic Minor, Dorian b2, Lydian Augmented, Lydian Dominant, Mixolydian b6, Locrian #2, Altered |
+| MELODIC MINOR | Melodic Minor, Dorian b2, Lydian Augmented, Lydian Dominant, Mixolydian b6, Locrian #2, Superlocrian (the altered scale) |
 | HARMONIC MINOR | Harmonic Minor, Locrian #6, Ionian #5, Dorian #4, Phrygian Dominant, Lydian #2, Altered bb7 |
 | HARMONIC MAJOR | Harmonic Major, Dorian b5, Phrygian b4, Lydian b3, Mixolydian b2, Lydian Aug #2, Locrian bb7 |
 | DOUBLE HARMONIC | Double Harmonic, Lydian #2 #6, Ultraphrygian, Hungarian Minor, Oriental, Ionian #2 #5, Locrian bb3 bb7 |

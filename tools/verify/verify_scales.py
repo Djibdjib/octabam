@@ -75,7 +75,7 @@ FAMILIES = (
     ("MELODIC MINOR", modes((0, 2, 3, 5, 7, 9, 11), (
         ("MELODIC MINOR", "MMIN"), ("DORIAN b2", "DOb2"), ("LYDIAN AUGMENTED", "LYD+"),
         ("LYDIAN DOMINANT", "LYDD"), ("MIXOLYDIAN b6", "MXb6"), ("LOCRIAN #2", "LC#2"),
-        ("ALTERED", "ALT")))),
+        ("SUPERLOCRIAN", "ALT")))),
     ("HARMONIC MINOR", modes((0, 2, 3, 5, 7, 8, 11), (
         ("HARMONIC MINOR", "HMIN"), ("LOCRIAN #6", "LC#6"), ("IONIAN #5", "IO#5"),
         ("DORIAN #4", "DO#4"), ("PHRYGIAN DOMINANT", "PHRD"), ("LYDIAN #2", "LY#2"),
@@ -226,8 +226,46 @@ def machine_gate(remix):
             bad.append(f"sc_name {ident:#x} is not refused")
     if set(map(tuple, QZ_SCALES)) - {v[4] for v in CATALOGUE.values()}:
         bad.append("a SCALE QUANTIZER scale is missing from the catalogue")
+    order = sorted(CATALOGUE, key=lambda i: CATALOGUE[i][:2])
+    if list(u.mem_read(m.sym["sc_order"], len(order))) != order:
+        bad.append("sc_order is not the model's chooser order")
     print(f"  [{'FAIL' if bad else 'ok'}] catalogue: {len(CATALOGUE)} IDs in {len(FAMILIES)} families, "
-          f"masks, families, names, refusals; SCALE QUANTIZER's 24 included")
+          f"masks, families, names, refusals, the chooser's order; SCALE QUANTIZER's 24 included")
+
+    # The chooser's rows come from sc_order, not from the IDs: with every
+    # family's IDs reversed in it, entering a family finds the shown ID on its
+    # reversed row and YES gives that row's ID (no window: sc_draw draws nothing).
+    n_bad = len(bad)
+    rev = []
+    for f in range(len(FAMILIES)):
+        rev += reversed([i for i in order if CATALOGUE[i][0] == f])
+    u.mem_write(m.sym["sc_order"], bytes(rev))
+    got = m.scratch + 0x410                                   # the client stores the ID there
+    u.mem_write(m.scratch + 0x400, b"\x23\xc0" + got.to_bytes(4, "big") + b"\x4e\x75")
+    def put(name, v):
+        u.mem_write(m.sym[name], (v & 0xffffffff).to_bytes(4, "big"))
+    def get(name):
+        return int.from_bytes(u.mem_read(m.sym[name], 4), "big")
+    put("sc_win", 0)
+    for ident, (fam, row, *_rest) in CATALOGUE.items():
+        size = sum(1 for v in CATALOGUE.values() if v[0] == fam)
+        put("sc_level", 0); put("sc_sel", fam); put("sc_top", 0); put("sc_shown", ident)
+        m.call("sc_enter")
+        if get("sc_level") != 1 or get("sc_fam") != fam or get("sc_sel") != size - 1 - row:
+            bad.append(f"ID {ident}: entered on row {get('sc_sel')}, not {size - 1 - row}")
+        put("sc_client", m.scratch + 0x400); put("sc_sel", row); u.mem_write(got, bytes(4))
+        m.call("sc_key_yes")
+        want = rev[sum(1 for v in CATALOGUE.values() if v[0] < fam) + row]
+        if int.from_bytes(u.mem_read(got, 4), "big") != want:
+            bad.append(f"family {fam} row {row}: YES gave {int.from_bytes(u.mem_read(got, 4), 'big')}, not {want}")
+    put("sc_shown", 0)                                        # an ID in no family: the first row
+    put("sc_level", 0); put("sc_sel", 0); m.call("sc_enter")
+    if get("sc_sel") != 0:
+        bad.append("an ID in no family does not open on the first row")
+    u.mem_write(m.sym["sc_order"], bytes(order))
+    put("sc_client", 0); put("sc_level", 0); put("sc_sel", 0); put("sc_top", 0)
+    print(f"  [{'FAIL' if len(bad) > n_bad else 'ok'}] chooser order: every family reversed in "
+          f"sc_order, each ID entered on its reversed row and picked back by YES")
 
     snaps = 0
     for ident in CATALOGUE:

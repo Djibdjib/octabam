@@ -33,7 +33,7 @@ detours, a poke and a pointer.
 | family | scales (ID, short name) |
 | --- | --- |
 | MAJOR | 1 IONIAN (MAJOR) `MAJ`, 2 DORIAN `DOR`, 3 PHRYGIAN `PHR`, 4 LYDIAN `LYD`, 5 MIXOLYDIAN `MIX`, 6 AEOLIAN (MINOR) `MIN`, 7 LOCRIAN `LOC` |
-| MELODIC MINOR | 8 MELODIC MINOR `MMIN`, 9 DORIAN b2 `DOb2`, 10 LYDIAN AUGMENTED `LYD+`, 11 LYDIAN DOMINANT `LYDD`, 12 MIXOLYDIAN b6 `MXb6`, 13 LOCRIAN #2 `LC#2`, 14 ALTERED `ALT` |
+| MELODIC MINOR | 8 MELODIC MINOR `MMIN`, 9 DORIAN b2 `DOb2`, 10 LYDIAN AUGMENTED `LYD+`, 11 LYDIAN DOMINANT `LYDD`, 12 MIXOLYDIAN b6 `MXb6`, 13 LOCRIAN #2 `LC#2`, 14 SUPERLOCRIAN `ALT` (the altered scale) |
 | HARMONIC MINOR | 15 HARMONIC MINOR `HMIN`, 16 LOCRIAN #6 `LC#6`, 17 IONIAN #5 `IO#5`, 18 DORIAN #4 `DO#4`, 19 PHRYGIAN DOMINANT `PHRD`, 20 LYDIAN #2 `LY#2`, 21 ALTERED bb7 `ALT7` |
 | HARMONIC MAJOR | 22 HARMONIC MAJOR `HMAJ`, 23 DORIAN b5 `DOb5`, 24 PHRYGIAN b4 `PHb4`, 25 LYDIAN b3 `LYb3`, 26 MIXOLYDIAN b2 `MXb2`, 27 LYDIAN AUG #2 `LA#2`, 28 LOCRIAN bb7 `LCb7` |
 | DOUBLE HARMONIC | 29 DOUBLE HARMONIC `DHAR`, 30 LYDIAN #2 #6 `L#26`, 31 ULTRAPHRYGIAN `UPHR`, 32 HUNGARIAN MINOR `HUNG`, 33 ORIENTAL `ORNT`, 34 IONIAN #2 #5 `I#25`, 35 LOCRIAN bb3 bb7 `LC37` |
@@ -44,6 +44,15 @@ detours, a poke and a pointer.
 
 A family with modes lists them in the order of its parent scale's degrees.
 SCALE QUANTIZER's 24 scales are all in the catalogue.
+
+**IDs.** A scale's ID is what a project keeps (`scales.work`) and what
+other modules name it by, so a published ID never changes meaning and is
+never reused; a name can still be corrected, nothing stores it. IDs
+1..127 are the catalogue's: a new scale takes the next one. IDs 128..254
+are kept for scales a module declares (none yet); 0 (the KEY's own mode)
+and 255 are never a scale. The chooser's rows come from `sc_order`, each
+family's IDs in turn, not from the IDs, so a scale added later can join
+any family at any row.
 
 ## Service
 
@@ -62,7 +71,8 @@ For other modules: register calls, d0-d1 / a0-a1 scratch, the rest kept.
 
 A module that needs a scale asks here rather than carrying its own table,
 and one that lets the player choose a scale calls `sc_pick` rather than
-drawing its own list. A module's new scales come here, with the next IDs.
+drawing its own list. A module's new scales come here: the catalogue's
+next IDs, or later IDs from 128 that the module declares.
 
 ## A MIDI track's scale
 
@@ -242,7 +252,9 @@ two sites; not run until that line is pinned.
     on ROOT C and A and every ROOT in MINOR, key k = ROOT + k.
 - Planted defects: the CS1 store removed fails every chooser run's CS1
   read-back; the dispatcher call removed fails `refresh-midi`; the KEY /
-  ID agreement removed fails the unicorn checks.
+  ID agreement removed fails the unicorn checks; YES giving row + 1 as the
+  ID instead of `sc_order`'s fails the chooser-order check (every family
+  reversed in `sc_order`).
 - The keys' display and refresh (KEY LEDS, the module this one grew from)
   on the user's MKII (OCTABAM22, 30 Oct 2026): the keys follow KEY, SCALE
   and ROOT, MIDI and audio, without a key press.
