@@ -1488,3 +1488,21 @@ accepted `--watch-mem 0x80000008,4` and reported `0 write(s)` while the same
 script run directly logged the writes with their PCs. Measure writer PCs with a
 direct run (one script, one process); use scenarios for `--mem-dump` end
 states.
+
+<a id="trap-strcat-bound"></a>
+
+### A shared string helper's bound cut the load's path
+
+**A SHARED STRING HELPER'S BOUND CUT THE LOAD'S PATH.** REMIX SWITCH's
+`strcat` stops a result at 30 bytes, sized for the dialog's line, and
+`load_file` built the open path with it: `"/BRAIN/REMIXES/"` (15) plus a file
+name over 14 characters lost its tail, and the open of the cut name returned
+an error (`IO ERROR`). Under the port, `STOCK 1.40C.RMX` and a plain
+`ABCDEFGHIJK.RMX` (15 characters) both failed with the same 13 checks, while
+`STOCK 14.RMX` (a space), `STOCK1.40C.RMX` (a second dot) and
+`ABCDEFGHIJ.RMX` (14 characters) loaded; the dump of `path` read
+`/BRAIN/REMIXES/ABCDEFGHIJK.RM`. The gates missed it because every fixture
+name was 12 characters or fewer. Rule: a bound written for one caller is not a
+bound for the others; size each buffer's bound at the buffer, and give a
+gate fixture a name at the longest the build writes (`make image` writes up to
+19 characters).
