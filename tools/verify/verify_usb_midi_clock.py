@@ -53,7 +53,7 @@ TRANSPORT_RECEIVE = 0x80000029  # byte, nonzero: START/STOP are taken (docs/firm
 TRANSPORT = 0x800065b8          # longword: 1 = the sequencer plays, 0 = stopped and rewound (docs/firmware/STEM_REC.md 1.7)
 CLK_DT = 0x46c83466             # DTCN0 delta between the last two 0xF8
 TICKS = 48
-RUNS = [("DIN", 25.0), ("DIN+USB", 25.0), ("USB", 50.0), ("USB", 37.5)]     # ms per tick asked; the port lands them at 25.0, 25.0, 50.0, 40.0 ms (100, 100, 50, 62.5 BPM)
+RUNS = [("DIN", 25.0), ("DIN+USB", 25.0), ("USB", 50.0), ("USB", 37.5)]     # ms per tick asked; the port lands them at 25.0, 30.0 (two 12.5 ms halves), 50.0, 40.0 ms (100, 83.3, 50, 62.5 BPM)
 
 
 def symbols():
@@ -183,8 +183,9 @@ def main():
         for i in range(TICKS):
             send(b, "DIN", 0xf8, 12.5)
             if i == TICKS // 2 - 1:
-                send(b, "USB", 0xfc, 1)
-            run(12.5)
+                send(b, "USB", 0xfc, 12.5)    # the second half-tick: a 1 ms run after a 12.5 ms one can advance no port time, and the transfer is never taken
+            else:
+                run(12.5)
         playing = peek(TRANSPORT)
         send(b, "DIN", 0xfc, 250)
         check(f"a USB STOP while DIN clocks leaves the sequencer playing: transport {playing}", playing == 1)

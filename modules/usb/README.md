@@ -189,7 +189,11 @@ sends clock all the time locks USB clock out.
 half a tick after a DIN one) must read DIN's tempo, with all 48 USB ticks
 dropped; the USB runs after it start 250 ms after DIN's last tick and must
 read USB's tempo; a USB STOP sent while DIN clocks must leave the transport
-playing. Hardware status: port only.
+playing. Measured under the port (`test/usb-midi`, 1 Nov 2026): DIN + USB
+at 1324 samples per tick read 1994 (want 1998), 48 of 48 USB ticks dropped,
+the USB STOP left the transport at 1. With the previous `usbmidi_rx.s` the
+same run read 4048, dropped none, and the USB STOP stopped the sequencer
+(transport 2). Hardware status: port only.
 
 ### Bus reset and session end (9 Oct 2026)
 
