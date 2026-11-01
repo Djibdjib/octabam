@@ -23,7 +23,7 @@ Press FX1 or FX2 on a track; MODULATION is in the chooser with the stock effects
   brightness, drawn BRIT.
 - WDTH sets the right channel's LFO lag: 0 mono, 64 quadrature, 127
   antiphase.
-- Load: with MODULATION on all eight tracks, the effects processor ran at about 26 % at the defaults and up to 85 % at its most demanding settings (one unit; an empty project reads about 24 %). Past 100 % the unit stalls until you switch it off and on.
+- Load: with MODULATION on all eight tracks, the effects processor runs at about 26 % at the defaults and up to 85 % at its most demanding settings (an empty project reads about 24 %). Past 100 % the unit stalls until you switch it off and on.
 
 ## Parameters
 

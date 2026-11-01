@@ -49,9 +49,9 @@ it, and each has its own page in this manual. This is version 0.1.
 
 SPECTRUM, CHARACTER and MODULATION are copied into the audio processor only
 while a track uses them. Until the code arrives, about 25 ms after you choose
-the effect, it passes the audio through. A pattern change that put one of
-them on all eight tracks, or took it off them, left about 0.34 s of silence
-at the switch (measured on one unit, 1 Nov 2026). See
+the effect, it passes the audio through. A pattern change that puts one of
+them on all eight tracks, or takes it off them, leaves about 0.34 s of silence
+at the switch. See
 [Effect loader (sender)](inside/dlpump.md).
 
 ### Before you install

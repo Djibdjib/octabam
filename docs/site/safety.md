@@ -65,12 +65,6 @@ file), and BRAIN writes its own files to the card.
 
 **MKI or MKII?**
 Both run the same OS 1.40C file, and both can flash an octabam image.
-The v0.1 image has been run on an MKII.
-
-**Has Octabam run on a unit?**
-Version 0.1 has run on one MKII, through a long series of tests. It has not
-been tried on every combination of settings. Back up your card and your
-projects first, and report anything odd on GitHub Issues.
 
 **Why can I not download a built image?**
 A built `.bin` or `.syx` contains Elektron's OS. Distributing it would

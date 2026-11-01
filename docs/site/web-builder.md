@@ -15,7 +15,7 @@ nothing is uploaded.
 
 - `OCTATRACK_OS1.40C_dist.zip` from Elektron's Octatrack MKI or MKII
   download page, or the `OCTATRACK_OS1.40C.syx` inside it.
-- A current desktop browser. Tested: Chrome.
+- A current desktop browser, such as Chrome.
 - A CompactFlash card in the unit for the card install, or a 5-pin DIN MIDI
   interface into the Octatrack's MIDI IN for the MIDI install.
 

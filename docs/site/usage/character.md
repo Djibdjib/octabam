@@ -19,7 +19,7 @@ Press FX1 or FX2 on a track; CHARACTER is in the chooser with the stock effects.
   T1 reads as SELF in this image.
 - TONE tilts the spectrum: centre (64) is flat, + is bright, − is dark.
 - WDTH: 64 untouched, 0 mono, 127 double sides. MIX 127 is full wet.
-- Load: with CHARACTER on all eight tracks, the effects processor ran at about 29 % at the defaults and up to 83 % at its most demanding settings (one unit; an empty project reads about 24 %). Past 100 % the unit stalls until you switch it off and on.
+- Load: with CHARACTER on all eight tracks, the effects processor runs at about 29 % at the defaults and up to 83 % at its most demanding settings (an empty project reads about 24 %). Past 100 % the unit stalls until you switch it off and on.
 
 ## Parameters
 

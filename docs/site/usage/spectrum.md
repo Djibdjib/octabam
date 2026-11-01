@@ -21,7 +21,7 @@ Press FX1 or FX2 on a track; SPECTRUM is in the chooser with the stock effects.
 - ENV is a peak follower onto the cutoff: instant attack, release on LSP.
   LDP is an LFO onto the cutoff; LSP sets its speed (~0.08–9 Hz).
 - WDTH is mid/side width on the output; the centre (64) is untouched.
-- Load: with SPECTRUM on all eight tracks, the effects processor ran at about 28 % at the defaults and up to 78 % at its most demanding settings (one unit; an empty project reads about 24 %). Past 100 % the unit stalls until you switch it off and on.
+- Load: with SPECTRUM on all eight tracks, the effects processor runs at about 28 % at the defaults and up to 78 % at its most demanding settings (an empty project reads about 24 %). Past 100 % the unit stalls until you switch it off and on.
 
 ## Parameters
 
