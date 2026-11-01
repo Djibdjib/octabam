@@ -28,8 +28,10 @@ Octabam has no delay and reverb bus. If you want one, see
   patterns, reloading one track from the card, a recording length of one
   pattern pass (PLEN), recorder trig mute, mute modes, a scale quantizer
   and a tuner window.
-- **OCTA-303.** A circuit-modelled TB-303 voice, chosen as a machine
-  below PICKUP in the machine list. See [OCTA303](../../../usage/octa303.md).
+- **OCTA-303 and CX OSC.** Two machines below PICKUP in the machine list:
+  OCTA-303, a circuit-modelled TB-303 voice, then CX OSC, a Buchla-flavoured
+  complex oscillator. The list scrolls to reach them. See
+  [OCTA303](../../../usage/octa303.md) and [CX OSC](../../../usage/cxosc.md).
 - **More for the sequencer.** Track patterns (each track plays its own
   pattern of the bank, clip style), Euclidean fills, varispeed for STATIC
   and FLEX tracks, a track's scene morph played on its own (MORPH), and the
