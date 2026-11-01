@@ -227,9 +227,9 @@ def capture_usb(p,r):
     # (CUE, IN, MAIN, MASTER, MIDI, TRACKS). YES changes the selected value.
     p.open_menu();press(p,'up',5);press(p,'down',4);press(p,'right');press(p,'down',2);press(p,'yes')
     press(p,'down',3)
-    shot(p,'usb','settings','BRAIN > SETTINGS, the USB group: CUE, IN and MAIN. A value that ends in * takes effect at the next boot.',r)
+    shot(p,'usb','settings','BRAIN > SETTINGS, the USB group: CUE, IN and MAIN. A change to a value that takes effect at the next boot shows a popup when SETTINGS is left.',r)
     press(p,'down',7)
-    shot(p,'usb','settings-end','The end of the USB group: TRACKS, with * AT NEXT BOOT under the list.',r)
+    shot(p,'usb','settings-end','The end of the USB group: TRACKS.',r)
 
 
 def capture_analog(p,r):

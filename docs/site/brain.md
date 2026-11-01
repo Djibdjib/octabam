@@ -104,8 +104,8 @@ UPGRADE does), loads and resets.
 
 Settings are grouped by module. Press **YES** to cycle through a value's
 options. **LEFT / RIGHT** decrease or increase it, stopping at the ends.
-A value that takes effect at the next boot ends in `*`, with `* AT NEXT
-BOOT` under the list.
+A Binary setting is a checkbox, crossed when on. After a change to a value that
+takes effect at the next boot, leaving SETTINGS shows `REBOOT TO APPLY CHANGES`.
 
 **APPLY DFLTS** is on by default. Turn it off to use the image's effect
 defaults. Settings persist to `BRAIN/card.work`. The MIDI and event logging

@@ -1047,7 +1047,7 @@ def main():
     ps_keys = [1 + o for o in range(0x70) if o == 0x24 or 0x28 <= o <= 0x37 or 0x3f <= o <= 0x54
                or 0x56 <= o <= 0x6a]
     keys = [(0x32, 400), (0x1c, 1200)] + [(0x20, 400)] * 4 + [(0x21, 800)] + [(0x31, 800)] + [(0x34, 400)] * 6 + [(0x21, 400)] * 6 + [
-        (0x31, 1200), (0x31, 4000), (0x20, 400), (0x31, 2500)]  # PROJECT tab: NEW PROJECT TPL, YES on the name; its screen: APPLY TO PROJECT, SET AS DEFAULT
+        (0x31, 1200), (0x31, 4000), (0x20, 400), (0x31, 2500)]  # PROJECT tab: <NEW PROJECT TEMPLATE>, YES on the name; its screen: APPLY TO PROJECT, SET AS DEFAULT
     files, _, (ram,) = ui_run("pset_save", keys, dumps=((0x80000000, 0x70),))
     work_ = card_file(files, "BRAIN/CARD.WORK")
     prec = [r for r in brainfile.parse(work_).records
