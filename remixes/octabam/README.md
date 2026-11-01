@@ -57,7 +57,22 @@ The same set is in [`octabam-bus`](../octabam-bus/README.md), with LOFI AMF FIX
 
 ## Where it has run
 
-The loader: Sam's MKII, 26 Oct 2026, as the images `DLPROBEJ1` to `K1` (`remixes/test/dl-probe`, which is `octabam` with DLPROBE in place of EQUALIZER; [CHANGELOG](../../CHANGELOG.md)): the four effects of that image (SPECTRUM, CHARACTER, MODULATION, TRANSIENT) load, their blocks pass the sum check, they run (core B's copies run on core A), and they stay loaded through a project load. This image itself, `octabam`, has run under the port only (`make check REMIX=octabam`). Not measured on a unit: the stock reverbs' buffer extents at other settings, the toast wording and width, the dropout while an effect loads.
+Sam's MKII, image `OCTABAMR3` (this remix before the rebase onto `fa49e92f`), USB TRACKS PRE, 1 Nov 2026, the hardware
+suite ([HARDWARE_SUITE.md](../../docs/contributing/HARDWARE_SUITE.md)): `pre-meter`, `pre-transport`, `pre-usb`
+(`underruns=0`) and `dsp-watch` (20 cycles) pass; 74 effect layouts ran with no crash or stall, 39 flagged (CLICKS,
+ROUGH, DC, STATIC, CLIP: MODULATION, SPECTRUM and CHARACTER `dear` and mode layouts, DJ EQ, LO-FI); the 20 demand-loader
+transitions between BASE, the stock reverbs, MODULATION, SPECTRUM and CHARACTER applied with `bad 0`, each with about
+340 ms of silence and a ColdFire run of 404 to 476 us (a frame is 362.8 us); `kits-identity` (603 program changes),
+`scenes-sweep` (2,289 operations) and `djump-burst` (536) pass; crossfader to lock CC 0.77 to 0.95 ms median; DIRECT_JUMP
+lands within 0 to 5 steps with the toggle on and at the pattern end with it off.
+
+Not run on this image: `mix-soak` and the [manual plan](../../docs/contributing/HARDWARE_MANUAL.md). The images that
+had CX OSC, STEM REC, VARISPEED, SCOPE, MIDI SCALES or RND NAME stopped the DSP or left program changes unapplied in the
+same probes ([FAILURE_MODES.md](../../docs/contributing/FAILURE_MODES.md)). Not measured on a unit: the stock reverbs'
+buffer extents at other settings, the toast wording and width.
+
+Earlier, the loader alone: Sam's MKII, 26 Oct 2026, the images `DLPROBEJ1` to `K1` (`remixes/test/dl-probe`;
+[CHANGELOG](../../CHANGELOG.md)).
 
 EDIT EVENTS/PLOCKS: radiohagen, Octatrack MKII, PLK858/build 98, 22 October 2026:
 held-edit and trig/track/pattern checks passed

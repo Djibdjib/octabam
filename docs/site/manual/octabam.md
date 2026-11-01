@@ -3,7 +3,7 @@
 Octabam is Octatrack OS 1.40C with more built in. It keeps what you know:
 all 14 stock effects, both effect menus and the way a project is laid out.
 On top of that it adds features for sequencing, Kits and scenes, MIDI and
-USB, and four new effects. Every feature is a module, credited to its
+USB, and three new effects. Every feature is a module, credited to its
 author, and this manual describes each one.
 
 Octabam has no delay and reverb bus. If you want one, see
@@ -27,7 +27,9 @@ Octabam has no delay and reverb bus. If you want one, see
 - **Sequencing and recording.** A clock-locked direct jump between
   patterns, reloading one track from the card, a recording length of one
   pattern pass (PLEN), recorder trig mute, mute modes, a scale quantizer
-  and a tuner window.
+  and a tuner window. Mutes can also be kept per pattern: double-press
+  FUNC to choose the GLOBAL or the PATTERN layer the next mute edit
+  changes (PATTERN MUTE).
 - **OCTA-303.** A machine below PICKUP in the machine list: a
   circuit-modelled TB-303 voice. The list scrolls to reach it. See
   [OCTA303](../../../usage/octa303.md).
@@ -46,6 +48,9 @@ Octabam has no delay and reverb bus. If you want one, see
 SPECTRUM, CHARACTER and MODULATION are copied
 into the audio DSP only while a track uses them. Until the code arrives,
 about 25 ms after you choose the effect, it passes the audio through.
+On the unit, a pattern change that put one of them on all eight tracks, or
+took it off them, left about 0.34 s of silence at the switch (measured on
+one unit, 1 Nov 2026).
 
 ### 1.3 Before you install
 

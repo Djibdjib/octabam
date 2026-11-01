@@ -28,7 +28,11 @@ STOCK_FX1 = ("FILTER", "EQUALIZER", "DJ EQ", "PHASER", "FLANGER", "CHORUS", "SPA
 
 REMIX = Remix(
     name="octabam",
-    family="mods", proof=Proof.CHECK, proof_note="",
+    family="mods", proof=Proof.HARDWARE,
+    proof_note="Sam's MKII, image OCTABAMR3 (this remix before the rebase onto fa49e92f), USB TRACKS PRE, 1 Nov 2026: "
+               "ot_suite.py phases pre-meter, pre-transport, pre-usb, dsp-watch, fx01-fx03 (74 layouts, no crash), "
+               "loader01-02, kits-identity, scenes-sweep, scenes-latency, djump-off/on/burst; mix-soak and the manual "
+               "plan not run (docs/contributing/HARDWARE_SUITE.md)",
     doc="The core ColdFire modules and every other ColdFire module that fits, all 14 stock effects, and SPECTRUM, CHARACTER and MODULATION, loaded on demand.",
     modules=CORE + ("LOFI AMF FIX", "MODE DEFAULTS", "DLPUMP", "DLCOPY") + STOCK14 + OURS
             + COLDFIRE,
