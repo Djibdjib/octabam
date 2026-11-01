@@ -3,7 +3,7 @@
 Octabam is Octatrack OS 1.40C with more built in. It keeps what you know:
 all 14 stock effects, both effect menus and the way a project is laid out.
 On top of that it adds features for sequencing, Kits and scenes, MIDI and
-USB, and four new effects. Every feature is a module, credited to its
+USB, and three new effects. Every feature is a module, credited to its
 author, and this manual describes each one.
 
 Octabam has no delay and reverb bus. If you want one, see
@@ -27,29 +27,30 @@ Octabam has no delay and reverb bus. If you want one, see
 - **Sequencing and recording.** A clock-locked direct jump between
   patterns, reloading one track from the card, a recording length of one
   pattern pass (PLEN), recorder trig mute, mute modes, a scale quantizer
-  and a tuner window.
-- **OCTA-303 and CX OSC.** Two machines below PICKUP in the machine list:
-  OCTA-303, a circuit-modelled TB-303 voice, then CX OSC, a Buchla-flavoured
-  complex oscillator. The list scrolls to reach them. See
-  [OCTA303](../../../usage/octa303.md) and [CX OSC](../../../usage/cxosc.md).
+  and a tuner window. Mutes can also be kept per pattern: double-press
+  FUNC to choose the GLOBAL or the PATTERN layer the next mute edit
+  changes (PATTERN MUTE).
+- **OCTA-303.** A machine below PICKUP in the machine list: a
+  circuit-modelled TB-303 voice. The list scrolls to reach it. See
+  [OCTA303](../../../usage/octa303.md).
 - **More for the sequencer.** Track patterns (each track plays its own
-  pattern of the bank, clip style), Euclidean fills, varispeed for STATIC
-  and FLEX tracks, a track's scene morph played on its own (MORPH), and the
-  seven diatonic modes for the MIDI tracks' KEY (MIDI SCALES).
+  pattern of the bank, clip style), Euclidean fills, and a track's scene
+  morph played on its own (MORPH).
 - **Recording.** A recorder TRIG mode that waits for the input (REC
   THRESHOLD), and recorder buffers saved with the project (BUFFER SAVER).
-- **Utilities.** A full-screen scope, copying a project without loading it,
-  random names in the name editor, and FX2 LOCK, which stops the FX2
-  chooser changing a track's effect.
-- **Effects.** SPECTRUM, CHARACTER and MODULATION on FX1 and FX2,
-  TRANSIENT on FX2, and a side-chain on COMPRESSOR. The stock effects stay
-  as they were.
+- **Utilities.** Copying a project without loading it, and FX2 LOCK, which
+  stops the FX2 chooser changing a track's effect.
+- **Effects.** SPECTRUM, CHARACTER and MODULATION on FX1 and FX2. The stock
+  effects stay as they were.
 - **Fixes.** The recorder loop click, stock LO-FI's AMF knob and a few
   sequencer and card-write faults are corrected.
 
-SPECTRUM, CHARACTER, MODULATION, TRANSIENT and the side-chain are copied
+SPECTRUM, CHARACTER and MODULATION are copied
 into the audio DSP only while a track uses them. Until the code arrives,
 about 25 ms after you choose the effect, it passes the audio through.
+On the unit, a pattern change that put one of them on all eight tracks, or
+took it off them, left about 0.34 s of silence at the switch (measured on
+one unit, 1 Nov 2026).
 
 ### 1.3 Before you install
 

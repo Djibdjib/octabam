@@ -438,7 +438,7 @@ def main():
             scratch.write_text('import dataclasses,runpy\nbase=runpy.run_path("remixes/octabam/remix.py")["REMIX"]\nREMIX=dataclasses.replace(base,name="manual-features",modules=tuple(k for k in base.modules if k not in ("REC_TRIG_MUTE","LOAD METER"))+("REC THRESHOLD","EUCLID FILL","RND NAME","STEM REC"),window=tuple(w for w in base.window if not w[0].startswith("LOAD METER")))\n')
             jobs=[('../out/manual-captures/features',capture_features,[])]
         elif group=='inserts':
-            assignments=[(i+1,'fx1' if i<4 else 'fx2',key) for i,key in enumerate(('SPECTRUM','CHARACTER','MODULATION','TRANSIENT','GATE VERB','DELAY'))]
+            assignments=[(1,'fx1','SPECTRUM'),(2,'fx1','CHARACTER'),(3,'fx1','MODULATION'),(4,'fx2','DELAY')]
             jobs=[('octabam',capture_fx,assignments)]
         elif group=='bus':jobs=[('octabam-bus',capture_bus,[])]
         elif group=='usb':jobs=[('octabam-bus',capture_usb,[])]
@@ -452,7 +452,7 @@ def main():
         elif group=='utilities':jobs=[('buffer-saver',capture_buffer_saver,[])]
         elif group=='varispeed':jobs=[('varispeed',capture_varispeed,[])]
         else:
-            jobs=[(r,capture_fx,[(2,'fx1' if r in ('character-txtr','testgen','resonator') else 'fx2',k)]) for r,k in [('character-txtr','CHARACTER TXTR'),('testgen','TESTGEN'),('resonator','RESONATOR'),('sidechain-compressor','SIDECHAIN_COMPRESSOR'),('miniverb','MINIVERB'),('bbd','BBD'),('tapeecho','TAPE ECHO'),('vocoder','VOCODER'),('wave','WAVE'),('shatter','SHATTER'),('void','VOID'),('stuttr','STUTTR'),('distorx','DISTORX'),('devilish','DEVILISH')]]
+            jobs=[(r,capture_fx,[(2,'fx1' if r in ('character-txtr','testgen','resonator') else 'fx2',k)]) for r,k in [('character-txtr','CHARACTER TXTR'),('testgen','TESTGEN'),('resonator','RESONATOR'),('sidechain-compressor','SIDECHAIN_COMPRESSOR'),('miniverb','MINIVERB'),('bbd','BBD'),('tapeecho','TAPE ECHO'),('vocoder','VOCODER'),('wave','WAVE'),('shatter','SHATTER'),('void','VOID'),('stuttr','STUTTR'),('distorx','DISTORX'),('devilish','DEVILISH'),('transient','TRANSIENT'),('gateverb','GATE VERB')]]
         for remix,fn,assignments in jobs:
             # Paths use a separate stable label even when registry selects a scratch file.
             label='manual-features' if remix.startswith('../') else remix
