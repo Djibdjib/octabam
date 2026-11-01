@@ -63,7 +63,7 @@ working on one MKI.
 
 The Octatrack follows one clock at a time, and DIN comes first. While MIDI
 clock is arriving on DIN, USB clock, START, STOP, CONTINUE and song position
-are ignored. USB takes over about a fifth of a second after the last DIN clock.
+are ignored. USB takes over about a sixth of a second after the last DIN clock.
 Before this, both clocks together doubled the tempo.
 
 ## Audio in
