@@ -268,10 +268,12 @@ def main():
     vals = [uc.mem_read(a, 1)[0] for a in (pa, la, ma)]
     good = (vals == [0, 0, 0]); ok &= good
     print(f"  FX1 NONE: CC {FX1[1]} writes nothing  Part/live/mirror={vals}  {'ok' if good else 'FAIL'}")
-    # the slot-11 ends of both blocks: FX1[5] and FX2[5] land in slot 11
-    pa, la, ma, _ = send1(2, CHAR, FX1[5], 3)
-    l = uc.mem_read(la, 1)[0]; good = (l == 3 and not reached["stock"]); ok &= good
-    print(f"  CC {FX1[5]} -> FX1 page-2 slot 11 live={l} (want 3)  {'ok' if good else 'FAIL'}")
+    # the last CC of the FX1 block lands in slot 11. Character's slot 11 is
+    # blank and its descriptor clamps to 0..1, so 1 is the value that shows
+    # the write (the lane is zeroed first).
+    pa, la, ma, _ = send1(2, CHAR, FX1[5], 1)
+    l = uc.mem_read(la, 1)[0]; good = (l == 1 and not reached["stock"]); ok &= good
+    print(f"  CC {FX1[5]} -> FX1 page-2 slot 11 live={l} (want 1)  {'ok' if good else 'FAIL'}")
 
     # 5. every other CC tail-calls stock and writes no page-2 byte on T3,
     #    FX1 = Character and FX2 = BusVerb (the old 62-73 among them, #981)
