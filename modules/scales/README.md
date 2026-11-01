@@ -203,6 +203,13 @@ its modes, so a project made with MIDI SCALES keeps its scales.
 BLACKPYRAMIDS_303 detours the trig-LED pass at `0x40044006`, a different
 span.
 
+SCALE QUANTIZER as pinned (v2.9) does not snap MIDI tracks' notes. Its
+author's later line does, at `0x4009fb80` (timhastie, #980), where
+`sc_output` (`0x4009fb58`) ends: with that line in the same image,
+SCALES' scale applies first and SCALE QUANTIZER's SCALE / ROOT after it,
+the order SCALE QUANTIZER documents for stock's KEY. Inferred from the
+two sites; not run until that line is pinned.
+
 ## Measured
 
 - `tools/verify/verify_scales.py`, its model built from music (each
@@ -239,12 +246,20 @@ span.
 - The keys' display and refresh (KEY LEDS, the module this one grew from)
   on the user's MKII (OCTABAM22, 30 Oct 2026): the keys follow KEY, SCALE
   and ROOT, MIDI and audio, without a key press.
+- On the user's MKII: the chooser in stock's list window, the KEY's turn,
+  the snapped notes and the keys (OCTABAM23, 30 Oct 2026); the window of
+  MAIN MENU's size (OCTABAM24, 30 Oct 2026); with the IDs in `scales.work`
+  (OCTABAM26, 31 Oct 2026): the chooser, the snapped notes and the keys,
+  the scale back after SAVE PROJECT and a power cycle; that image already
+  had FREE LOOP as STORE's client 5 and SCALES as 6, as `main` has now.
+- SCALE QUANTIZER's 24 scales against the catalogue, by its author
+  (timhastie, #980, at `b9cd1bc`): each matches one ID bit for bit, and
+  his snap (the pitch class to the nearest degree of the scale rotated to
+  ROOT, the lower on a tie) and `sc_snap` agree on all 52 masks, 12
+  tonics and 128 notes.
 
 ## Inferred, open
 
-- On the user's MKII (OCTABAM23, 30 Oct 2026, stock's list window then):
-  the chooser, the KEY's turn, the snapped notes and the keys work. The
-  window of MAIN MENU's size (OCTABAM24) is not run on a unit yet.
 - The short names in the KEY field: the formatter's two 5-byte strings
   draw 4 characters under the port (`PHRD`); lowercase `b` in names
   (`DOb2`) is drawn by the port's font as the unit's is assumed to.
