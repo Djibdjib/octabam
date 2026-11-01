@@ -2,19 +2,19 @@
 
 A remix of Octatrack OS 1.40C, built from your own copy of it, that adds the
 core modules (below) to all 14 stock effects and adds SPECTRUM, CHARACTER,
-MODULATION and TRANSIENT, which are copied into the DSP when a track uses them. It
+MODULATION, TRANSIENT and DISTORX, which are copied into the DSP when a track uses them. It
 has no bus and no SEND. See [Where it has run](#where-it-has-run).
 
 ## The effects
 
 All 14 stock effects stay in the menus and run as stock. SPECTRUM, CHARACTER,
-MODULATION and TRANSIENT are on FX1 and FX2. Their DSP code is not in the image's
+MODULATION, TRANSIENT and DISTORX are on FX1 and FX2. Their DSP code is not in the image's
 upload: while a track uses one, the ColdFire copies it into the shared P window
 (`P:0x30000..0x3ffff`), at offset `0x1000` of one of the four FX2 buffer slots, and
 withdraws it when no track does. Until it arrives, about 25 ms, the effect passes
 the audio through. Stock PLATE REV, DARK REV and SPRING REV are fronted by a guard
 that runs them only while their buffer does not cover loaded code. A block is held by whoever has it first. Choosing one of
-the four effects on a chooser is refused, with a toast, while the FX2 slot that shares
+a demand effect on a chooser is refused, with a toast, while the FX2 slot that shares
 its memory is on a stock reverb, and choosing a stock reverb on that slot is refused while
 the effect is loaded. A song that sets both by another route leaves the reverb or the
 effect dry, and says which at the next page key. The design and what has been measured:
@@ -26,6 +26,9 @@ effect dry, and says which at the next page key. The design and what has been me
 | CHARACTER | ✓ | ✓ | 0x17 | fold, saturation, tilt, compressor, width | [`character`](../../modules/character/README.md) |
 | MODULATION | ✓ | ✓ | 0x0e | Juno, Dimension, flanger, phaser, comb | [`modulation`](../../modules/modulation/README.md) |
 | TRANSIENT | ✓ | ✓ | 0x0a | transient shaper (Ignorato) | [`transient`](../../modules/transient/README.md) |
+| DISTORX | ✓ | ✓ | 0x1b | SD-1, RAT and Turbo RAT pedals (MaMarko) | [`distorx`](../../modules/distorx/README.md) |
+
+DISTORX (1,629 words) has two homes, the third and fourth blocks, as MODULATION does; SIDECHAIN_COMPRESSOR has the fourth only. By the home rule, DISTORX, MODULATION and the side-chain code cannot all be loaded at once (two blocks, three effects); the last to arrive is refused with a toast. Port-gated only by `verify_dlload`, which has not been run on this change.
 
 The stations have their `SLOTS` build setting at `FX1+FX2`. CHARACTER's KEY = T1
 needs a BusDelay host, so here it keys on the track's own input. A MODE
@@ -56,7 +59,7 @@ The same set is in [`octabam-bus`](../octabam-bus/README.md), with LOFI AMF FIX
 
 ## Where it has run
 
-The loader: Sam's MKII, 26 Oct 2026, as the images `DLPROBEJ1` to `K1` (`remixes/test/dl-probe`, which is `octabam` with DLPROBE in place of EQUALIZER; [CHANGELOG](../../CHANGELOG.md)): all four effects load, their blocks pass the sum check, they run (core B's copies run on core A), and they stay loaded through a project load. This image itself, `octabam`, has run under the port only (`make check REMIX=octabam`). Not measured on a unit: the stock reverbs' buffer extents at other settings, the toast wording and width, the dropout while an effect loads.
+The loader: Sam's MKII, 26 Oct 2026, as the images `DLPROBEJ1` to `K1` (`remixes/test/dl-probe`, which is `octabam` with DLPROBE in place of EQUALIZER; [CHANGELOG](../../CHANGELOG.md)): all four effects load, their blocks pass the sum check, they run (core B's copies run on core A), and they stay loaded through a project load. DISTORX in this form (demand-loaded, id `0x1b`) has not run on a unit. This image itself, `octabam`, has run under the port only (`make check REMIX=octabam`). Not measured on a unit: the stock reverbs' buffer extents at other settings, the toast wording and width, the dropout while an effect loads.
 
 EDIT EVENTS/PLOCKS: radiohagen, Octatrack MKII, PLK858/build 98, 22 October 2026:
 held-edit and trig/track/pattern checks passed

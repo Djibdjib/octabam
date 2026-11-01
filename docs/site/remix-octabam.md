@@ -12,7 +12,7 @@ delay and reverb bus to the same set.
 
 ## The effects
 
-SPECTRUM, CHARACTER and MODULATION are on FX1 and FX2. TRANSIENT is on FX2.
+SPECTRUM, CHARACTER, MODULATION and DISTORX are on FX1 and FX2. TRANSIENT is on FX2.
 Their DSP code runs from the shared P window beside the stock effects, on
 free effect ids.
 
@@ -22,10 +22,11 @@ free effect ids.
 | [CHARACTER](reference/modules/character.md) | ✓ | ✓ | fold, saturation, tilt, compressor, width |
 | [MODULATION](reference/modules/modulation.md) | ✓ | ✓ | Juno, Dimension, flanger, phaser, comb |
 | [TRANSIENT](reference/modules/transient.md) | — | ✓ | transient shaper (Ignorato) |
+| [DISTORX](reference/modules/distorx.md) | ✓ | ✓ | SD-1, RAT and Turbo RAT pedals (MaMarko) |
 
 COMPRESSOR is stock COMPRESSOR with a side-chain: on page 2, KEY picks the track
 that drives it (see [SIDECHAIN_COMPRESSOR](usage/sidechain-compressor.md)). Its
-side-chain code is loaded while a track uses COMPRESSOR, like the four effects above;
+side-chain code is loaded while a track uses COMPRESSOR, like the effects above;
 until it is, and while DARK REV or another loaded effect holds the top of T4's FX2
 block, COMPRESSOR works as stock and the screen says `SC KEY OFF`.
 
